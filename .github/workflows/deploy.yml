@@ -1,0 +1,67 @@
+name: Deploy TimberFlow FSM to Hetzner
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Compile and Validate Build
+        run: npm run build
+
+      - name: Deploy to Hetzner (Atomic Swapping)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            set -e
+            mkdir -p /var/www/timberflow/releases/release_latest_tmp
+
+      - name: Upload Build Assets to New Release Folder
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          source: "dist/*"
+          target: "/var/www/timberflow/releases/release_latest_tmp"
+          strip_components: 1
+
+      - name: Swap Symlink (Atomic Activation)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            set -e
+            RELEASE_DATE="$(date +%Y%m%d_%H%M%S)"
+            RELEASE_DIR="/var/www/timberflow/releases/release_$RELEASE_DATE"
+            CURRENT_LINK="/var/www/timberflow/current"
+            
+            mkdir -p "$RELEASE_DIR"
+            mv /var/www/timberflow/releases/release_latest_tmp/* "$RELEASE_DIR"/
+            rm -rf /var/www/timberflow/releases/release_latest_tmp
+            
+            ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
+            
+            cd /var/www/timberflow/releases && ls -t | tail -n +6 | xargs rm -rf --
+            
+            echo "Deployment successful: swapped symlink to release_$RELEASE_DATE"

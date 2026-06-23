@@ -1,0 +1,125 @@
+﻿{
+  "name": "TimberFlow FSM Integration: WhatsApp Alerts & REST API Access",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "timberflow-fsm-events", "options": {} },
+      "id": "1d8b1842-8c88-466d-adcf-81b47fb59de9",
+      "name": "TimberFlow Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 250]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{$json.event}}",
+        "rules": { "rules": [
+          { "value2": "transit_started", "output": 0 },
+          { "value2": "sla_breach_detected", "output": 1 },
+          { "value2": "job_completed", "output": 2 }
+        ]}
+      },
+      "id": "fe17511c-2234-45aa-bd36-cb78cd9cbb87",
+      "name": "Route by FSM Event",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [470, 250]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/YOUR_SENDER_PHONE_NUMBER_ID/messages",
+        "sendHeaders": true,
+        "headersUi": { "parameter": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "Authorization", "value": "Bearer YOUR_WHATSAPP_API_TOKEN_HERE" }
+        ]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "TRANSIT_MESSAGE_TEMPLATE"
+      },
+      "id": "893c5c99-55cf-4df5-a745-731ff6fcd661",
+      "name": "WhatsApp: Notify Transit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [730, 130]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/YOUR_SENDER_PHONE_NUMBER_ID/messages",
+        "sendHeaders": true,
+        "headersUi": { "parameter": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "Authorization", "value": "Bearer YOUR_WHATSAPP_API_TOKEN_HERE" }
+        ]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "SLA_BREACH_TEMPLATE"
+      },
+      "id": "e0cf17d2-7c7d-419b-a36c-94116ebcf3ef",
+      "name": "WhatsApp: Alert SLA Breach",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [730, 250]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/YOUR_SENDER_PHONE_NUMBER_ID/messages",
+        "sendHeaders": true,
+        "headersUi": { "parameter": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "Authorization", "value": "Bearer YOUR_WHATSAPP_API_TOKEN_HERE" }
+        ]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "JOB_COMPLETED_TEMPLATE"
+      },
+      "id": "67243c1b-e102-4c28-9bf1-e23a6f1d24c0",
+      "name": "WhatsApp: Thank Customer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [730, 370]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8090/api/collections/users/auth-with-password",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"identity\": \"n8n.client@service.com\", \"password\": \"n8nSecretApiKeyPass123!\"}"
+      },
+      "id": "a90b1c0e-4361-4de6-9ab8-cdb5d1fe6720",
+      "name": "Get PocketBase Auth Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [250, 550]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:8090/api/collections/orders/records?filter=(status='Unassigned')",
+        "sendHeaders": true,
+        "headersUi": { "parameter": [
+          { "name": "Authorization", "value": "=Bearer {{$node[\"Get PocketBase Auth Token\"].json.token}}" }
+        ]}
+      },
+      "id": "f80c102a-9e12-4c00-a0de-8c88bbdf9c2c",
+      "name": "Fetch Unassigned Jobs (REST API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [470, 550]
+    }
+  ],
+  "connections": {
+    "TimberFlow Event Webhook": { "main": [[{ "node": "Route by FSM Event", "type": "main", "index": 0 }]] },
+    "Route by FSM Event": { "main": [
+      [{ "node": "WhatsApp: Notify Transit", "type": "main", "index": 0 }],
+      [{ "node": "WhatsApp: Alert SLA Breach", "type": "main", "index": 0 }],
+      [{ "node": "WhatsApp: Thank Customer", "type": "main", "index": 0 }]
+    ]},
+    "Get PocketBase Auth Token": { "main": [[{ "node": "Fetch Unassigned Jobs (REST API)", "type": "main", "index": 0 }]] }
+  },
+  "_meta": { "instanceId": "timberflow-fsm-v1" }
+}

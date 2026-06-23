@@ -1,0 +1,7 @@
+node_modules
+dist
+pb_data
+pocketbase.exe
+.env
+.DS_Store
+*.log
