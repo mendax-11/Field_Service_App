@@ -179,6 +179,17 @@ migrate((app) => {
         "type": "json"
       },
       {
+        "help": "Maximum concurrent active jobs this technician can handle",
+        "hidden": false,
+        "id": "fldusermaxjobs1",
+        "name": "max_active_jobs",
+        "noDecimal": true,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
+      },
+      {
         "hidden": false,
         "id": "autodate2990389176",
         "name": "created",

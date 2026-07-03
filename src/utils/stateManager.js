@@ -17,10 +17,10 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULT_CARPENTERS = [
-  { id: 'c1', name: 'John Carpenter', phone: '+91-95555-01234', email: 'john.carpenter@service.com', rank: 'Expert', activeJobs: 0, pincodes: ['90265', '62704', '11375'] },
-  { id: 'c2', name: 'Mark Carpenter', phone: '+91-95555-05678', email: 'mark.carpenter@service.com', rank: 'Intermediate', activeJobs: 0, pincodes: ['11201', '45202', '91505'] },
-  { id: 'c3', name: 'Bob Johnson', phone: '+91-95555-09012', email: 'bob.johnson@service.com', rank: 'Apprentice', activeJobs: 0, pincodes: ['62704', '90028'] },
-  { id: 'c4', name: 'Alice Brown', phone: '+91-95555-09999', email: 'alice.brown@service.com', rank: 'Expert', activeJobs: 0, pincodes: ['11201', '90265'] },
+  { id: 'c1', name: 'John Carpenter', phone: '+91-95555-01234', email: 'john.carpenter@service.com', rank: 'Expert', activeJobs: 0, maxActiveJobs: 4, pincodes: ['90265', '62704', '11375'] },
+  { id: 'c2', name: 'Mark Carpenter', phone: '+91-95555-05678', email: 'mark.carpenter@service.com', rank: 'Intermediate', activeJobs: 0, maxActiveJobs: 3, pincodes: ['11201', '45202', '91505'] },
+  { id: 'c3', name: 'Bob Johnson', phone: '+91-95555-09012', email: 'bob.johnson@service.com', rank: 'Apprentice', activeJobs: 0, maxActiveJobs: 2, pincodes: ['62704', '90028'] },
+  { id: 'c4', name: 'Alice Brown', phone: '+91-95555-09999', email: 'alice.brown@service.com', rank: 'Expert', activeJobs: 0, maxActiveJobs: 3, pincodes: ['11201', '90265'] },
 ];
 
 const getRelativeDate = (offsetDays) => {
@@ -305,6 +305,7 @@ export function normalizeOrder(o) {
   const comments = o.comments || [];
   const auditLogs = o.auditLogs || o.audit_logs || [];
   const archived = o.archived !== undefined ? o.archived : (o.is_archived !== undefined ? o.is_archived : false);
+  const extraCharges = o.extraCharges || o.extra_charges || [];
 
   return {
     // Database schema snake_case fields
@@ -385,7 +386,9 @@ export function normalizeOrder(o) {
     auditLogs,
     audit_logs: auditLogs,
     archived,
-    is_archived: archived
+    is_archived: archived,
+    extraCharges,
+    extra_charges: extraCharges
   };
 }
 
@@ -672,6 +675,7 @@ export const addCarpenter = (carpObj) => {
     email: generatedEmail,
     rank: carpObj.rank || 'Expert',
     activeJobs: 0,
+    maxActiveJobs: Number(carpObj.maxActiveJobs || carpObj.max_active_jobs || 3),
     pincodes: carpObj.pincodes || []
   };
   carpenters.push(newCarp);
@@ -690,6 +694,7 @@ export const addCarpenter = (carpObj) => {
         phone: carpObj.phone || '',
         role: 'Carpenter',
         rank: carpObj.rank || 'Expert',
+        max_active_jobs: Number(carpObj.maxActiveJobs || carpObj.max_active_jobs || 3),
         pincodes: carpObj.pincodes || []
       };
       const created = await pb.collection('users').create(payload);
@@ -1095,15 +1100,19 @@ export const autoAllocateOrders = () => {
       // Rank-to-complexity: Expert handles high-payout jobs, Apprentice handles any
       const RANK_SCORE = { 'Expert': 3, 'Intermediate': 2, 'Apprentice': 1 };
       const orderPayout = order.payout || order.assembly_payout || 0;
-      const minRankNeeded = orderPayout >= 100 ? 'Expert' : orderPayout >= 60 ? 'Intermediate' : 'Apprentice';
+      // Industry Standard Payout Thresholds: Expert (₹1000+), Intermediate (₹600+), Apprentice (under ₹600)
+      const minRankNeeded = orderPayout >= 1000 ? 'Expert' : orderPayout >= 600 ? 'Intermediate' : 'Apprentice';
       const minScore = RANK_SCORE[minRankNeeded] || 1;
       
       // Filter by skill eligibility first
       const eligibleCarpenters = matchingCarpenters.filter(c => (RANK_SCORE[c.rank] || 1) >= minScore);
       const candidatePool = eligibleCarpenters.length > 0 ? eligibleCarpenters : matchingCarpenters;
 
-      // Filter out carpenters who are at or above the capacity limit (MAX_ACTIVE_JOBS)
-      const underCapacityCarpenters = candidatePool.filter(c => getActiveWorkload(c.name) < MAX_ACTIVE_JOBS);
+      // Filter out carpenters who are at or above their capacity limit (custom maxActiveJobs or fallback to MAX_ACTIVE_JOBS)
+      const underCapacityCarpenters = candidatePool.filter(c => {
+        const limit = Number(c.maxActiveJobs || c.max_active_jobs || MAX_ACTIVE_JOBS);
+        return getActiveWorkload(c.name) < limit;
+      });
 
       // Sort by workload (ascending) within the under-capacity pool
       const sortedCarpenters = [...underCapacityCarpenters].sort((a, b) => {
@@ -1285,7 +1294,8 @@ function mapRecordToOrder(r) {
     signature: r.signature || null,
     archived: r.archived || r.is_archived || false,
     subCarpenterName: r.sub_carpenter_name || '',
-    subCarpenterPhone: r.sub_carpenter_phone || ''
+    subCarpenterPhone: r.sub_carpenter_phone || '',
+    extraCharges: r.extra_charges || []
   });
 }
 
@@ -1343,6 +1353,7 @@ async function syncOrderToPocketBase(orderId, order) {
       is_archived: order.archived || false,
       sub_carpenter_name: order.subCarpenterName || '',
       sub_carpenter_phone: order.subCarpenterPhone || '',
+      extra_charges: order.extraCharges || [],
       product_sku: order.sku || order.product_sku || '',
       assigned_date: order.assignedDate || order.assigned_date || '',
       
@@ -1497,7 +1508,13 @@ async function syncCarpenterPincodesToPocketBase(carpId, pincodes) {
         } catch (e) {}
       }
       if (record) {
-        await pb.collection('users').update(record.id, { pincodes });
+        await pb.collection('users').update(record.id, {
+          name: carp.name,
+          phone: carp.phone || '',
+          rank: carp.rank || 'Expert',
+          pincodes: pincodes || carp.pincodes || [],
+          max_active_jobs: Number(carp.maxActiveJobs || 3)
+        });
       }
     }
   } catch (e) {
@@ -1534,6 +1551,7 @@ async function syncCarpentersFromPocketBase() {
             phone: carp.phone || '',
             role: 'Carpenter',
             rank: carp.rank || 'Expert',
+            max_active_jobs: Number(carp.maxActiveJobs || 3),
             pincodes: carp.pincodes || []
           });
           console.log("[PocketBase Sync] Auto-uploaded pre-existing local carpenter:", created.name);
@@ -1559,6 +1577,7 @@ async function syncCarpentersFromPocketBase() {
           email: r.email || '',
           rank: r.rank || 'Expert',
           activeJobs: match ? (match.activeJobs || 0) : 0,
+          maxActiveJobs: Number(r.max_active_jobs || 3),
           pincodes: r.pincodes || []
         };
       });

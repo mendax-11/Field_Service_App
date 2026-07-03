@@ -262,7 +262,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
   const [showAddEditModal, setShowAddEditModal] = useState(false);
   const [editingCarpenter, setEditingCarpenter] = useState(null);
   const [carpenterForm, setCarpenterForm] = useState({
-    name: '', phone: '', rank: 'Expert', pincodes: ''
+    name: '', phone: '', rank: 'Expert', maxActiveJobs: 3, pincodes: ''
   });
 
   const toggleSchedule = (carpId) => {
@@ -432,14 +432,14 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
   // ── Add/Edit Modal ───────────────────────────────────────────────────────────
   const handleOpenAddModal = () => {
     setEditingCarpenter(null);
-    setCarpenterForm({ name: '', phone: '', rank: 'Expert', pincodes: '' });
+    setCarpenterForm({ name: '', phone: '', rank: 'Expert', maxActiveJobs: 3, pincodes: '' });
     setShowAddEditModal(true);
   };
 
   const handleOpenEditModal = (carp) => {
     setEditingCarpenter(carp);
     setCarpenterForm({
-      name: carp.name, phone: carp.phone || carp.id, rank: carp.rank, pincodes: ''
+      name: carp.name, phone: carp.phone || carp.id, rank: carp.rank, maxActiveJobs: carp.maxActiveJobs || 3, pincodes: ''
     });
     setShowAddEditModal(true);
   };
@@ -457,7 +457,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    const { name, phone, rank, pincodes } = carpenterForm;
+    const { name, phone, rank, maxActiveJobs, pincodes } = carpenterForm;
     if (!name.trim() || !phone.trim()) {
       alert('Please fill out all required fields.');
       return;
@@ -477,11 +477,11 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
     const generatedEmail = `${cleanPhone || Date.now()}@timberflow.in`;
 
     if (editingCarpenter) {
-      updateCarpenter(editingCarpenter.id, { name: name.trim(), phone: phoneTrimmed, email: generatedEmail, rank });
+      updateCarpenter(editingCarpenter.id, { name: name.trim(), phone: phoneTrimmed, email: generatedEmail, rank, maxActiveJobs: Number(maxActiveJobs) });
       addNotification(`Technician ${name} updated.`, '', 'Admin');
     } else {
       const pins = pincodes.split(/[,;\n|]+/).map(p => p.trim()).filter(p => p && /^[a-zA-Z0-9-]+$/.test(p));
-      addCarpenter({ name: name.trim(), phone: phoneTrimmed, email: generatedEmail, rank, pincodes: pins });
+      addCarpenter({ name: name.trim(), phone: phoneTrimmed, email: generatedEmail, rank, maxActiveJobs: Number(maxActiveJobs), pincodes: pins });
       addNotification(`New technician ${name} created.`, '', 'Admin');
     }
 
@@ -640,8 +640,8 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
                 <div className="info-item">
                   <Briefcase size={14} className="info-icon" />
                   <span className="info-text">
-                    Active Jobs: <strong style={{ color: workload >= MAX_ACTIVE_JOBS ? 'var(--color-danger, #ef4444)' : 'inherit' }}>{workload} / {MAX_ACTIVE_JOBS}</strong>
-                    {workload >= MAX_ACTIVE_JOBS && (
+                    Active Jobs: <strong style={{ color: workload >= (carp.maxActiveJobs || MAX_ACTIVE_JOBS) ? 'var(--color-danger, #ef4444)' : 'inherit' }}>{workload} / {carp.maxActiveJobs || MAX_ACTIVE_JOBS}</strong>
+                    {workload >= (carp.maxActiveJobs || MAX_ACTIVE_JOBS) && (
                       <span className="capacity-badge-inline" style={{
                         marginLeft: '8px', fontSize: '9px', padding: '2px 6px',
                         background: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-danger, #ef4444)',
@@ -741,6 +741,19 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
                   <option value="Intermediate">Intermediate</option>
                   <option value="Apprentice">Apprentice</option>
                 </select>
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Max Active Jobs</label>
+                <input
+                  type="number"
+                  value={carpenterForm.maxActiveJobs}
+                  min="1"
+                  max="20"
+                  required
+                  onChange={e => setCarpenterForm({ ...carpenterForm, maxActiveJobs: e.target.value })}
+                  style={{ width: '100%', background: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '10px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                />
               </div>
 
               {!editingCarpenter && (

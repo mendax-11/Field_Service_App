@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { 
   X, User, Package, Clock, 
-  MessageSquare, History, Plus, AlertTriangle, CheckCircle, Send
+  MessageSquare, History, Plus, AlertTriangle, CheckCircle, Send, IndianRupee
 } from 'lucide-react';
 import { getCarpenters, updateOrder, addComment, getUserRole, getActiveWorkload, MAX_ACTIVE_JOBS, addCarpenterPincode, removeCarpenterPincode } from '../utils/stateManager';
 
@@ -80,6 +80,53 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
     updateOrder(order.orderId, updatedFields);
     onUpdate();
     alert('Order details updated successfully!');
+  };
+
+  // Resolve Extra Charge claim (Approve or Reject)
+  const handleResolveExtraCharge = (chargeId, resolution) => {
+    const updatedCharges = (order.extraCharges || []).map(ec => {
+      if (ec.id === chargeId) {
+        return { ...ec, status: resolution };
+      }
+      return ec;
+    });
+
+    const targetCharge = (order.extraCharges || []).find(ec => ec.id === chargeId);
+    const amountVal = targetCharge ? targetCharge.amount : 0;
+    const timestamp = new Date().toISOString();
+
+    const updatedFields = {
+      extraCharges: updatedCharges,
+      auditLogs: [
+        ...(order.auditLogs || []),
+        {
+          timestamp,
+          action: resolution === 'Approved' ? 'Extra Charge Approved' : 'Extra Charge Rejected',
+          user: userRole,
+          comments: `${resolution === 'Approved' ? 'Approved' : 'Rejected'} extra charge of ₹${amountVal} for ${targetCharge ? targetCharge.type : 'Expense'}.`
+        }
+      ]
+    };
+
+    // If approved, add it to the payout total
+    if (resolution === 'Approved' && amountVal > 0) {
+      const currentPayout = Number(order.payout || order.assembly_payout || 0);
+      updatedFields.payout = currentPayout + amountVal;
+      updatedFields.assembly_payout = currentPayout + amountVal;
+    }
+
+    updateOrder(order.orderId, updatedFields);
+    
+    // Add comment
+    addComment(
+      order.orderId,
+      `System: Extra charge request of ₹${amountVal} has been ${resolution.toLowerCase()} by ${userRole}.`,
+      'System'
+    );
+
+    alert(`Claim ${resolution.toLowerCase()} successfully!`);
+    onUpdate();
+    onClose();
   };
 
   // Calculate SLA time remaining
@@ -433,6 +480,86 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                         <option value="Paid">Paid</option>
                       </select>
                     </div>
+
+                    {/* Extra Charge Reimbursement Requests */}
+                    {order.extraCharges && order.extraCharges.length > 0 && (
+                      <div className="form-group extra-charges-admin-panel" style={{ marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-info, #3b82f6)' }}>
+                          <IndianRupee size={14} />
+                          <span>Extra Reimbursement Claims</span>
+                        </label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                          {order.extraCharges.map((ec) => {
+                            const isPending = ec.status === 'Pending Approval';
+                            const isApproved = ec.status === 'Approved';
+                            const isRejected = ec.status === 'Rejected';
+                            const statusColor = isApproved ? 'var(--color-success, #22c55e)' : (isRejected ? 'var(--color-danger, #ef4444)' : 'var(--color-warning, #f59e0b)');
+
+                            return (
+                              <div key={ec.id} style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', padding: '10px', borderRadius: '8px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '12px' }}>
+                                  <span style={{ color: 'var(--text-primary)' }}>{ec.type}</span>
+                                  <span style={{ color: statusColor }}>₹{ec.amount}</span>
+                                </div>
+                                <p style={{ margin: '4px 0 6px 0', fontSize: '11px', color: 'var(--text-muted)' }}>{ec.notes}</p>
+                                
+                                {ec.receipt && (
+                                  <div style={{ marginBottom: '8px' }}>
+                                    <a href={ec.receipt} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-info, #3b82f6)', textDecoration: 'underline', fontSize: '11px' }}>View Bill Receipt</a>
+                                  </div>
+                                )}
+
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px' }}>
+                                  <span style={{ color: 'var(--text-muted)' }}>Requested: {new Date(ec.timestamp).toLocaleDateString('en-IN')}</span>
+                                  <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.04)', color: statusColor, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                    {ec.status}
+                                  </span>
+                                </div>
+
+                                {isPending && (
+                                  <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
+                                    <button
+                                      type="button"
+                                      style={{
+                                        flex: 1,
+                                        backgroundColor: 'var(--color-success, #22c55e)',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        padding: '4px 8px',
+                                        fontSize: '11px',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold'
+                                      }}
+                                      onClick={() => handleResolveExtraCharge(ec.id, 'Approved')}
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      type="button"
+                                      style={{
+                                        flex: 1,
+                                        backgroundColor: 'var(--color-danger, #ef4444)',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        padding: '4px 8px',
+                                        fontSize: '11px',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold'
+                                      }}
+                                      onClick={() => handleResolveExtraCharge(ec.id, 'Rejected')}
+                                    >
+                                      Reject
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     <button 
                       type="button" 

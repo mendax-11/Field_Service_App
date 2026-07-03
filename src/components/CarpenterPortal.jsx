@@ -131,6 +131,13 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   const [damagePhoto, setDamagePhoto] = useState('');
   const [showDamageForm, setShowDamageForm] = useState(false);
   
+  // Extra charge request states
+  const [showExtraChargeForm, setShowExtraChargeForm] = useState(false);
+  const [chargeType, setChargeType] = useState('Hardware Purchased');
+  const [chargeAmount, setChargeAmount] = useState('');
+  const [chargeNotes, setChargeNotes] = useState('');
+  const [chargeReceipt, setChargeReceipt] = useState('');
+  
   // Direct Job link security check
   const [pinVerified, setPinVerified] = useState(false);
   const [enteredPin, setEnteredPin] = useState('');
@@ -388,9 +395,66 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     setJobs(stateManager.getJobs());
   };
 
+  // Submit Extra Charge Request
+  const handleExtraChargeSubmit = (e) => {
+    e.preventDefault();
+    const amountVal = Number(chargeAmount);
+    if (!chargeNotes.trim() || isNaN(amountVal) || amountVal <= 0) {
+      alert("Please enter a valid amount and notes for the extra charge.");
+      return;
+    }
+    const timestamp = new Date().toISOString();
+    const newCharge = {
+      id: `ec_${Date.now()}`,
+      type: chargeType,
+      amount: amountVal,
+      notes: chargeNotes.trim(),
+      receipt: chargeReceipt || null,
+      status: 'Pending Approval',
+      requestedBy: carpenterName,
+      timestamp
+    };
+
+    const currentCharges = job.extraCharges || [];
+    stateManager.updateJob(job.id, {
+      extraCharges: [...currentCharges, newCharge],
+      auditLogs: [
+        ...(job.auditLogs || []),
+        {
+          timestamp,
+          action: 'Extra Charge Requested',
+          user: carpenterName,
+          comments: `Requested extra charge of ₹${amountVal} for ${chargeType}. Notes: ${chargeNotes.trim()}`
+        }
+      ]
+    });
+
+    // Add comment
+    stateManager.addComment(
+      job.id,
+      `System: Field tech requested extra charge of ₹${amountVal} for ${chargeType}. Notes: ${chargeNotes.trim()}`,
+      'System'
+    );
+
+    // Clean inputs
+    setChargeType('Hardware Purchased');
+    setChargeAmount('');
+    setChargeNotes('');
+    setChargeReceipt('');
+    setShowExtraChargeForm(false);
+
+    setJobs(stateManager.getJobs());
+    alert("Reimbursement request submitted successfully!");
+  };
+
   // Handle Mock Damage Photo
   const handleMockDamagePhoto = () => {
     setDamagePhoto('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="100%" height="100%" fill="%237f1d1d"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23f87171" font-size="13">Damaged Shelf Rail Joint (Mock)</text></svg>');
+  };
+
+  // Handle Mock Receipt Photo
+  const handleMockReceiptPhoto = () => {
+    setChargeReceipt('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="100%" height="100%" fill="%230f172a"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" fill="%233b82f6" font-weight="bold" font-size="13">TIMBERFLOW EXPENSE RECEIPT</text><text x="50%" y="65%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="10">Approved Hardware Store (₹540.00)</text></svg>');
   };
 
   // Trigger Send OTP
@@ -1457,6 +1521,147 @@ Your review helps us serve you better. Thank you!`;
                     <button type="submit" className="btn btn-danger">
                       <AlertTriangle size={15} />
                       <span>Submit Claim & Put On Hold</span>
+                    </button>
+                  </form>
+                )}
+              </div>
+
+              {/* Extra Charges / Reimbursement Request Card */}
+              <div className="detail-card">
+                <div 
+                  className="checklist-progress-container" 
+                  style={{ cursor: 'pointer', marginBottom: 0 }}
+                  onClick={() => setShowExtraChargeForm(!showExtraChargeForm)}
+                >
+                  <h4 className="detail-card-title" style={{ margin: 0, color: 'var(--color-info, #3b82f6)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <IndianRupee size={15} />
+                    <span>Claim Extra Charges (Hardware / Travel)</span>
+                  </h4>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {showExtraChargeForm ? 'Collapse' : 'Expand Form'}
+                  </span>
+                </div>
+
+                {/* Submitted Extra Charges List */}
+                {job.extraCharges && job.extraCharges.length > 0 && (
+                  <div style={{ marginTop: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+                    <h5 style={{ margin: '0 0 8px 0', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Submitted Claims</h5>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {job.extraCharges.map((ec) => {
+                        const isApproved = ec.status === 'Approved';
+                        const isRejected = ec.status === 'Rejected';
+                        const statusColor = isApproved ? 'var(--color-success, #22c55e)' : (isRejected ? 'var(--color-danger, #ef4444)' : 'var(--color-warning, #f59e0b)');
+                        return (
+                          <div key={ec.id} style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', padding: '8px 10px', borderRadius: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                              <span style={{ fontSize: '0.78rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{ec.type}</span>
+                              <span style={{ fontSize: '0.78rem', fontWeight: 'bold', color: statusColor }}>₹{ec.amount}</span>
+                            </div>
+                            <p style={{ margin: '0 0 6px 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{ec.notes}</p>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.65rem' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>{new Date(ec.timestamp).toLocaleDateString('en-IN')}</span>
+                              <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.04)', color: statusColor, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                {ec.status}
+                              </span>
+                            </div>
+                            {ec.receipt && (
+                              <div style={{ marginTop: '6px' }}>
+                                <a href={ec.receipt} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-info, #3b82f6)', textDecoration: 'underline', fontSize: '0.68rem' }}>View Bill Receipt</a>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {showExtraChargeForm && (
+                  <form onSubmit={handleExtraChargeSubmit} className="damage-form" style={{ marginTop: '12px' }}>
+                    <div className="form-group">
+                      <label>Charge Category</label>
+                      <select 
+                        value={chargeType}
+                        onChange={(e) => setChargeType(e.target.value)}
+                        className="form-input"
+                        style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '6px', padding: '8px', boxSizing: 'border-box' }}
+                      >
+                        <option value="Hardware Purchased">Hardware Purchased (Screws, Brackets, Glue)</option>
+                        <option value="Extra Travel Distance">Extra Travel / Out of Bounds Distance</option>
+                        <option value="Special Tooling">Special Tooling / Machine Rental</option>
+                        <option value="Other Reimbursement">Other Extra Expense</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Claim Amount (₹)</label>
+                      <input 
+                        type="number" 
+                        required
+                        min="1"
+                        placeholder="e.g. 350"
+                        value={chargeAmount}
+                        onChange={(e) => setChargeAmount(e.target.value)}
+                        className="form-input"
+                        style={{ width: '100%', boxSizing: 'border-box' }}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Justification / Description</label>
+                      <textarea 
+                        rows="2"
+                        required
+                        placeholder="Describe why this expense was necessary..."
+                        value={chargeNotes}
+                        onChange={(e) => setChargeNotes(e.target.value)}
+                        className="form-input"
+                        style={{ fontFamily: 'inherit', resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Upload Receipt Photo (Optional)</label>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <label className="photo-btn-label" style={{ flex: 1, textAlign: 'center', padding: '10px', cursor: 'pointer' }}>
+                          Capture Receipt
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            style={{ display: 'none' }}
+                            onChange={async (e) => {
+                              const f = e.target.files?.[0];
+                              if (f) {
+                                try {
+                                  const compressed = await captureAndStampPhoto(f, selectedJobId, { maxWidth: 800, maxHeight: 600 });
+                                  setChargeReceipt(compressed);
+                                } catch (err) {
+                                  console.error("Failed to compress receipt photo:", err);
+                                }
+                              }
+                            }}
+                          />
+                        </label>
+                        <button 
+                          type="button" 
+                          onClick={handleMockReceiptPhoto} 
+                          className="btn btn-secondary"
+                          style={{ flex: 1 }}
+                        >
+                          Use Mock Receipt
+                        </button>
+                      </div>
+                      {chargeReceipt && (
+                        <div style={{ marginTop: '8px', position: 'relative' }}>
+                          <img src={chargeReceipt} alt="Receipt Preview" style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px' }} />
+                          <button type="button" className="btn-clear-photo" onClick={() => setChargeReceipt('')}>✕</button>
+                        </div>
+                      )}
+                    </div>
+
+                    <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                      <IndianRupee size={15} />
+                      <span>Submit Reimbursement Claim</span>
                     </button>
                   </form>
                 )}
