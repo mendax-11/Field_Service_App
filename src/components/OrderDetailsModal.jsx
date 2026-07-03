@@ -4,7 +4,7 @@ import {
   X, User, Package, Clock, 
   MessageSquare, History, Plus, AlertTriangle, CheckCircle, Send
 } from 'lucide-react';
-import { getCarpenters, updateOrder, addComment, getUserRole, getActiveWorkload, MAX_ACTIVE_JOBS } from '../utils/stateManager';
+import { getCarpenters, updateOrder, addComment, getUserRole, getActiveWorkload, MAX_ACTIVE_JOBS, addCarpenterPincode, removeCarpenterPincode } from '../utils/stateManager';
 
 export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly = false }) {
   const [carpenters, setCarpenters] = useState([]);
@@ -265,6 +265,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                               <div className="pincode-success-banner" style={{
                                 display: 'flex',
                                 alignItems: 'center',
+                                justifyContent: 'space-between',
                                 gap: '8px',
                                 padding: '10px 12px',
                                 backgroundColor: 'rgba(34, 197, 94, 0.1)',
@@ -274,13 +275,37 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                                 fontSize: '12px',
                                 marginTop: '8px'
                               }}>
-                                <CheckCircle size={16} />
-                                <span>{assignedCarpenter} serves pincode {order.pincode}.</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <CheckCircle size={16} />
+                                  <span>{assignedCarpenter} serves pincode {order.pincode}.</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--color-danger, #ef4444)',
+                                    fontSize: '11px',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold',
+                                    textDecoration: 'underline',
+                                    padding: '2px 4px'
+                                  }}
+                                  onClick={() => {
+                                    if (confirm(`Remove pincode ${order.pincode} from ${assignedCarpenter}'s authorized areas?`)) {
+                                      removeCarpenterPincode(selectedCarp.id, order.pincode);
+                                      setCarpenters(getCarpenters());
+                                    }
+                                  }}
+                                >
+                                  Remove Area
+                                </button>
                               </div>
                             ) : (
                               <div className="pincode-warning-banner" style={{
                                 display: 'flex',
                                 alignItems: 'center',
+                                justifyContent: 'space-between',
                                 gap: '8px',
                                 padding: '10px 12px',
                                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -290,8 +315,29 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                                 fontSize: '12px',
                                 marginTop: '8px'
                               }}>
-                                <AlertTriangle size={16} />
-                                <span><strong>Warning:</strong> {assignedCarpenter} does not serve pincode {order.pincode}!</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <AlertTriangle size={16} />
+                                  <span><strong>Warning:</strong> {assignedCarpenter} does not serve pincode {order.pincode}!</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  style={{
+                                    backgroundColor: 'var(--color-danger, #ef4444)',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold'
+                                  }}
+                                  onClick={() => {
+                                    addCarpenterPincode(selectedCarp.id, order.pincode);
+                                    setCarpenters(getCarpenters());
+                                  }}
+                                >
+                                  + Authorize Area
+                                </button>
                               </div>
                             )}
 
