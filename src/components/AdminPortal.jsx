@@ -59,7 +59,8 @@ const n8nBlueprintJSON = JSON.stringify({
           "rules": [
             { "value2": "transit_started" },
             { "value2": "sla_breach_detected", "output": 1 },
-            { "value2": "job_completed", "output": 2 }
+            { "value2": "job_completed", "output": 2 },
+            { "value2": "otp_requested", "output": 3 }
           ]
         }
       },
@@ -138,6 +139,28 @@ const n8nBlueprintJSON = JSON.stringify({
     {
       "parameters": {
         "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/YOUR_SENDER_PHONE_NUMBER_ID/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headersUi": {
+          "parameter": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"messaging_product\": \"whatsapp\", \"to\": \"{{$node[\\\"TimberFlow Event Webhook\\\"].json.data.customerPhone.replace(/[^0-9]/g, '')}}\", \"type\": \"template\", \"template\": {\"name\": \"fsm_otp_verification\", \"language\": {\"code\": \"en_US\"}, \"components\": [{\"type\": \"body\", \"parameters\": [{\"type\": \"text\", \"text\": \"{{$node[\\\"TimberFlow Event Webhook\\\"].json.data.customerName}}\"}, {\"type\": \"text\", \"text\": \"{{$node[\\\"TimberFlow Event Webhook\\\"].json.data.otp}}\"}]}]}}"
+      },
+      "id": "782cd981-d1a2-4a00-bf64-0c2d3aef6623",
+      "name": "WhatsApp: Send OTP Code",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [730, 490]
+    },
+    {
+      "parameters": {
+        "method": "POST",
         "url": "https://assembly.vikifurniture.com:8090/api/collections/users/auth-with-password",
         "sendBody": true,
         "specifyBody": "json",
@@ -181,7 +204,8 @@ const n8nBlueprintJSON = JSON.stringify({
       "main": [
         [ { "node": "WhatsApp: Notify Transit", "type": "main", "index": 0 } ],
         [ { "node": "WhatsApp: Alert SLA Breach", "type": "main", "index": 0 } ],
-        [ { "node": "WhatsApp: Thank Customer", "type": "main", "index": 0 } ]
+        [ { "node": "WhatsApp: Thank Customer", "type": "main", "index": 0 } ],
+        [ { "node": "WhatsApp: Send OTP Code", "type": "main", "index": 0 } ]
       ]
     },
     "Get PocketBase Auth Token": {
@@ -210,6 +234,7 @@ export default function AdminPortal() {
   // CSV Uploader states
   const [csvText, setCsvText] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('Amazon');
+  const [showOpsTools, setShowOpsTools] = useState(false);
 
   // Manual Job Creation states
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -1151,114 +1176,175 @@ export default function AdminPortal() {
 
         {activeTab === 'orders' && (
           <div className="tab-panel orders-panel animate-fade-in">
-            {/* Top Row: CSV Importer & Auto Allocation Engine */}
-            {(role === 'Super Admin' || role === 'Dispatcher') ? (
-              <div className="orders-top-control-grid">
-                {/* CSV Importer */}
-                <div className="importer-card card-style">
-                  <div className="card-header-icon-title">
-                    <Upload size={18} className="theme-accent" />
-                    <h4>CSV Order Importer</h4>
-                  </div>
-                  <p className="card-desc">Batch import new customer installations from retail platforms.</p>
+            {/* Tab Header Bar with Toggle & Action */}
+            <div className="orders-tab-header" style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '16px',
+              paddingBottom: '12px',
+              borderBottom: '1px solid var(--admin-border-color)',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: 'var(--admin-text-primary)' }}>
+                Installations Dispatch Console
+              </h3>
+              
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(true)}
+                  className="template-btn active"
+                  style={{
+                    margin: 0,
+                    fontSize: '12px',
+                    padding: '6px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    fontWeight: '600'
+                  }}
+                >
+                  <Upload size={13} />
+                  <span>Create Manual Job</span>
+                </button>
 
-                  <div className="template-btn-row">
-                    <button 
-                      onClick={() => { setSelectedTemplate('Amazon'); setCsvText(CSV_TEMPLATES.Amazon); }}
-                      className={`template-btn ${selectedTemplate === 'Amazon' ? 'active' : ''}`}
-                    >
-                      Amazon
-                    </button>
-                    <button 
-                      onClick={() => { setSelectedTemplate('Flipkart'); setCsvText(CSV_TEMPLATES.Flipkart); }}
-                      className={`template-btn ${selectedTemplate === 'Flipkart' ? 'active' : ''}`}
-                    >
-                      Flipkart
-                    </button>
-                    <button 
-                      onClick={() => { setSelectedTemplate('WooCommerce'); setCsvText(CSV_TEMPLATES.WooCommerce); }}
-                      className={`template-btn ${selectedTemplate === 'WooCommerce' ? 'active' : ''}`}
-                    >
-                      WooCommerce
-                    </button>
+                <button
+                  type="button"
+                  onClick={() => setShowOpsTools(!showOpsTools)}
+                  className="template-btn"
+                  style={{
+                    margin: 0,
+                    fontSize: '12px',
+                    padding: '6px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    backgroundColor: showOpsTools ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                    border: '1px solid var(--admin-border-color)',
+                    color: showOpsTools ? 'var(--color-secondary, #3b82f6)' : 'var(--admin-text-secondary)',
+                    fontWeight: '600'
+                  }}
+                >
+                  <Cpu size={13} />
+                  <span>{showOpsTools ? 'Hide Operations Panel' : 'Show Operations Panel'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Top Row: CSV Importer & Auto Allocation Engine (Collapsible) */}
+            {showOpsTools && (
+              (role === 'Super Admin' || role === 'Dispatcher') ? (
+                <div className="orders-top-control-grid" style={{ marginBottom: '20px' }}>
+                  {/* CSV Importer */}
+                  <div className="importer-card card-style">
+                    <div className="card-header-icon-title">
+                      <Upload size={18} className="theme-accent" />
+                      <h4>CSV Order Importer</h4>
+                    </div>
+                    <p className="card-desc">Batch import new customer installations from retail platforms.</p>
+
+                    <div className="template-btn-row">
+                      <button 
+                        onClick={() => { setSelectedTemplate('Amazon'); setCsvText(CSV_TEMPLATES.Amazon); }}
+                        className={`template-btn ${selectedTemplate === 'Amazon' ? 'active' : ''}`}
+                      >
+                        Amazon
+                      </button>
+                      <button 
+                        onClick={() => { setSelectedTemplate('Flipkart'); setCsvText(CSV_TEMPLATES.Flipkart); }}
+                        className={`template-btn ${selectedTemplate === 'Flipkart' ? 'active' : ''}`}
+                      >
+                        Flipkart
+                      </button>
+                      <button 
+                        onClick={() => { setSelectedTemplate('WooCommerce'); setCsvText(CSV_TEMPLATES.WooCommerce); }}
+                        className={`template-btn ${selectedTemplate === 'WooCommerce' ? 'active' : ''}`}
+                      >
+                        WooCommerce
+                      </button>
+                    </div>
+
+                    <div className="csv-textarea-wrapper">
+                      <textarea 
+                        value={csvText}
+                        onChange={(e) => setCsvText(e.target.value)}
+                        placeholder="Load template above or paste CSV data here..."
+                        rows={4}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
+                      <button 
+                        onClick={handleImportCSV} 
+                        className="import-submit-btn"
+                        style={{ flex: 2, margin: 0, minWidth: '140px' }}
+                      >
+                        <Upload size={14} style={{ marginRight: '6px' }} />
+                        Parse &amp; Import CSV
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setShowCreateModal(true)} 
+                        className="import-submit-btn"
+                        style={{ flex: 1, margin: 0, minWidth: '120px', backgroundColor: 'transparent', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)' }}
+                      >
+                        Create Manual Job
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { const n = exportOrdersCSV(); addNotification(`Exported ${n} orders to CSV.`, '', 'Admin'); }}
+                        className="import-submit-btn"
+                        title="Download all current orders as a CSV file for editing and re-import"
+                        style={{ flex: 1, margin: 0, minWidth: '120px', backgroundColor: 'transparent', border: '1px solid var(--color-success)', color: 'var(--color-success)' }}
+                      >
+                        <Download size={14} style={{ marginRight: '6px' }} />
+                        Export Orders
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="csv-textarea-wrapper">
-                    <textarea 
-                      value={csvText}
-                      onChange={(e) => setCsvText(e.target.value)}
-                      placeholder="Load template above or paste CSV data here..."
-                      rows={4}
-                    />
-                  </div>
+                  {/* Auto-Allocation Engine Dashboard */}
+                  <div className="allocation-card card-style">
+                    <div className="card-header-icon-title">
+                      <Cpu size={18} className="theme-accent" />
+                      <h4>Auto-Allocation Engine</h4>
+                    </div>
+                    <p className="card-desc">
+                      Runs a smart dispatch algorithm to immediately assign all unassigned jobs to active carpenters with the lowest relative workload.
+                    </p>
 
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
+                    <div className="allocation-engine-status">
+                      <div className="engine-stat">
+                        <span className="stat-num">
+                          {getOrders().filter(o => o.jobStatus === 'Unassigned').length}
+                        </span>
+                        <span className="stat-label">Unassigned Jobs</span>
+                      </div>
+                      <div className="engine-stat">
+                        <span className="stat-num">{getCarpenters().length}</span>
+                        <span className="stat-label">Carpenters Online</span>
+                      </div>
+                    </div>
+
                     <button 
-                      onClick={handleImportCSV} 
-                      className="import-submit-btn"
-                      style={{ flex: 2, margin: 0, minWidth: '140px' }}
+                      onClick={handleAutoAllocate} 
+                      className="trigger-allocation-btn"
                     >
-                      <Upload size={14} style={{ marginRight: '6px' }} />
-                      Parse &amp; Import CSV
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => setShowCreateModal(true)} 
-                      className="import-submit-btn"
-                      style={{ flex: 1, margin: 0, minWidth: '120px', backgroundColor: 'transparent', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)' }}
-                    >
-                      Create Manual Job
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { const n = exportOrdersCSV(); addNotification(`Exported ${n} orders to CSV.`, '', 'Admin'); }}
-                      className="import-submit-btn"
-                      title="Download all current orders as a CSV file for editing and re-import"
-                      style={{ flex: 1, margin: 0, minWidth: '120px', backgroundColor: 'transparent', border: '1px solid var(--color-success)', color: 'var(--color-success)' }}
-                    >
-                      <Download size={14} style={{ marginRight: '6px' }} />
-                      Export Orders
+                      <Cpu size={16} /> Run Auto-Allocation Algorithm
                     </button>
                   </div>
                 </div>
-
-                {/* Auto-Allocation Engine Dashboard */}
-                <div className="allocation-card card-style">
-                  <div className="card-header-icon-title">
-                    <Cpu size={18} className="theme-accent" />
-                    <h4>Auto-Allocation Engine</h4>
-                  </div>
-                  <p className="card-desc">
-                    Runs a smart dispatch algorithm to immediately assign all unassigned jobs to active carpenters with the lowest relative workload.
+              ) : (
+                <div className="card-style" style={{ padding: '24px', textAlign: 'center', backgroundColor: 'var(--admin-bg-secondary)', border: '1px solid var(--admin-border-color)', marginBottom: '20px' }}>
+                  <p style={{ margin: 0, color: 'var(--admin-text-secondary)', fontSize: '13px', fontWeight: '600' }}>
+                    🔒 CSV Importer and Auto-Allocation utilities are locked for role: <span style={{ color: 'var(--color-secondary)' }}>{role}</span>. Switch to Super Admin or Dispatcher to import/allocate.
                   </p>
-
-                  <div className="allocation-engine-status">
-                    <div className="engine-stat">
-                      <span className="stat-num">
-                        {getOrders().filter(o => o.jobStatus === 'Unassigned').length}
-                      </span>
-                      <span className="stat-label">Unassigned Jobs</span>
-                    </div>
-                    <div className="engine-stat">
-                      <span className="stat-num">{getCarpenters().length}</span>
-                      <span className="stat-label">Carpenters Online</span>
-                    </div>
-                  </div>
-
-                  <button 
-                    onClick={handleAutoAllocate} 
-                    className="trigger-allocation-btn"
-                  >
-                    <Cpu size={16} /> Run Auto-Allocation Algorithm
-                  </button>
                 </div>
-              </div>
-            ) : (
-              <div className="card-style" style={{ padding: '24px', textAlign: 'center', backgroundColor: 'var(--admin-bg-secondary)', border: '1px solid var(--admin-border-color)', marginBottom: '20px' }}>
-                <p style={{ margin: 0, color: 'var(--admin-text-secondary)', fontSize: '13px', fontWeight: '600' }}>
-                  🔒 CSV Importer and Auto-Allocation utilities are locked for role: <span style={{ color: 'var(--color-secondary)' }}>{role}</span>. Switch to Super Admin or Dispatcher to import/allocate.
-                </p>
-              </div>
+              )
             )}
 
             {/* The main Order List Grid */}

@@ -25,7 +25,7 @@ import {
   Lock,
   AlertCircle
 } from 'lucide-react';
-import { stateManager } from '../utils/stateManager';
+import { stateManager, triggerN8nWebhook } from '../utils/stateManager';
 
 import SignatureCanvas from './SignatureCanvas';
 import './CarpenterPortal.css';
@@ -467,6 +467,14 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       customerName: currentJob.customerName,
       code: currentJob.otp,
       text: `[SMS to Client] "${currentJob.customerName}, your CarpentryPro verification code is ${currentJob.otp}."`
+    });
+
+    // Send real-time webhook to n8n for production WhatsApp/SMS OTP dispatch
+    triggerN8nWebhook('otp_requested', {
+      orderId: currentJob.orderId || currentJob.id,
+      customerName: currentJob.customerName,
+      customerPhone: currentJob.customerPhone || '',
+      otp: currentJob.otp
     });
 
     setJobs(stateManager.getJobs());
