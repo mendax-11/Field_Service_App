@@ -214,15 +214,22 @@ export default function AdminPortal() {
   // Manual Job Creation states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [jobForm, setJobForm] = useState({
+    orderId: '',
     customerName: '',
     customerPhone: '',
     customerAddress: '',
+    city: '',
+    state: '',
     pincode: '',
     sku: '',
     payout: '',
     platform: 'Amazon',
     paymentType: 'Company Pay',
-    deliveryDate: ''
+    deliveryDate: '',
+    promiseDate: '',
+    productImageUrl: '',
+    productReviewLink: '',
+    sellerReviewLink: ''
   });
 
   // n8n Webhook settings
@@ -289,7 +296,7 @@ export default function AdminPortal() {
 
   const handleCreateJobSubmit = (e) => {
     e.preventDefault();
-    const { customerName, customerPhone, customerAddress, pincode, sku, payout, platform, paymentType, deliveryDate } = jobForm;
+    const { orderId, customerName, customerPhone, customerAddress, city, state, pincode, sku, payout, platform, paymentType, deliveryDate, promiseDate, productImageUrl, productReviewLink, sellerReviewLink } = jobForm;
     
     if (!customerName.trim() || !customerPhone.trim() || !customerAddress.trim() || !pincode.trim() || !sku.trim()) {
       alert('Please fill in all required fields.');
@@ -304,30 +311,44 @@ export default function AdminPortal() {
     const payoutNum = Number(payout) || 100;
     
     const newOrder = addOrder({
+      orderId: orderId.trim() || undefined,
       platform,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       customerAddress: customerAddress.trim(),
+      city: city.trim(),
+      state: state.trim(),
       pincode: pincode.trim(),
       sku: sku.trim(),
       payout: payoutNum,
       paymentType,
-      deliveryDate: deliveryDate ? new Date(deliveryDate).toISOString() : undefined
+      deliveryDate: deliveryDate ? new Date(deliveryDate).toISOString() : undefined,
+      promiseDate: promiseDate ? new Date(promiseDate).toISOString() : undefined,
+      productImageUrl: productImageUrl.trim(),
+      productReviewLink: productReviewLink.trim(),
+      sellerReviewLink: sellerReviewLink.trim()
     });
     
     if (newOrder) {
       addNotification(`New manual order ${newOrder.orderId} created for ${customerName}.`, 'admin@service.com', 'Admin');
       setShowCreateModal(false);
       setJobForm({
+        orderId: '',
         customerName: '',
         customerPhone: '',
         customerAddress: '',
+        city: '',
+        state: '',
         pincode: '',
         sku: '',
         payout: '',
         platform: 'Amazon',
         paymentType: 'Company Pay',
-        deliveryDate: ''
+        deliveryDate: '',
+        promiseDate: '',
+        productImageUrl: '',
+        productReviewLink: '',
+        sellerReviewLink: ''
       });
       triggerRefresh();
       alert(`Manual job ${newOrder.orderId} created successfully!`);
@@ -1329,6 +1350,17 @@ export default function AdminPortal() {
             <form onSubmit={handleCreateJobSubmit} className="management-form" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '80vh', overflowY: 'auto' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 <div className="form-group">
+                  <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Order ID (Optional)</label>
+                  <input 
+                    type="text" 
+                    value={jobForm.orderId} 
+                    onChange={(e) => setJobForm({ ...jobForm, orderId: e.target.value })}
+                    placeholder="e.g. AMZ-1049 (Auto if blank)"
+                    style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
+                  />
+                </div>
+                
+                <div className="form-group">
                   <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Customer Name *</label>
                   <input 
                     type="text" 
@@ -1339,7 +1371,9 @@ export default function AdminPortal() {
                     style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
                   />
                 </div>
-                
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 <div className="form-group">
                   <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Customer Phone *</label>
                   <input 
@@ -1347,32 +1381,6 @@ export default function AdminPortal() {
                     value={jobForm.customerPhone} 
                     onChange={(e) => setJobForm({ ...jobForm, customerPhone: e.target.value })}
                     placeholder="e.g. +91 99999 88888"
-                    required 
-                    style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Customer Address *</label>
-                <textarea 
-                  value={jobForm.customerAddress} 
-                  onChange={(e) => setJobForm({ ...jobForm, customerAddress: e.target.value })}
-                  placeholder="Street name, landmark, city"
-                  required 
-                  rows={2}
-                  style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px', resize: 'vertical' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div className="form-group">
-                  <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Pincode *</label>
-                  <input 
-                    type="text" 
-                    value={jobForm.pincode} 
-                    onChange={(e) => setJobForm({ ...jobForm, pincode: e.target.value })}
-                    placeholder="e.g. 11201"
                     required 
                     style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
                   />
@@ -1385,6 +1393,54 @@ export default function AdminPortal() {
                     value={jobForm.sku} 
                     onChange={(e) => setJobForm({ ...jobForm, sku: e.target.value })}
                     placeholder="e.g. SKU-SOFA-02"
+                    required 
+                    style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Customer Address *</label>
+                <textarea 
+                  value={jobForm.customerAddress} 
+                  onChange={(e) => setJobForm({ ...jobForm, customerAddress: e.target.value })}
+                  placeholder="Street name, landmark"
+                  required 
+                  rows={2}
+                  style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
+                <div className="form-group">
+                  <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>City</label>
+                  <input 
+                    type="text" 
+                    value={jobForm.city} 
+                    onChange={(e) => setJobForm({ ...jobForm, city: e.target.value })}
+                    placeholder="e.g. Mumbai"
+                    style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>State</label>
+                  <input 
+                    type="text" 
+                    value={jobForm.state} 
+                    onChange={(e) => setJobForm({ ...jobForm, state: e.target.value })}
+                    placeholder="e.g. MH"
+                    style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Pincode *</label>
+                  <input 
+                    type="text" 
+                    value={jobForm.pincode} 
+                    onChange={(e) => setJobForm({ ...jobForm, pincode: e.target.value })}
+                    placeholder="e.g. 400001"
                     required 
                     style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
                   />
@@ -1437,6 +1493,53 @@ export default function AdminPortal() {
                     type="datetime-local" 
                     value={jobForm.deliveryDate} 
                     onChange={(e) => setJobForm({ ...jobForm, deliveryDate: e.target.value })}
+                    style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div className="form-group">
+                  <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Promise Date (SLA Target)</label>
+                  <input 
+                    type="datetime-local" 
+                    value={jobForm.promiseDate} 
+                    onChange={(e) => setJobForm({ ...jobForm, promiseDate: e.target.value })}
+                    style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Product Image URL (Optional)</label>
+                  <input 
+                    type="text" 
+                    value={jobForm.productImageUrl} 
+                    onChange={(e) => setJobForm({ ...jobForm, productImageUrl: e.target.value })}
+                    placeholder="https://example.com/product.jpg"
+                    style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div className="form-group">
+                  <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Product Review Link (Optional)</label>
+                  <input 
+                    type="text" 
+                    value={jobForm.productReviewLink} 
+                    onChange={(e) => setJobForm({ ...jobForm, productReviewLink: e.target.value })}
+                    placeholder="e.g. feedback/product"
+                    style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Seller Review Link (Optional)</label>
+                  <input 
+                    type="text" 
+                    value={jobForm.sellerReviewLink} 
+                    onChange={(e) => setJobForm({ ...jobForm, sellerReviewLink: e.target.value })}
+                    placeholder="e.g. feedback/seller"
                     style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
                   />
                 </div>

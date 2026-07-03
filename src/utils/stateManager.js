@@ -622,22 +622,27 @@ export const deleteOrder = (orderId) => {
 
 export const addOrder = (orderObj) => {
   const orders = getOrders();
-  const orderId = `MAN-${Math.floor(1000 + Math.random() * 9000)}`;
+  const orderId = orderObj.orderId || `MAN-${Math.floor(1000 + Math.random() * 9000)}`;
   const newOrder = normalizeOrder({
     orderId,
     platform: orderObj.platform || 'Amazon',
     customerName: orderObj.customerName || '',
     customerPhone: orderObj.customerPhone || '',
     customerAddress: orderObj.customerAddress || '',
-    city: orderObj.city || 'Springfield',
-    state: orderObj.state || 'IL',
-    pincode: orderObj.pincode || '62704',
+    city: orderObj.city || '',
+    state: orderObj.state || '',
+    pincode: orderObj.pincode || '',
     jobStatus: 'Unassigned',
     paymentStatus: 'Unpaid',
     paymentType: orderObj.paymentType || 'Company Pay',
     payout: Number(orderObj.payout || 100),
     deliveryStatus: 'Pending',
     deliveryDate: orderObj.deliveryDate || new Date(Date.now() + 3*24*60*60*1000).toISOString(),
+    promiseDate: orderObj.promiseDate || '',
+    product_image_url: orderObj.productImageUrl || '',
+    product_review_link: orderObj.productReviewLink || '',
+    seller_review_link: orderObj.sellerReviewLink || '',
+    sku: orderObj.sku || '',
     orderDate: new Date().toISOString(),
     comments: [],
     auditLogs: [
@@ -676,7 +681,7 @@ export const addCarpenter = (carpObj) => {
   (async () => {
     try {
       const tempPass = `Tmp_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
-      await pb.collection('users').create({
+      const payload = {
         username: cleanPhone || `carp_${Date.now()}`,
         email: generatedEmail,
         password: tempPass,
@@ -686,8 +691,12 @@ export const addCarpenter = (carpObj) => {
         role: 'Carpenter',
         rank: carpObj.rank || 'Expert',
         pincodes: carpObj.pincodes || []
-      });
-    } catch (e) {}
+      };
+      const created = await pb.collection('users').create(payload);
+      console.log("[PocketBase] Successfully created carpenter user record:", created);
+    } catch (e) {
+      console.error("[PocketBase] Failed to create carpenter user record:", e);
+    }
   })();
 
   return newCarp;
@@ -1334,6 +1343,8 @@ async function syncOrderToPocketBase(orderId, order) {
       is_archived: order.archived || false,
       sub_carpenter_name: order.subCarpenterName || '',
       sub_carpenter_phone: order.subCarpenterPhone || '',
+      product_sku: order.sku || order.product_sku || '',
+      assigned_date: order.assignedDate || order.assigned_date || '',
       
       
       // Screenshot-aligned exact schema keys
@@ -1499,24 +1510,62 @@ async function syncCarpentersFromPocketBase() {
     const records = await pb.collection('users').getFullList({
       filter: 'role="Carpenter"'
     });
-    if (records.length > 0) {
-      const localCarps = getCarpenters();
-      const updated = records.map(r => {
-        const match = localCarps.find(lc => lc.phone === r.phone || lc.id === r.phone || lc.phone === r.username || lc.email === r.email);
+    
+    const localCarps = getCarpenters();
+    const serverEmails = new Set(records.map(r => (r.email || '').toLowerCase()));
+    const serverPhones = new Set(records.map(r => (r.phone || r.username || '').replace(/[^0-9]/g, '')));
+
+    // 1. Upload local-only carpenters to PocketBase
+    for (const carp of localCarps) {
+      const cleanPhone = (carp.phone || '').replace(/[^0-9]/g, '');
+      const hasEmail = carp.email && serverEmails.has(carp.email.toLowerCase());
+      const hasPhone = cleanPhone && serverPhones.has(cleanPhone);
+
+      if (!hasEmail && !hasPhone) {
+        try {
+          const tempPass = 'carpenter123'; // Set default password for easy login
+          const generatedEmail = carp.email || `${cleanPhone || Date.now()}@timberflow.in`;
+          const created = await pb.collection('users').create({
+            username: cleanPhone || `carp_${Date.now()}`,
+            email: generatedEmail,
+            password: tempPass,
+            passwordConfirm: tempPass,
+            name: carp.name,
+            phone: carp.phone || '',
+            role: 'Carpenter',
+            rank: carp.rank || 'Expert',
+            pincodes: carp.pincodes || []
+          });
+          console.log("[PocketBase Sync] Auto-uploaded pre-existing local carpenter:", created.name);
+          carp.id = created.id;
+        } catch (err) {
+          console.error("[PocketBase Sync] Failed to auto-upload local carpenter:", carp.name, err);
+        }
+      }
+    }
+
+    // 2. Fetch fresh list from server to merge
+    const freshRecords = await pb.collection('users').getFullList({
+      filter: 'role="Carpenter"'
+    });
+
+    if (freshRecords.length > 0) {
+      const merged = freshRecords.map(r => {
+        const match = localCarps.find(lc => lc.phone === r.phone || lc.id === r.id || lc.phone === r.username || lc.email === r.email);
         return {
-          id: match ? match.id : r.id,
+          id: r.id,
           name: r.name || r.username,
           phone: r.phone || r.username || '',
           email: r.email || '',
           rank: r.rank || 'Expert',
-          activeJobs: 0,
+          activeJobs: match ? (match.activeJobs || 0) : 0,
           pincodes: r.pincodes || []
         };
       });
-      saveCarpentersLocalOnly(updated);
+      saveCarpentersLocalOnly(merged);
     }
   } catch (e) {
-    // Fail silently in offline mode
+    console.error("[PocketBase Sync] Error during carpenters sync:", e);
   }
 }
 

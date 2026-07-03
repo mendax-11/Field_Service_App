@@ -445,6 +445,30 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     return `https://wa.me/?text=${encodeURIComponent(text)}`;
   };
 
+  const handleSendFeedbackWhatsApp = () => {
+    if (!job) return;
+    let phone = job.customerPhone || job.customer_phone || job.customer_number || '';
+    phone = phone.replace(/[^\d]/g, '');
+    if (phone.length === 10) {
+      phone = '91' + phone;
+    }
+    
+    const prodLink = job.productRefLink || job.product_review_link || '';
+    const sellLink = job.sellerReviewer || job.seller_review_link || '';
+    
+    const text = `Hi ${job.customerName}, thank you for choosing TimberFlow for your furniture assembly! 😊
+
+Could you please take a moment to share your feedback?
+
+📦 Product Review Link: ${prodLink || 'N/A'}
+⭐ Seller/Service Review Link: ${sellLink || 'N/A'}
+
+Your review helps us serve you better. Thank you!`;
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
   // Sign off and complete job
   const handleSignatureSave = (signatureBase64) => {
     const paymentStatusUpdate = job.paymentType === 'Customer' ? 'Collected on-site' : 'Pending Payout';
@@ -1552,6 +1576,26 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
                       <span>Authorized Signature</span>
                     </div>
                   )}
+
+                  <button 
+                    type="button" 
+                    onClick={handleSendFeedbackWhatsApp}
+                    className="btn-action-primary"
+                    style={{
+                      width: '100%',
+                      marginTop: '16px',
+                      backgroundColor: '#25D366',
+                      borderColor: '#128C7E',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <Send size={14} />
+                    <span>Send Feedback Links via WhatsApp</span>
+                  </button>
                 </div>
               )}
 
