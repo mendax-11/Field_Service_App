@@ -1,14 +1,14 @@
 // src/components/TechniciansDashboard.jsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  UserCheck, MapPin, Plus, X, Briefcase, Mail, Award,
+  UserCheck, MapPin, Plus, X, Briefcase,
   AlertCircle, Upload, FileText, Edit, Trash2, Smartphone,
-  Download, Search, RefreshCw, ChevronDown, ChevronUp, Replace
+  Download, Search, RefreshCw, ChevronDown, ChevronUp, Replace, Calendar
 } from 'lucide-react';
 import {
   getCarpenters, saveCarpenters, getOrders,
   addCarpenterPincode, removeCarpenterPincode,
-  addCarpenterPincodes, replaceCarpenterPincodes, clearCarpenterPincodes,
+  replaceCarpenterPincodes, clearCarpenterPincodes,
   addNotification, addCarpenter, updateCarpenter, deleteCarpenter,
   exportCarpentersCSV, getActiveWorkload, MAX_ACTIVE_JOBS
 } from '../utils/stateManager';
@@ -43,7 +43,7 @@ function PincodeManager({ carp, onRefresh }) {
     e.preventDefault();
     const val = singlePin.trim();
     if (!val) return;
-    if (!/^[a-zA-Z0-9\-\s]+$/.test(val)) {
+    if (!/^[a-zA-Z0-9\s-]+$/.test(val)) {
       alert('Please enter a valid alphanumeric pincode.');
       return;
     }
@@ -74,7 +74,7 @@ function PincodeManager({ carp, onRefresh }) {
     const lines = replaceText
       .split(/[\n,;|]+/)
       .map(p => p.trim())
-      .filter(p => p && /^[a-zA-Z0-9\-\s]+$/.test(p));
+      .filter(p => p && /^[a-zA-Z0-9\s-]+$/.test(p));
 
     if (lines.length === 0) {
       alert('No valid pincodes found. Use newlines, commas, or semicolons to separate them.');
@@ -250,11 +250,13 @@ function PincodeManager({ carp, onRefresh }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
   const [carpenters, setCarpenters]       = useState([]);
-  const [orders, setOrders]               = useState([]);
   const [showImporter, setShowImporter]   = useState(false);
   const [csvText, setCsvText]             = useState('');
   const [importStatus, setImportStatus]   = useState(null); // { type, msg }
   const fileInputRef                      = useRef(null);
+
+  // Schedule timeline states
+  const [openSchedules, setOpenSchedules] = useState([]);
 
   // Add/Edit modal
   const [showAddEditModal, setShowAddEditModal] = useState(false);
@@ -263,9 +265,38 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
     name: '', phone: '', rank: 'Expert', pincodes: ''
   });
 
+  const toggleSchedule = (carpId) => {
+    setOpenSchedules(prev => 
+      prev.includes(carpId) ? prev.filter(id => id !== carpId) : [...prev, carpId]
+    );
+  };
+
+  const getNext7Days = () => {
+    const days = [];
+    const now = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  };
+
+  const getJobsForDay = (carpName, date) => {
+    const orders = getOrders();
+    const dateString = date.toDateString();
+    
+    return orders.filter(o => {
+      if (o.assignedCarpenter !== carpName) return false;
+      if (o.jobStatus === 'Completed' || o.status === 'Completed') return false;
+      
+      const targetDate = o.deliveryDate || o.promiseDate;
+      if (!targetDate) return false;
+      return new Date(targetDate).toDateString() === dateString;
+    });
+  };
+
   const loadData = useCallback(() => {
     setCarpenters(getCarpenters());
-    setOrders(getOrders());
   }, []);
 
   useEffect(() => { loadData(); }, [refreshTrigger, loadData]);
@@ -335,7 +366,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
         const pincodes = pinCol
           .split(/[;|\s]+/)
           .map(p => p.trim())
-          .filter(p => p && /^[a-zA-Z0-9\-]+$/.test(p));
+          .filter(p => p && /^[a-zA-Z0-9-]+$/.test(p));
 
         const cleanPhone = phone.replace(/[^0-9]/g, '');
         const generatedEmail = `${cleanPhone || Date.now()}@timberflow.in`;
@@ -432,7 +463,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
       return;
     }
     const phoneTrimmed = phone.trim();
-    if (!/^\+?[0-9\-\s]{8,20}$/.test(phoneTrimmed)) {
+    if (!/^\+?[0-9\s-]{8,20}$/.test(phoneTrimmed)) {
       alert('Please enter a valid phone number (at least 8 digits).');
       return;
     }
@@ -449,7 +480,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
       updateCarpenter(editingCarpenter.id, { name: name.trim(), phone: phoneTrimmed, email: generatedEmail, rank });
       addNotification(`Technician ${name} updated.`, '', 'Admin');
     } else {
-      const pins = pincodes.split(/[,;\n|]+/).map(p => p.trim()).filter(p => p && /^[a-zA-Z0-9\-]+$/.test(p));
+      const pins = pincodes.split(/[,;\n|]+/).map(p => p.trim()).filter(p => p && /^[a-zA-Z0-9-]+$/.test(p));
       addCarpenter({ name: name.trim(), phone: phoneTrimmed, email: generatedEmail, rank, pincodes: pins });
       addNotification(`New technician ${name} created.`, '', 'Admin');
     }
@@ -586,6 +617,15 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
                   </div>
                 </div>
                 <div className="tech-actions" style={{ display: 'flex', gap: '4px' }}>
+                  <button 
+                    type="button" 
+                    className={`close-importer-btn ${openSchedules.includes(carp.id) ? 'active' : ''}`}
+                    title="View 7-day Schedule" 
+                    onClick={() => toggleSchedule(carp.id)} 
+                    style={{ padding: '6px', borderRadius: '4px' }}
+                  >
+                    <Calendar size={14} />
+                  </button>
                   <button type="button" className="close-importer-btn" title="Edit" onClick={() => handleOpenEditModal(carp)} style={{ padding: '6px', borderRadius: '4px' }}>
                     <Edit size={14} />
                   </button>
@@ -613,6 +653,49 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
                   </span>
                 </div>
               </div>
+
+              {/* 7-day Schedule Timeline */}
+              {openSchedules.includes(carp.id) && (
+                <div className="tech-schedule-timeline">
+                  <h5>7-Day Work Schedule</h5>
+                  <div className="timeline-days-container">
+                    {getNext7Days().map((day, idx) => {
+                      const dayJobs = getJobsForDay(carp.name, day);
+                      const isToday = idx === 0;
+                      const count = dayJobs.length;
+                      
+                      let statusClass = 'free';
+                      if (count === 1) statusClass = 'assigned';
+                      else if (count === 2) statusClass = 'in-progress';
+                      else if (count >= 3) statusClass = 'breached';
+
+                      return (
+                        <div key={idx} className={`timeline-day-col ${isToday ? 'today' : ''} ${statusClass}`}>
+                          <div className="day-label">
+                            {day.toLocaleDateString('en-IN', { weekday: 'short' }).slice(0, 3)}
+                            <span className="day-date">{day.getDate()}</span>
+                          </div>
+                          <div className={`day-jobs-count count-${statusClass}`} title={`${count} jobs scheduled`}>
+                            {count > 0 ? (
+                              <div className="job-dots">
+                                {dayJobs.map(job => (
+                                  <span 
+                                    key={job.orderId} 
+                                    className="job-dot"
+                                    title={`Order: ${job.orderId}\nCustomer: ${job.customerName}\nPincode: ${job.pincode}`}
+                                  ></span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="free-indicator">•</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Virtualized Pincode Manager */}
               <PincodeManager carp={carp} onRefresh={loadData} />

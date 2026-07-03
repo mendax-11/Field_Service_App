@@ -1,5 +1,11 @@
 ﻿{
   "name": "TimberFlow FSM Integration: WhatsApp Alerts & REST API Access",
+  "_setup_notes": {
+    "fsm_vps": "Replace https://assembly.vikifurniture.com:8090 with the public URL of PocketBase on your FSM VPS, e.g. https://pb.yourfsmdomain.com",
+    "n8n_vps": "After activating this workflow, copy the webhook URL from the TimberFlow Event Webhook node and paste it in Admin Portal -> Integration & API -> n8n Webhook URL",
+    "whatsapp": "Replace YOUR_SENDER_PHONE_NUMBER_ID and YOUR_WHATSAPP_API_TOKEN_HERE with your Meta WhatsApp Business credentials",
+    "cors": "In PocketBase dashboard (http://YOUR_FSM_VPS:8090/_/) go to Settings -> Application -> Allowed origins and add your n8n VPS URL"
+  },
   "nodes": [
     {
       "parameters": { "httpMethod": "POST", "path": "timberflow-fsm-events", "options": {} },
@@ -85,7 +91,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://localhost:8090/api/collections/users/auth-with-password",
+        "url": "https://assembly.vikifurniture.com:8090/api/collections/users/auth-with-password",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "{\"identity\": \"n8n.client@service.com\", \"password\": \"n8nSecretApiKeyPass123!\"}"
@@ -99,7 +105,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "http://localhost:8090/api/collections/orders/records?filter=(status='Unassigned')",
+        "url": "https://assembly.vikifurniture.com:8090/api/collections/orders/records?filter=(status='Unassigned')",
         "sendHeaders": true,
         "headersUi": { "parameter": [
           { "name": "Authorization", "value": "=Bearer {{$node[\"Get PocketBase Auth Token\"].json.token}}" }

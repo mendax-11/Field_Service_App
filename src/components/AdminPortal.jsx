@@ -1,25 +1,24 @@
 // src/components/AdminPortal.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './AdminPortal.css';
 import { 
-  ClipboardList, Package, HelpCircle, FileText, Bell, 
-  Coins, UserCheck, ShieldAlert, Upload, Cpu, Trash2, X,
-  LayoutDashboard, Activity, AlertCircle, ShieldCheck, Clock, MapPin,
-  Settings, Database, Code, Copy, CheckCircle, Download
+  ClipboardList, Package, HelpCircle, Bell, 
+  Coins, UserCheck, ShieldAlert, Upload, Cpu, X,
+  LayoutDashboard, Activity, AlertCircle, ShieldCheck, MapPin,
+  Settings, Download
 } from 'lucide-react';
 import { 
   getOrders, getCarpenters, getUserRole, setUserRole, 
   getNotifications, clearNotifications, autoAllocateOrders, 
   saveOrders, addNotification, updateOrder, addOrder, checkSlaBreaches,
-  getN8nConfig, saveN8nConfig, triggerN8nWebhook,
-  exportOrdersCSV, exportCarpentersCSV
+  getN8nConfig, saveN8nConfig,
+  exportOrdersCSV
 } from '../utils/stateManager';
 
 import OrderGrid from './OrderGrid';
 import InventoryDashboard from './InventoryDashboard';
 import SupportPortal from './SupportPortal';
 import TechniciansDashboard from './TechniciansDashboard';
-import './AdminPortal.css';
 
 
 // Templates for CSV Import
@@ -37,6 +36,7 @@ WOO-6001,Tony Stark,+1-555-0155,SKU-BIRCH-CABINET-02,120,Prepaid,2026-06-25T18:0
 WOO-6002,Barry Allen,+1-555-0166,SKU-OAK-TABLE-02,190,Prepaid,2026-06-30T09:00:00Z`
 };
 
+// Dormant settings-panel asset retained for the integrations tab.
 const n8nBlueprintJSON = JSON.stringify({
   "name": "TimberFlow FSM Integration: WhatsApp Alerts & REST API Access",
   "nodes": [
@@ -139,7 +139,7 @@ const n8nBlueprintJSON = JSON.stringify({
     {
       "parameters": {
         "method": "POST",
-        "url": "http://localhost:8090/api/collections/users/auth-with-password",
+        "url": "https://assembly.vikifurniture.com:8090/api/collections/users/auth-with-password",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "{\n  \"identity\": \"n8n.client@service.com\",\n  \"password\": \"n8nSecretApiKeyPass123!\"\n}"
@@ -153,7 +153,7 @@ const n8nBlueprintJSON = JSON.stringify({
     {
       "parameters": {
         "method": "GET",
-        "url": "=http://localhost:8090/api/collections/orders/records?filter=(status='Unassigned')",
+        "url": "=https://assembly.vikifurniture.com:8090/api/collections/orders/records?filter=(status='Unassigned')",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -202,6 +202,11 @@ export default function AdminPortal() {
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
+  // Date-range filter states
+  const [dateFilterPreset, setDateFilterPreset] = useState('all'); // today, week, month, 30days, all, custom
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  
   // CSV Uploader states
   const [csvText, setCsvText] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('Amazon');
@@ -223,8 +228,10 @@ export default function AdminPortal() {
   // n8n Webhook settings
   const [n8nUrl, setN8nUrl] = useState('');
   const [n8nEnabled, setN8nEnabled] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [webhookTestStatus, setWebhookTestStatus] = useState('idle'); // idle, sending, success, error
 
+  // eslint-disable-next-line no-unused-vars
   const handleSaveN8nConfig = (e) => {
     e.preventDefault();
     const success = saveN8nConfig({ enabled: n8nEnabled, webhookUrl: n8nUrl.trim() });
@@ -236,6 +243,7 @@ export default function AdminPortal() {
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const handleTestWebhook = async () => {
     if (!n8nUrl.trim()) {
       alert('Please configure an n8n webhook URL first.');
@@ -272,6 +280,7 @@ export default function AdminPortal() {
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const handleCopyBlueprint = () => {
     navigator.clipboard?.writeText(n8nBlueprintJSON)
       .then(() => alert('n8n Workflow Blueprint JSON copied to clipboard! Import it by pasting in n8n.'))
@@ -466,11 +475,66 @@ export default function AdminPortal() {
     triggerRefresh();
   };
 
+  // Get date of the order (using audit logs created time or fallback dates)
+  const getOrderDate = (order) => {
+    if (order.auditLogs && order.auditLogs.length > 0) {
+      const createdLog = order.auditLogs.find(l => l.action === 'Order Created');
+      if (createdLog) return new Date(createdLog.timestamp);
+      return new Date(order.auditLogs[0].timestamp);
+    }
+    if (order.deliveryDate) return new Date(order.deliveryDate);
+    if (order.promiseDate) return new Date(order.promiseDate);
+    return new Date();
+  };
+
+  // Get orders filtered by selected dashboard date range
+  const getFilteredOrdersList = () => {
+    const allOrders = getOrders();
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    return allOrders.filter(o => {
+      const oDate = getOrderDate(o);
+      switch (dateFilterPreset) {
+        case 'today':
+          return oDate >= todayStart;
+        case 'week': {
+          const oneWeekAgo = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+          return oDate >= oneWeekAgo;
+        }
+        case 'month': {
+          const oneMonthAgo = new Date(todayStart.getFullYear(), todayStart.getMonth() - 1, todayStart.getDate());
+          return oDate >= oneMonthAgo;
+        }
+        case '30days': {
+          const thirtyDaysAgo = new Date(todayStart.getTime() - 30 * 24 * 60 * 60 * 1000);
+          return oDate >= thirtyDaysAgo;
+        }
+        case 'custom': {
+          const start = customStartDate ? new Date(customStartDate) : null;
+          const end = customEndDate ? new Date(customEndDate) : null;
+          if (end) {
+            const endWithTime = new Date(end);
+            endWithTime.setHours(23, 59, 59, 999);
+            if (start) return oDate >= start && oDate <= endWithTime;
+            return oDate <= endWithTime;
+          }
+          if (start) return oDate >= start;
+          return true;
+        }
+        case 'all':
+        default:
+          return true;
+      }
+    });
+  };
+
+  const dashboardFilteredOrders = getFilteredOrdersList();
+
   // Payout Ledger Calculations (Super Admin Only)
   const getPayoutData = () => {
-    const allOrders = getOrders();
+    const allOrders = getFilteredOrdersList();
     const carpenters = getCarpenters();
-
     return carpenters.map(carp => {
       // Find completed jobs assigned to this carpenter
       const completedJobs = allOrders.filter(
@@ -647,6 +711,46 @@ export default function AdminPortal() {
       <main className="portal-body-content">
         {activeTab === 'dashboard' && (
           <div className="tab-panel dashboard-panel animate-fade-in">
+            {/* Date-Range Filter Bar */}
+            <div className="dashboard-filter-bar card-style">
+              <div className="filter-preset-group">
+                {['all', 'today', 'week', '30days', 'custom'].map(preset => (
+                  <button
+                    key={preset}
+                    className={`filter-preset-btn ${dateFilterPreset === preset ? 'active' : ''}`}
+                    onClick={() => setDateFilterPreset(preset)}
+                  >
+                    {preset === 'all' && 'All Time'}
+                    {preset === 'today' && 'Today'}
+                    {preset === 'week' && 'This Week'}
+                    {preset === '30days' && 'Last 30 Days'}
+                    {preset === 'custom' && 'Custom Range'}
+                  </button>
+                ))}
+              </div>
+              
+              {dateFilterPreset === 'custom' && (
+                <div className="custom-date-inputs">
+                  <div className="date-input-wrap">
+                    <label>From</label>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="date-input-wrap">
+                    <label>To</label>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* KPI Cards Row */}
             <div className="kpi-cards-grid">
               <div className="kpi-card card-style border-left-info">
@@ -664,8 +768,8 @@ export default function AdminPortal() {
                   <Activity size={20} className="kpi-icon color-success" />
                 </div>
                 <div className="kpi-value">
-                  {getOrders().length > 0 
-                    ? Math.round((getOrders().filter(o => o.jobStatus === 'Completed').length / getOrders().length) * 100)
+                  {dashboardFilteredOrders.length > 0 
+                    ? Math.round((dashboardFilteredOrders.filter(o => o.jobStatus === 'Completed').length / dashboardFilteredOrders.length) * 100)
                     : 0}%
                 </div>
                 <div className="kpi-subtext">Target: 90% SLA minimum</div>
@@ -686,7 +790,7 @@ export default function AdminPortal() {
                   <AlertCircle size={20} className="kpi-icon color-danger" />
                 </div>
                 <div className="kpi-value">
-                  {getOrders().filter(o => {
+                  {dashboardFilteredOrders.filter(o => {
                     if (o.jobStatus === 'Completed') return false;
                     const pd = o.promiseDate || o.promise_date;
                     return pd && new Date(pd) < new Date();
@@ -705,7 +809,7 @@ export default function AdminPortal() {
                 
                 <div className="segmented-bar-chart">
                   {(() => {
-                    const all = getOrders();
+                    const all = dashboardFilteredOrders;
                     const unassigned = all.filter(o => o.jobStatus === 'Unassigned').length;
                     const assigned = all.filter(o => o.jobStatus === 'Assigned').length;
                     const inProgress = all.filter(o => o.jobStatus === 'In Progress').length;
@@ -857,7 +961,7 @@ export default function AdminPortal() {
                 <div className="sla-alerts-list">
                   {(() => {
                     const now = new Date();
-                    const slaOrders = getOrders().filter(o => {
+                    const slaOrders = dashboardFilteredOrders.filter(o => {
                       if (o.jobStatus === 'Completed') return false;
                       const pd = o.promiseDate || o.promise_date;
                       if (!pd) return o.deliveryStatus === 'Delivered';

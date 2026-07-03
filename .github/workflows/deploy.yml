@@ -1,67 +1,104 @@
-name: Deploy TimberFlow FSM to Hetzner
+name: 🚀 Deploy TimberFlow FSM — assembly.vikifurniture.com
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch: # Allow manual trigger from GitHub Actions UI
 
 jobs:
   build-and-deploy:
+    name: Build & Deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
-      - name: Checkout Code
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      # ── 2. Node setup with npm cache ─────────────────────────────────────────
+      - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
 
-      - name: Install Dependencies
+      # ── 3. Install dependencies (strict / reproducible) ──────────────────────
+      - name: Install dependencies
         run: npm ci
 
-      - name: Compile and Validate Build
-        run: npm run build
+      # ── 4. Lint check ────────────────────────────────────────────────────────
+      - name: Lint
+        run: npm run lint
+        continue-on-error: false   # Block deploy on lint failure
 
-      - name: Deploy to Hetzner (Atomic Swapping)
+      # ── 5. Inject env vars and build ─────────────────────────────────────────
+      #  VITE_POCKETBASE_URL is a GitHub Secret — set it to:
+      #    https://assembly.vikifurniture.com:8090
+      #  (or your Nginx-proxied subdomain if you have one)
+      - name: Build production bundle
+        run: npm run build
+        env:
+          VITE_POCKETBASE_URL: ${{ secrets.VITE_POCKETBASE_URL }}
+
+      # ── 6. Verify dist/ was produced ─────────────────────────────────────────
+      - name: Verify build output
+        run: |
+          if [ ! -f dist/index.html ]; then
+            echo "❌ Build failed — dist/index.html not found"
+            exit 1
+          fi
+          echo "✅ Build OK — $(du -sh dist | cut -f1) produced"
+          ls -lh dist/
+
+      # ── 7. Create a timestamped release folder on VPS ────────────────────────
+      - name: Prepare release directory on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.HETZNER_HOST }}
-          username: ${{ secrets.HETZNER_USER }}
-          key: ${{ secrets.HETZNER_SSH_KEY }}
+          host:     ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key:      ${{ secrets.VPS_SSH_KEY }}
+          port:     ${{ secrets.VPS_PORT || 22 }}
           script: |
             set -e
-            mkdir -p /var/www/timberflow/releases/release_latest_tmp
+            mkdir -p /var/www/timberflow/releases/release_staging
 
-      - name: Upload Build Assets to New Release Folder
+      # ── 8. Upload build assets via SCP ───────────────────────────────────────
+      - name: Upload dist/ to VPS staging folder
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.HETZNER_HOST }}
-          username: ${{ secrets.HETZNER_USER }}
-          key: ${{ secrets.HETZNER_SSH_KEY }}
-          source: "dist/*"
-          target: "/var/www/timberflow/releases/release_latest_tmp"
+          host:     ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key:      ${{ secrets.VPS_SSH_KEY }}
+          port:     ${{ secrets.VPS_PORT || 22 }}
+          source:   "dist/*"
+          target:   "/var/www/timberflow/releases/release_staging"
           strip_components: 1
 
-      - name: Swap Symlink (Atomic Activation)
+      # ── 9. Atomic symlink swap + cleanup old releases ─────────────────────────
+      - name: Activate release (atomic symlink swap)
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.HETZNER_HOST }}
-          username: ${{ secrets.HETZNER_USER }}
-          key: ${{ secrets.HETZNER_SSH_KEY }}
+          host:     ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key:      ${{ secrets.VPS_SSH_KEY }}
+          port:     ${{ secrets.VPS_PORT || 22 }}
           script: |
             set -e
+
             RELEASE_DATE="$(date +%Y%m%d_%H%M%S)"
             RELEASE_DIR="/var/www/timberflow/releases/release_$RELEASE_DATE"
             CURRENT_LINK="/var/www/timberflow/current"
-            
-            mkdir -p "$RELEASE_DIR"
-            mv /var/www/timberflow/releases/release_latest_tmp/* "$RELEASE_DIR"/
-            rm -rf /var/www/timberflow/releases/release_latest_tmp
-            
+
+            # Move staging → named release
+            mv /var/www/timberflow/releases/release_staging "$RELEASE_DIR"
+
+            # Atomic swap — Nginx reads /var/www/timberflow/current
             ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
-            
-            cd /var/www/timberflow/releases && ls -t | tail -n +6 | xargs rm -rf --
-            
-            echo "Deployment successful: swapped symlink to release_$RELEASE_DATE"
+
+            # Keep only the last 5 releases, delete older ones
+            cd /var/www/timberflow/releases && ls -t | tail -n +6 | xargs -r rm -rf
+
+            echo "✅ Deployed: release_$RELEASE_DATE is now live"
+            echo "🔗 Symlink: $CURRENT_LINK -> $RELEASE_DIR"

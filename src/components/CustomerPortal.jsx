@@ -1,7 +1,8 @@
 // src/components/CustomerPortal.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './CustomerPortal.css';
-import { getOrders, updateOrder, triggerN8nWebhook } from '../stateManager';
+import { getOrders, updateOrder, triggerN8nWebhook } from '../utils/stateManager';
+
 import { ClipboardList, CheckCircle, Clock, Truck, AlertTriangle, Package, MapPin, Star, ExternalLink } from 'lucide-react';
 
 const STATUS_STEPS = [

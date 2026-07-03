@@ -1,10 +1,10 @@
 // src/components/OrderGrid.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
-  Search, Filter, ArrowUpDown, ChevronLeft, ChevronRight, 
-  Trash2, Eye, ShieldAlert, SlidersHorizontal 
+  Search, ArrowUpDown, ChevronLeft, ChevronRight, 
+  Trash2, Eye, SlidersHorizontal 
 } from 'lucide-react';
-import { getOrders, deleteOrder, getUserRole, getCarpenters } from '../utils/stateManager';
+import { getOrders, deleteOrder, getUserRole, getCarpenters, updateOrder } from '../utils/stateManager';
 import OrderDetailsModal from './OrderDetailsModal';
 
 export default function OrderGrid({ refreshTrigger, onRefresh }) {
@@ -27,11 +27,15 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
   
   // Modal state
   const [selectedOrder, setSelectedOrder] = useState(null);
+  
+  // Selection state
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
 
   const loadData = () => {
     setOrders(getOrders());
     setCarpenters(getCarpenters());
     setRole(getUserRole());
+    setSelectedOrderIds([]); // Clear selection on full reload
   };
 
   useEffect(() => {
@@ -54,6 +58,105 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
       loadData();
       if (onRefresh) onRefresh();
     }
+  };
+
+  const handleSelectOrder = (orderId, e) => {
+    e.stopPropagation();
+    setSelectedOrderIds(prev => 
+      prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
+    );
+  };
+
+  const handleSelectAllOnPage = (e) => {
+    const pageOrderIds = paginatedOrders.map(o => o.orderId);
+    if (e.target.checked) {
+      setSelectedOrderIds(prev => {
+        const union = new Set([...prev, ...pageOrderIds]);
+        return Array.from(union);
+      });
+    } else {
+      setSelectedOrderIds(prev => prev.filter(id => !pageOrderIds.includes(id)));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedOrderIds.length === 0) return;
+    
+    const targetOrders = orders.filter(o => selectedOrderIds.includes(o.orderId));
+    const protectedOrders = targetOrders.filter(o => o.paymentStatus === 'Paid' || o.jobStatus === 'Completed' || o.status === 'Completed');
+    
+    if (protectedOrders.length > 0) {
+      alert(`Cannot delete: ${protectedOrders.length} of the selected orders are Paid or Completed and cannot be deleted for audit integrity.`);
+      return;
+    }
+
+    if (confirm(`Are you sure you want to delete the ${selectedOrderIds.length} selected orders?`)) {
+      selectedOrderIds.forEach(id => deleteOrder(id));
+      setSelectedOrderIds([]);
+      loadData();
+      if (onRefresh) onRefresh();
+    }
+  };
+
+  const handleBulkAssign = (carpenterName) => {
+    if (selectedOrderIds.length === 0 || !carpenterName) return;
+    
+    selectedOrderIds.forEach(id => {
+      updateOrder(id, { 
+        assignedCarpenter: carpenterName,
+        jobStatus: 'Assigned',
+        status: 'Assigned'
+      });
+    });
+    
+    setSelectedOrderIds([]);
+    loadData();
+    if (onRefresh) onRefresh();
+  };
+
+  const handleBulkStatusChange = (status) => {
+    if (selectedOrderIds.length === 0 || !status) return;
+    
+    selectedOrderIds.forEach(id => {
+      updateOrder(id, { 
+        jobStatus: status,
+        status: status
+      });
+    });
+    
+    setSelectedOrderIds([]);
+    loadData();
+    if (onRefresh) onRefresh();
+  };
+
+  const handleBulkExport = () => {
+    if (selectedOrderIds.length === 0) return;
+    const selectedList = orders.filter(o => selectedOrderIds.includes(o.orderId));
+    
+    const headers = ['Order ID', 'Platform', 'Customer Name', 'Phone', 'Address', 'Pincode', 'SKU', 'Payout', 'Delivery Status', 'Job Status', 'Payment Status'];
+    const rows = selectedList.map(o => [
+      o.orderId,
+      o.platform,
+      o.customerName,
+      o.customerPhone || '',
+      o.customerAddress || '',
+      o.pincode,
+      o.sku,
+      o.payout,
+      o.deliveryStatus,
+      o.jobStatus,
+      o.paymentStatus
+    ]);
+    
+    const csvContent = [headers.join(','), ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `timberflow_selected_orders_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Calculate SLA values for sorting
@@ -278,11 +381,62 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
         </div>
       </div>
 
+      {/* Bulk Actions Toolbar */}
+      {selectedOrderIds.length > 0 && (
+        <div className="grid-bulk-actions-toolbar animate-fade-in">
+          <div className="bulk-select-info">
+            <span className="bulk-badge">{selectedOrderIds.length}</span>
+            <span>selected</span>
+          </div>
+          <div className="bulk-actions-group">
+            <select 
+              onChange={(e) => { handleBulkAssign(e.target.value); e.target.value = ''; }} 
+              className="bulk-select-action"
+            >
+              <option value="">Assign to Carpenter...</option>
+              {carpenters.map(c => (
+                <option key={c.id} value={c.name}>{c.name}</option>
+              ))}
+            </select>
+
+            <select 
+              onChange={(e) => { handleBulkStatusChange(e.target.value); e.target.value = ''; }} 
+              className="bulk-select-action"
+            >
+              <option value="">Change Status...</option>
+              <option value="Unassigned">Unassigned</option>
+              <option value="Assigned">Assigned</option>
+              <option value="In Progress">In Progress</option>
+              <option value="On Hold">On Hold</option>
+              <option value="Completed">Completed</option>
+            </select>
+
+            <button onClick={handleBulkExport} className="bulk-action-btn secondary">
+              Export CSV
+            </button>
+
+            {role === 'Super Admin' && (
+              <button onClick={handleBulkDelete} className="bulk-action-btn danger">
+                Delete
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Orders Table */}
       <div className="table-responsive">
         <table className="orders-table">
           <thead>
             <tr>
+              <th style={{ width: '40px', textAlign: 'center' }}>
+                <input 
+                  type="checkbox" 
+                  checked={paginatedOrders.length > 0 && paginatedOrders.every(o => selectedOrderIds.includes(o.orderId))}
+                  onChange={handleSelectAllOnPage}
+                  style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+                />
+              </th>
               <th>Order ID</th>
               <th>Platform</th>
               <th>Customer Name</th>
@@ -299,12 +453,21 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
           <tbody>
             {paginatedOrders.map(order => {
               const slaBadge = getSlaLabel(order);
+              const isSelected = selectedOrderIds.includes(order.orderId);
               return (
                 <tr 
                   key={order.orderId} 
                   onClick={() => setSelectedOrder(order)} 
-                  className="order-row-interactive"
+                  className={`order-row-interactive ${isSelected ? 'row-selected' : ''}`}
                 >
+                  <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                    <input 
+                      type="checkbox" 
+                      checked={isSelected}
+                      onChange={(e) => handleSelectOrder(order.orderId, e)}
+                      style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+                    />
+                  </td>
                   <td className="font-mono text-bold">{order.orderId}</td>
                   <td>
                     <span className={`platform-tag ${order.platform.toLowerCase()}`}>
@@ -387,7 +550,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
 
             {paginatedOrders.length === 0 && (
               <tr>
-                <td colSpan={11} className="no-data-cell">
+                <td colSpan={12} className="no-data-cell">
                   No orders match your filter criteria.
                 </td>
               </tr>

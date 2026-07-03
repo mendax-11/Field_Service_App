@@ -1,8 +1,11 @@
 import PocketBase from 'pocketbase';
 
-// Connect to local or remote PocketBase instance
-const POCKETBASE_URL = 'http://127.0.0.1:8090';
+// Connect to local or remote PocketBase instance.
+// Set VITE_POCKETBASE_URL in your .env file when deploying to a VPS.
+// e.g.  VITE_POCKETBASE_URL=https://pb.yourfsmdomain.com
+const POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090';
 export const pb = new PocketBase(POCKETBASE_URL);
+
 
 const STORAGE_KEYS = {
   ORDERS: 'fsa_orders',
@@ -330,7 +333,6 @@ export function normalizeOrder(o) {
     // React component camelCase fields for seamless compatibility
     orderId,
     id: orderId,
-    platform,
     customerName,
     sku,
     productName,
@@ -361,6 +363,11 @@ export function normalizeOrder(o) {
     'promise date': promiseDate,
     assembly_status: jobStatus,
     
+    subCarpenterName: o.subCarpenterName || o.sub_carpenter_name || '',
+    subCarpenterPhone: o.subCarpenterPhone || o.sub_carpenter_phone || '',
+    sub_carpenter_name: o.subCarpenterName || o.sub_carpenter_name || '',
+    sub_carpenter_phone: o.subCarpenterPhone || o.sub_carpenter_phone || '',
+    
     // Nested objects
     checklist,
     damageReport,
@@ -382,8 +389,81 @@ export function normalizeOrder(o) {
   };
 }
 
-// Initialize Storage if empty
-export const initializeStorage = () => {
+// ─────────────────────────────────────────────
+// INDEXEDDB ENGINE & IN-MEMORY CACHE
+// ─────────────────────────────────────────────
+const DB_NAME = 'timberflow_db';
+const DB_VERSION = 1;
+const STORES = {
+  ORDERS: 'orders',
+  CARPENTERS: 'carpenters'
+};
+
+function getDB() {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') {
+      reject(new Error('IndexedDB is not supported in this environment'));
+      return;
+    }
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORES.ORDERS)) {
+        db.createObjectStore(STORES.ORDERS, { keyPath: 'orderId' });
+      }
+      if (!db.objectStoreNames.contains(STORES.CARPENTERS)) {
+        db.createObjectStore(STORES.CARPENTERS, { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = (e) => resolve(e.target.result);
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function idbSave(storeName, data) {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    
+    // Clear existing records before saving the new state representation
+    store.clear();
+    data.forEach(item => {
+      store.put(item);
+    });
+    
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) {
+    console.error(`[IndexedDB] Save failed on store ${storeName}:`, e);
+  }
+}
+
+async function idbGetAll(storeName) {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(storeName, 'readonly');
+    const store = tx.objectStore(storeName);
+    return new Promise((resolve, reject) => {
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) {
+    console.error(`[IndexedDB] Read failed on store ${storeName}:`, e);
+    return [];
+  }
+}
+
+// Memory caches to avoid synchronous I/O blocks on React render cycles
+let memoryOrders = null;
+let memoryCarpenters = null;
+
+// Initialize Storage (boots synchronously with localStorage fallback, then loads IndexedDB asynchronously)
+export const initializeStorage = async () => {
+  // Sync initialization of localstorage fallbacks first
   if (!localStorage.getItem(STORAGE_KEYS.ORDERS)) {
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(DEFAULT_ORDERS.map(normalizeOrder)));
   }
@@ -396,9 +476,38 @@ export const initializeStorage = () => {
   if (!localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)) {
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(DEFAULT_NOTIFICATIONS));
   }
+
+  // Load from IndexedDB
+  try {
+    const dbOrders = await idbGetAll(STORES.ORDERS);
+    const dbCarpenters = await idbGetAll(STORES.CARPENTERS);
+    
+    let needsUpdate = false;
+    if (dbOrders.length > 0) {
+      memoryOrders = dbOrders.map(normalizeOrder);
+      needsUpdate = true;
+    } else {
+      memoryOrders = JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDERS) || '[]').map(normalizeOrder);
+      await idbSave(STORES.ORDERS, memoryOrders);
+    }
+    
+    if (dbCarpenters.length > 0) {
+      memoryCarpenters = dbCarpenters;
+      needsUpdate = true;
+    } else {
+      memoryCarpenters = JSON.parse(localStorage.getItem(STORAGE_KEYS.CARPENTERS) || '[]');
+      await idbSave(STORES.CARPENTERS, memoryCarpenters);
+    }
+    
+    if (needsUpdate) {
+      window.dispatchEvent(new Event('fsa_storage_update'));
+    }
+  } catch (e) {
+    console.warn('Failed to bootstrap IndexedDB, falling back to localStorage:', e);
+  }
 };
 
-// Initialize immediately on load
+// Bootstrap storage async on load
 initializeStorage();
 
 export const MAX_ACTIVE_JOBS = 3;
@@ -411,17 +520,35 @@ export const getActiveWorkload = (carpName) => {
 
 // Orders
 export const getOrders = () => {
+  if (memoryOrders && memoryOrders.length > 0) {
+    return memoryOrders;
+  }
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDERS)) || [];
-    return raw.map(normalizeOrder);
+    memoryOrders = raw.map(normalizeOrder);
+    return memoryOrders;
   } catch (e) {
-    return DEFAULT_ORDERS.map(normalizeOrder);
+    memoryOrders = DEFAULT_ORDERS.map(normalizeOrder);
+    return memoryOrders;
   }
 };
 
 export const saveOrders = (orders) => {
   const normalized = orders.map(normalizeOrder);
-  localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(normalized));
+  memoryOrders = normalized;
+  
+  // Asynchronously save to localStorage fallback to keep thread unblocked
+  setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(normalized));
+    } catch (e) {
+      console.warn('[Storage] LocalStorage quota exceeded, caching in IndexedDB only.');
+    }
+  }, 0);
+
+  // Persist to IndexedDB
+  idbSave(STORES.ORDERS, normalized);
+
   window.dispatchEvent(new Event('fsa_storage_update'));
   
   // Background sync orders to PocketBase
@@ -611,18 +738,36 @@ export const deleteCarpenter = (carpId) => {
   }
   return false;
 };
-
 // Carpenters
 export const getCarpenters = () => {
+  if (memoryCarpenters && memoryCarpenters.length > 0) {
+    return memoryCarpenters;
+  }
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.CARPENTERS)) || [];
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.CARPENTERS)) || [];
+    memoryCarpenters = raw;
+    return memoryCarpenters;
   } catch (e) {
-    return DEFAULT_CARPENTERS;
+    memoryCarpenters = DEFAULT_CARPENTERS;
+    return memoryCarpenters;
   }
 };
 
 export const saveCarpenters = (carpenters) => {
-  localStorage.setItem(STORAGE_KEYS.CARPENTERS, JSON.stringify(carpenters));
+  memoryCarpenters = carpenters;
+
+  // Asynchronously save to localStorage fallback to keep thread unblocked
+  setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.CARPENTERS, JSON.stringify(carpenters));
+    } catch (e) {
+      console.warn('[Storage] LocalStorage quota exceeded, caching in IndexedDB only.');
+    }
+  }, 0);
+
+  // Persist to IndexedDB
+  idbSave(STORES.CARPENTERS, carpenters);
+
   window.dispatchEvent(new Event('fsa_storage_update'));
   
   // Background sync carpenters served pincodes to PocketBase
@@ -630,6 +775,28 @@ export const saveCarpenters = (carpenters) => {
     syncCarpenterPincodesToPocketBase(c.id, c.pincodes);
   });
 };
+function saveOrdersLocalOnly(orders) {
+  const normalized = orders.map(normalizeOrder);
+  memoryOrders = normalized;
+  setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(normalized));
+    } catch (e) {}
+  }, 0);
+  idbSave(STORES.ORDERS, normalized);
+  window.dispatchEvent(new Event('fsa_storage_update'));
+}
+
+function saveCarpentersLocalOnly(carpenters) {
+  memoryCarpenters = carpenters;
+  setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.CARPENTERS, JSON.stringify(carpenters));
+    } catch (e) {}
+  }, 0);
+  idbSave(STORES.CARPENTERS, carpenters);
+  window.dispatchEvent(new Event('fsa_storage_update'));
+}
 
 export const addCarpenterPincode = (carpenterId, pincode) => {
   const carpenters = getCarpenters();
@@ -1002,7 +1169,7 @@ export const stateManager = {
     return addComment(jobId, text, sender);
   },
 
-  submitDamageReport(jobId, partName, notes, photoBase64) {
+  submitDamageReport(jobId, partName, notes, photoBase64, photoFile) {
     const orders = getOrders();
     const orderIndex = orders.findIndex(o => o.orderId === jobId);
     if (orderIndex !== -1) {
@@ -1017,6 +1184,7 @@ export const stateManager = {
       const updatedOrderObj = {
         ...order,
         damageReport,
+        damageReportFile: photoFile || null,
         jobStatus: 'On Hold - Parts Requested',
         status: 'On Hold - Parts Requested',
         auditLogs: [
@@ -1106,8 +1274,29 @@ function mapRecordToOrder(r) {
     damageReport: r.damage_report || null,
     photos: r.photos || { before: null, after: null },
     signature: r.signature || null,
-    archived: r.archived || r.is_archived || false
+    archived: r.archived || r.is_archived || false,
+    subCarpenterName: r.sub_carpenter_name || '',
+    subCarpenterPhone: r.sub_carpenter_phone || ''
   });
+}
+
+// Converts base64 Data URL to Blob for file upload
+export function dataURLtoBlob(dataurl) {
+  if (!dataurl || typeof dataurl !== 'string' || !dataurl.startsWith('data:')) return null;
+  try {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  } catch (e) {
+    console.error('Failed to parse data URL to blob:', e);
+    return null;
+  }
 }
 
 async function syncOrderToPocketBase(orderId, order) {
@@ -1143,6 +1332,9 @@ async function syncOrderToPocketBase(orderId, order) {
       signature: order.signature || null,
       archived: order.archived || false,
       is_archived: order.archived || false,
+      sub_carpenter_name: order.subCarpenterName || '',
+      sub_carpenter_phone: order.subCarpenterPhone || '',
+      
       
       // Screenshot-aligned exact schema keys
       assembly_amount: Number(order.payout || order.assembly_amount || 0),
@@ -1165,15 +1357,114 @@ async function syncOrderToPocketBase(orderId, order) {
       pbFields.assigned_carpenter = null;
     }
 
-    if (record) {
-      await pb.collection('orders').update(record.id, pbFields);
+    // Prepare files to upload if any fields contain base64 data URLs
+    let hasFiles = false;
+    const formData = new FormData();
+
+    // Append regular fields
+    Object.keys(pbFields).forEach(key => {
+      let val = pbFields[key];
+      if (typeof val === 'object' && val !== null) {
+        val = JSON.stringify(val);
+      }
+      formData.append(key, val);
+    });
+
+    if (order.photos && order.photos.before && order.photos.before.startsWith('data:image/')) {
+      const blob = dataURLtoBlob(order.photos.before);
+      if (blob) {
+        formData.append('photos_before', blob, `before_${orderId}.jpg`);
+        hasFiles = true;
+      }
+    }
+    if (order.photos && order.photos.after && order.photos.after.startsWith('data:image/')) {
+      const blob = dataURLtoBlob(order.photos.after);
+      if (blob) {
+        formData.append('photos_after', blob, `after_${orderId}.jpg`);
+        hasFiles = true;
+      }
+    }
+    if (order.signature && order.signature.startsWith('data:image/')) {
+      const blob = dataURLtoBlob(order.signature);
+      if (blob) {
+        formData.append('signature_file', blob, `signature_${orderId}.png`);
+        hasFiles = true;
+      }
+    }
+
+    let updatedRecord = null;
+    if (hasFiles) {
+      try {
+        // Attempt upload with files
+        if (record) {
+          updatedRecord = await pb.collection('orders').update(record.id, formData);
+        } else {
+          updatedRecord = await pb.collection('orders').create(formData);
+        }
+      } catch (uploadError) {
+        console.warn('File upload to PocketBase failed (collection might lack file fields). Falling back to JSON/base64 sync:', uploadError);
+        // Fallback to JSON if file upload fails
+        if (record) {
+          updatedRecord = await pb.collection('orders').update(record.id, pbFields);
+        } else {
+          updatedRecord = await pb.collection('orders').create(pbFields);
+        }
+      }
     } else {
-      await pb.collection('orders').create(pbFields);
+      // Normal JSON update/create
+      if (record) {
+        updatedRecord = await pb.collection('orders').update(record.id, pbFields);
+      } else {
+        updatedRecord = await pb.collection('orders').create(pbFields);
+      }
+    }
+
+    // If upload succeeded and file paths exist, replace local base64 with public URL links
+    if (updatedRecord) {
+      const updatedPhotos = { ...order.photos };
+      let localUpdateNeeded = false;
+
+      if (updatedRecord.photos_before) {
+        const fileUrl = `${POCKETBASE_URL}/api/files/orders/${updatedRecord.id}/${updatedRecord.photos_before}`;
+        if (order.photos.before !== fileUrl) {
+          updatedPhotos.before = fileUrl;
+          localUpdateNeeded = true;
+        }
+      }
+      if (updatedRecord.photos_after) {
+        const fileUrl = `${POCKETBASE_URL}/api/files/orders/${updatedRecord.id}/${updatedRecord.photos_after}`;
+        if (order.photos.after !== fileUrl) {
+          updatedPhotos.after = fileUrl;
+          localUpdateNeeded = true;
+        }
+      }
+      let updatedSignature = order.signature;
+      if (updatedRecord.signature_file) {
+        const fileUrl = `${POCKETBASE_URL}/api/files/orders/${updatedRecord.id}/${updatedRecord.signature_file}`;
+        if (order.signature !== fileUrl) {
+          updatedSignature = fileUrl;
+          localUpdateNeeded = true;
+        }
+      }
+
+      if (localUpdateNeeded) {
+        const localOrders = getOrders();
+        const idx = localOrders.findIndex(o => o.orderId === orderId);
+        if (idx !== -1) {
+          localOrders[idx] = {
+            ...localOrders[idx],
+            photos: updatedPhotos,
+            signature: updatedSignature
+          };
+          saveOrdersLocalOnly(localOrders);
+        }
+      }
     }
   } catch (e) {
-    // Fail silently in offline mode
+    console.error('Failed to sync order to PocketBase:', e);
   }
 }
+
 
 async function syncCarpenterPincodesToPocketBase(carpId, pincodes) {
   try {
@@ -1222,8 +1513,7 @@ async function syncCarpentersFromPocketBase() {
           pincodes: r.pincodes || []
         };
       });
-      localStorage.setItem(STORAGE_KEYS.CARPENTERS, JSON.stringify(updated));
-      window.dispatchEvent(new Event('fsa_storage_update'));
+      saveCarpentersLocalOnly(updated);
     }
   } catch (e) {
     // Fail silently in offline mode
@@ -1242,8 +1532,7 @@ function setupPocketBaseRealtime() {
       if (action === 'delete') {
         if (orderIndex !== -1) {
           const filtered = orders.filter(o => o.orderId !== record.order_id);
-          localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(filtered));
-          window.dispatchEvent(new Event('fsa_storage_update'));
+          saveOrdersLocalOnly(filtered);
         }
       } else {
         const updatedOrder = mapRecordToOrder(record);
@@ -1252,8 +1541,7 @@ function setupPocketBaseRealtime() {
         } else {
           orders.unshift(updatedOrder);
         }
-        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
-        window.dispatchEvent(new Event('fsa_storage_update'));
+        saveOrdersLocalOnly(orders);
       }
     });
     
@@ -1266,8 +1554,7 @@ function setupPocketBaseRealtime() {
           localCarps[index].pincodes = record.pincodes || [];
           localCarps[index].name = record.name || record.username;
           localCarps[index].rank = record.rank || 'Expert';
-          localStorage.setItem(STORAGE_KEYS.CARPENTERS, JSON.stringify(localCarps));
-          window.dispatchEvent(new Event('fsa_storage_update'));
+          saveCarpentersLocalOnly(localCarps);
         }
       }
     });
@@ -1426,7 +1713,7 @@ export function checkSlaBreaches() {
       const idx = allOrders.findIndex(o => o.orderId === order.orderId);
       if (idx !== -1) {
         allOrders[idx] = updatedOrder;
-        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(allOrders));
+        saveOrders(allOrders);
       }
       addNotification(
         `🚨 SLA BREACH: Order ${order.orderId} (${order.customerName}) missed its promise date. Escalated to Dispatcher.`,
@@ -1469,7 +1756,7 @@ export function checkSlaBreaches() {
               }
             ]
           };
-          localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(allOrders));
+          saveOrders(allOrders);
         }
         addNotification(
           `⚠️ SLA At-Risk: Order ${order.orderId} deadline in ${Math.round(hoursUntilBreach)}h. Assign carpenter immediately.`,
@@ -1583,8 +1870,7 @@ setTimeout(() => {
       const records = await pb.collection('orders').getFullList({ sort: '-created' });
       if (records.length > 0) {
         const mapped = records.map(mapRecordToOrder);
-        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(mapped));
-        window.dispatchEvent(new Event('fsa_storage_update'));
+        saveOrdersLocalOnly(mapped);
       }
     } catch (e) {
       // Fail silently — PocketBase not running

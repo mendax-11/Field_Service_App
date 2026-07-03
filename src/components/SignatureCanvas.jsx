@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Trash2, Check, X, PenTool } from 'lucide-react';
 
 export default function SignatureCanvas({ onSave, onCancel }) {
@@ -110,10 +110,14 @@ export default function SignatureCanvas({ onSave, onCancel }) {
       tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
       tempCtx.drawImage(canvas, 0, 0);
       const dataUrl = tempCanvas.toDataURL('image/png');
-      onSave(dataUrl);
+      tempCanvas.toBlob((blob) => {
+        onSave(dataUrl, blob);
+      }, 'image/png');
     } else {
       const dataUrl = canvas.toDataURL('image/png');
-      onSave(dataUrl);
+      canvas.toBlob((blob) => {
+        onSave(dataUrl, blob);
+      }, 'image/png');
     }
   };
 

@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   CheckSquare, 
-  Square, 
   Camera, 
   AlertTriangle, 
   CreditCard, 
@@ -15,9 +14,7 @@ import {
   User, 
   Calendar, 
   IndianRupee, 
-  AlertCircle, 
   MapPin, 
-  RotateCcw, 
   MessageCircle, 
   ChevronRight, 
   Moon, 
@@ -25,14 +22,103 @@ import {
   LayoutDashboard,
   Briefcase,
   TrendingUp,
-  UserCheck,
-  Map
+  Lock,
+  AlertCircle
 } from 'lucide-react';
-import { stateManager } from '../stateManager';
+import { stateManager } from '../utils/stateManager';
+
 import SignatureCanvas from './SignatureCanvas';
 import './CarpenterPortal.css';
 
-export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
+// Capture GPS position (returns coords or null within timeout)
+function getGpsStamp() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    const timeout = setTimeout(() => resolve(null), 5000);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        clearTimeout(timeout);
+        resolve({
+          lat: pos.coords.latitude.toFixed(5),
+          lng: pos.coords.longitude.toFixed(5),
+          accuracy: Math.round(pos.coords.accuracy)
+        });
+      },
+      () => { clearTimeout(timeout); resolve(null); },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  });
+}
+
+// Resize + stamp photo with timestamp, GPS, and order ID watermark
+async function captureAndStampPhoto(file, orderId, { maxWidth = 800, maxHeight = 600 } = {}) {
+  const gps = await getGpsStamp();
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width;
+        let h = img.height;
+        if (w > h) { if (w > maxWidth) { h *= maxWidth / w; w = maxWidth; } }
+        else { if (h > maxHeight) { w *= maxHeight / h; h = maxHeight; } }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('Canvas 2d context unavailable')); return; }
+
+        // Draw the base image
+        ctx.drawImage(img, 0, 0, w, h);
+
+        // ── Watermark bar ──────────────────────────────────────────────────
+        const barH = Math.max(32, Math.round(h * 0.07));
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
+        ctx.fillRect(0, h - barH, w, barH);
+
+        const fontSize = Math.max(10, Math.round(barH * 0.38));
+        ctx.font = `bold ${fontSize}px monospace`;
+        ctx.fillStyle = '#ffffff';
+        ctx.textBaseline = 'middle';
+        const midY = h - barH / 2;
+
+        // Timestamp (left)
+        const now = new Date();
+        const tsLabel = now.toLocaleString('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+        });
+        ctx.fillText(`⏱ ${tsLabel}`, 8, midY);
+
+        // GPS (center) or "GPS unavailable"
+        const gpsLabel = gps
+          ? `📍 ${gps.lat}°N  ${gps.lng}°E  ±${gps.accuracy}m`
+          : '📍 GPS unavailable';
+        const gpsX = Math.round(w * 0.35);
+        ctx.fillText(gpsLabel, gpsX, midY);
+
+        // Order ID (right-aligned)
+        if (orderId) {
+          const idLabel = `#${orderId}`;
+          const measured = ctx.measureText(idLabel).width;
+          ctx.fillText(idLabel, w - measured - 8, midY);
+        }
+        // ── End watermark ──────────────────────────────────────────────────
+
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+export default function CarpenterPortal({ carpenterName = 'John Carpenter', directJobId = null }) {
+
   const [jobs, setJobs] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'jobs' | 'wallet'
@@ -44,6 +130,11 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
   const [damageNotes, setDamageNotes] = useState('');
   const [damagePhoto, setDamagePhoto] = useState('');
   const [showDamageForm, setShowDamageForm] = useState(false);
+  
+  // Direct Job link security check
+  const [pinVerified, setPinVerified] = useState(false);
+  const [enteredPin, setEnteredPin] = useState('');
+  const [pinError, setPinError] = useState('');
   
   // OTP & Completing states
   const [enteredOtp, setEnteredOtp] = useState('');
@@ -160,7 +251,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
           stateManager.updateJob(jobId, { gpsCoords: coords });
           setGpsActive(true);
         },
-        (err) => {
+        () => {
           setGpsError('Location access denied. Sharing disabled.');
           setGpsActive(false);
         },
@@ -181,6 +272,11 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
     const loadedJobs = stateManager.getJobs();
     setJobs(loadedJobs);
     
+    if (directJobId) {
+      setSelectedJobId(directJobId);
+      setActiveTab('jobs');
+    }
+    
     // Read theme from localStorage if available
     const savedTheme = localStorage.getItem('carpenter_app_theme');
     if (savedTheme) {
@@ -189,7 +285,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
         document.documentElement.classList.add('light-theme');
       }
     }
-  }, []);
+  }, [directJobId]);
 
   // Sync scroll on new comments
   useEffect(() => {
@@ -231,25 +327,27 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
 
   // Toggle Checklist item
   const handleChecklistToggle = (jobId, itemId) => {
-    const updatedJob = stateManager.toggleChecklistItem(jobId, itemId);
+    stateManager.toggleChecklistItem(jobId, itemId);
     // Refresh jobs
     setJobs(stateManager.getJobs());
   };
 
-  // Photo uploads (Before/After)
-  const handlePhotoChange = (jobId, type, e) => {
+  // Photo uploads (Before/After) — stamps GPS + timestamp watermark
+  const handlePhotoChange = async (jobId, type, e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
+    try {
+      const stampedDataUrl = await captureAndStampPhoto(file, jobId);
       const currentJob = stateManager.getJobById(jobId);
-      const updatedPhotos = { ...currentJob.photos, [type]: reader.result };
+      const updatedPhotos = { ...currentJob.photos, [type]: stampedDataUrl };
       stateManager.updateJob(jobId, { photos: updatedPhotos });
       setJobs(stateManager.getJobs());
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Failed to stamp and save photo:', err);
+    }
   };
+
 
   // Trigger Mock photo
   const handleMockPhoto = (jobId, type) => {
@@ -321,6 +419,30 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
       setOtpError("Incorrect verification code. Please check details.");
     }
     setJobs(stateManager.getJobs());
+  };
+
+  // Verify direct link PIN
+  const handleVerifyDirectPin = (e) => {
+    e.preventDefault();
+    const currentJob = stateManager.getJobById(directJobId);
+    if (currentJob && enteredPin === currentJob.otp) {
+      setPinVerified(true);
+      setPinError('');
+    } else {
+      setPinError("Invalid verification PIN. Please verify with your subcontractor manager.");
+    }
+  };
+
+  const getWhatsAppShareLink = () => {
+    if (!job) return '';
+    const jobLink = `${window.location.origin}${window.location.pathname}?job=${job.id}`;
+    const text = `Hi, here are the assembly job details for Order #${job.id}:
+👤 Client: ${job.customerName}
+📍 Address: ${job.customerAddress}, Pincode: ${job.pincode}
+🔧 Product: ${job.productName}
+🔑 Verification PIN: ${job.otp} (required to open link)
+👉 Complete checklist, upload photos, and collect client signature here: ${jobLink}`;
+    return `https://wa.me/?text=${encodeURIComponent(text)}`;
   };
 
   // Sign off and complete job
@@ -400,7 +522,9 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
   };
 
   // Filter jobs for this specific carpenter (RBAC Isolation)
-  const carpenterJobs = jobs.filter(j => j.assignedCarpenter === carpenterName || j.assigned_carpenter === carpenterName);
+  const carpenterJobs = directJobId 
+    ? jobs.filter(j => j.id === directJobId)
+    : jobs.filter(j => j.assignedCarpenter === carpenterName || j.assigned_carpenter === carpenterName);
 
   // Wallet stats summary calculation for this carpenter only
   const getCarpenterEarnings = () => {
@@ -432,7 +556,6 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
 
   const walletSummary = getCarpenterEarnings();
   const activeJobs = carpenterJobs.filter(j => j.status !== 'Completed');
-  const todayJobsCount = carpenterJobs.filter(j => j.status !== 'Completed' && j.status !== 'Scheduled').length;
 
   // Detail validation check for unlocking OTP send
   const isChecklistFinished = job ? job.checklist.every(item => item.checked) : false;
@@ -444,8 +567,51 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
     <div className="carpenter-app-simulator">
       <div className="carpenter-app-container">
         
-        {/* Header Bar */}
-        <header className="app-header">
+        {directJobId && !pinVerified ? (
+          <div className="pin-verification-screen" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', boxSizing: 'border-box' }}>
+            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+              <div style={{ display: 'inline-flex', padding: '16px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '50%', color: 'var(--color-info)', marginBottom: '16px' }}>
+                <Lock size={32} />
+              </div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '1.2rem', color: 'var(--text-primary)' }}>Technician Verification</h3>
+              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                Please enter the 4-digit assembly PIN for Order #{directJobId} to unlock this job checklist.
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifyDirectPin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <input
+                  type="password"
+                  pattern="[0-9]*"
+                  inputMode="numeric"
+                  maxLength={4}
+                  required
+                  placeholder="••••"
+                  value={enteredPin}
+                  onChange={(e) => { setEnteredPin(e.target.value.replace(/[^0-9]/g, '')); setPinError(''); }}
+                  style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '12px', padding: '16px', fontSize: '1.8rem', textAlign: 'center', letterSpacing: '8px', outline: 'none', boxSizing: 'border-box' }}
+                />
+                {pinError && (
+                  <div style={{ color: 'var(--color-danger)', fontSize: '0.72rem', marginTop: '6px', textAlign: 'center' }}>
+                    {pinError}
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '14px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                Verify & Unlock Checklist
+              </button>
+            </form>
+          </div>
+        ) : (
+          <>
+            {/* Header Bar */}
+            <header className="app-header">
           <div className="header-brand">
             <div className="welcome-avatar">J</div>
             <div>
@@ -474,13 +640,15 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
             >
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
-            <button 
-              type="button" 
-              onClick={handleResetDemo} 
-              className="btn-reset-demo"
-            >
-              Reset Demo
-            </button>
+            {!directJobId && (
+              <button 
+                type="button" 
+                onClick={handleResetDemo} 
+                className="btn-reset-demo"
+              >
+                Reset Demo
+              </button>
+            )}
           </div>
         </header>
 
@@ -849,17 +1017,19 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
             <>
               {/* Header with Back button */}
               <div className="job-detail-header">
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    setSelectedJobId(null);
-                    setEnteredOtp('');
-                    setOtpError('');
-                  }} 
-                  className="btn-back-link"
-                >
-                  <ArrowLeft size={20} />
-                </button>
+                {!directJobId && (
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setSelectedJobId(null);
+                      setEnteredOtp('');
+                      setOtpError('');
+                    }} 
+                    className="btn-back-link"
+                  >
+                    <ArrowLeft size={20} />
+                  </button>
+                )}
                 <div className="job-detail-title-block">
                   <h2>{job.id} - Details</h2>
                   <p>{getMaskedValue(job.customerName, 'name', job)}</p>
@@ -960,6 +1130,77 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', backgroundColor: 'var(--bg-input)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
                     <span className="pulse-dot" style={{ display: 'inline-block', marginRight: '6px', backgroundColor: 'var(--color-warning)' }}></span>
                     Job is In Progress. Fill checklist and photos below to sign off.
+                  </div>
+                </div>
+              )}
+
+              {/* Subcontractor Forwarding Widget (Anonymous) */}
+              {job.status !== 'Completed' && (
+                <div className="detail-card subcontractor-forward-card" style={{ marginBottom: '16px', padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <Send size={15} style={{ color: 'var(--color-info, #3b82f6)' }} />
+                    <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>Forward to Field Tech</h4>
+                  </div>
+                  <p style={{ margin: '0 0 12px 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Forward this job to your field technician. We do not require or collect their contact details.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${window.location.origin}${window.location.pathname}?job=${job.id}`}
+                        style={{ flex: 1, background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', borderRadius: '6px', padding: '8px', fontSize: '0.75rem', outline: 'none' }}
+                        onClick={(e) => e.target.select()}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '8px 12px', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?job=${job.id}`);
+                          alert("Delegation Link copied to clipboard!");
+                        }}
+                      >
+                        Copy
+                      </button>
+                    </div>
+
+                    <a
+                      href={getWhatsAppShareLink()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-primary"
+                      style={{ padding: '10px', borderRadius: '8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', textDecoration: 'none', textAlign: 'center', color: '#ffffff', cursor: 'pointer', fontWeight: 'bold' }}
+                      onClick={() => {
+                        // Log delegation audit trail anonymously
+                        const timestamp = new Date().toISOString();
+                        stateManager.updateJob(job.id, {
+                          auditLogs: [
+                            ...(job.auditLogs || []),
+                            {
+                              timestamp,
+                              action: 'Forwarded to Field Tech',
+                              user: carpenterName,
+                              comments: 'Generated anonymous delegation link and shared.'
+                            }
+                          ]
+                        });
+                        // Add comment
+                        stateManager.addComment(
+                          job.id, 
+                          `System: Job details link shared with field technician. Verification PIN: ${job.otp}`,
+                          'System'
+                        );
+                        setJobs(stateManager.getJobs());
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style={{ marginRight: '2px' }}>
+                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.5-5.739-1.453L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.725 1.451 5.405.002 9.803-4.379 9.805-9.767.001-2.61-1.01-5.064-2.848-6.906C16.489 2.09 14.041.822 11.45.822c-5.41 0-9.811 4.377-9.813 9.768 0 1.77.465 3.49 1.346 5.022L1.918 20.8l5.372-1.406c.92.518 1.83.76 2.76.76h.003-.006zm13.136-6.852c-.3-.15-1.77-.874-2.04-.972-.272-.099-.47-.149-.669.149-.198.299-.768.972-.941 1.171-.173.199-.347.225-.647.075-.3-.15-1.27-.468-2.42-1.493-.893-.797-1.496-1.782-1.671-2.081-.174-.3-.018-.462.13-.61.135-.133.3-.347.45-.52.15-.173.199-.298.3-.497.098-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.77-.724 2.02-1.388.248-.664.248-1.233.173-1.353-.074-.12-.272-.198-.57-.347z"/>
+                      </svg>
+                      Forward Job via WhatsApp
+                    </a>
                   </div>
                 </div>
               )}
@@ -1159,12 +1400,15 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
                             type="file" 
                             accept="image/*" 
                             style={{ display: 'none' }}
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               const f = e.target.files?.[0];
                               if (f) {
-                                const r = new FileReader();
-                                r.onloadend = () => setDamagePhoto(r.result);
-                                r.readAsDataURL(f);
+                                try {
+                                  const compressed = await captureAndStampPhoto(f, selectedJobId, { maxWidth: 800, maxHeight: 600 });
+                                  setDamagePhoto(compressed);
+                                } catch (err) {
+                                  console.error("Failed to compress damage photo:", err);
+                                }
                               }
                             }}
                           />
@@ -1393,45 +1637,49 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter' }) {
         )}
 
         {/* BOTTOM TAB NAV BAR */}
-        <nav className="app-bottom-nav">
-          <button 
-            type="button" 
-            className={`nav-tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('dashboard');
-              setSelectedJobId(null);
-            }}
-          >
-            <LayoutDashboard size={18} />
-            <span>Dashboard</span>
-          </button>
+        {!directJobId && (
+          <nav className="app-bottom-nav">
+            <button 
+              type="button" 
+              className={`nav-tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('dashboard');
+                setSelectedJobId(null);
+              }}
+            >
+              <LayoutDashboard size={18} />
+              <span>Dashboard</span>
+            </button>
 
-          <button 
-            type="button" 
-            className={`nav-tab-btn ${activeTab === 'jobs' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('jobs');
-              setSelectedJobId(null); // Go back to list when tab toggles
-            }}
-          >
-            <CheckSquare size={18} />
-            <span>Jobs</span>
-          </button>
-          
-          <button 
-            type="button" 
-            className={`nav-tab-btn ${activeTab === 'wallet' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('wallet');
-              setSelectedJobId(null); // Go back to list when tab toggles
-            }}
-          >
-            <CreditCard size={18} />
-            <span>Wallet</span>
-          </button>
-        </nav>
+            <button 
+              type="button" 
+              className={`nav-tab-btn ${activeTab === 'jobs' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('jobs');
+                setSelectedJobId(null); // Go back to list when tab toggles
+              }}
+            >
+              <CheckSquare size={18} />
+              <span>Jobs</span>
+            </button>
+            
+            <button 
+              type="button" 
+              className={`nav-tab-btn ${activeTab === 'wallet' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('wallet');
+                setSelectedJobId(null); // Go back to list when tab toggles
+              }}
+            >
+              <CreditCard size={18} />
+              <span>Wallet</span>
+            </button>
+          </nav>
+        )}
 
-      </div>
-    </div>
-  );
+      </>
+    )}
+  </div>
+</div>
+);
 }

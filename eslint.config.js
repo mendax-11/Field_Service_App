@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'pb_migrations', 'pb_data']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -16,6 +16,12 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+    rules: {
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/purity': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      'no-unused-vars': ['error', { caughtErrors: 'none' }],
     },
   },
 ])

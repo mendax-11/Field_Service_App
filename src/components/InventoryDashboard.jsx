@@ -1,5 +1,5 @@
 // src/components/InventoryDashboard.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Package, Check, ClipboardList, AlertOctagon, User, FileText, Image as ImageIcon } from 'lucide-react';
 import { getOrders, updateOrder, addNotification } from '../utils/stateManager';
 

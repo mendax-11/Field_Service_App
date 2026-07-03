@@ -1,10 +1,10 @@
 // src/components/SupportPortal.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
-  Search, MessageSquare, History, ArrowLeft, User, Phone, 
-  Package, Clock, Plus, HelpCircle, FileText, CheckCircle2 
+  Search, MessageSquare, History, ArrowLeft, User, 
+  Package, Clock, Plus, HelpCircle
 } from 'lucide-react';
-import { getOrders, addComment, getNotifications } from '../utils/stateManager';
+import { getOrders, addComment } from '../utils/stateManager';
 
 export default function SupportPortal({ refreshTrigger, onRefresh }) {
   const [searchTerm, setSearchTerm] = useState('');

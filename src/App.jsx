@@ -1,9 +1,10 @@
 // src/App.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import AdminPortal from './components/AdminPortal';
 import CarpenterPortal from './components/CarpenterPortal';
 import CustomerPortal from './components/CustomerPortal';
-import { getActiveUser, setActiveUser, setUserRole, getCarpenters, authenticateUser } from './stateManager';
+import { setActiveUser, setUserRole, getCarpenters, authenticateUser } from './utils/stateManager';
+
 import { LogOut, ClipboardList, Shield, Eye, EyeOff, Wifi, WifiOff, Lock } from 'lucide-react';
 
 export default function App() {
@@ -16,12 +17,8 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [carpenters, setCarpenters] = useState([]);
 
-  // Check for customer tracking URL: /?track=ORDER_ID
-  const urlParams = new URLSearchParams(window.location.search);
-  const trackOrderId = urlParams.get('track');
-  if (trackOrderId) {
-    return <CustomerPortal orderId={trackOrderId} />;
-  }
+  const [trackOrderId] = useState(() => new URLSearchParams(window.location.search).get('track'));
+  const [directJobId] = useState(() => new URLSearchParams(window.location.search).get('job'));
 
   // Load session from localStorage on mount
   useEffect(() => {
@@ -31,7 +28,7 @@ export default function App() {
         const u = JSON.parse(cachedUser);
         setUser(u);
         setUserRole(u.role);
-      } catch (e) {
+      } catch {
         localStorage.removeItem('fsa_logged_in_user');
       }
     }
@@ -78,7 +75,7 @@ export default function App() {
       } else {
         setLoginError(result.error || 'Login failed. Check your credentials.');
       }
-    } catch (err) {
+    } catch {
       setLoginError('An unexpected error occurred. Please try again.');
     } finally {
       setLoginLoading(false);
@@ -97,6 +94,14 @@ export default function App() {
     setLoginPassword('');
     setLoginError('');
   };
+
+  if (trackOrderId) {
+    return <CustomerPortal orderId={trackOrderId} />;
+  }
+
+  if (directJobId) {
+    return <CarpenterPortal directJobId={directJobId} carpenterName="Field Technician" />;
+  }
 
   if (!user) {
     return (
@@ -164,61 +169,63 @@ export default function App() {
             </button>
           </form>
 
-          {/* Demo Quick-Login Panel */}
-          <div className="login-profiles-helpers">
-            <span className="helpers-title">
-              <Shield size={10} /> Demo Accounts (password: <code>admin123</code> / <code>carpenter123</code>):
-            </span>
-            <div className="quick-profiles-grid">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('+91-80000-00001', 'admin123')}
-                className="quick-profile-btn admin-btn"
-              >
-                <span className="qp-role">Super Admin</span>
-                <span className="qp-email">+91-80000-00001</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('+91-80000-00002', 'admin123')}
-                className="quick-profile-btn"
-              >
-                <span className="qp-role">Dispatcher</span>
-                <span className="qp-email">+91-80000-00002</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('+91-80000-00003', 'admin123')}
-                className="quick-profile-btn"
-              >
-                <span className="qp-role">Inventory Mgr</span>
-                <span className="qp-email">+91-80000-00003</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('+91-80000-00004', 'admin123')}
-                className="quick-profile-btn"
-              >
-                <span className="qp-role">CS Support</span>
-                <span className="qp-email">+91-80000-00004</span>
-              </button>
-              {/* Dynamic carpenter accounts loaded from data store */}
-              {carpenters.map(c => (
+          {/* Demo Quick-Login Panel (only visible on localhost) */}
+          {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+            <div className="login-profiles-helpers">
+              <span className="helpers-title">
+                <Shield size={10} /> Demo Accounts (password: <code>admin123</code> / <code>carpenter123</code>):
+              </span>
+              <div className="quick-profiles-grid">
                 <button
-                  key={c.id}
                   type="button"
-                  onClick={() => handleQuickLogin(c.phone, 'carpenter123')}
-                  className="quick-profile-btn carpenter-btn"
+                  onClick={() => handleQuickLogin('+91-80000-00001', 'admin123')}
+                  className="quick-profile-btn admin-btn"
                 >
-                  <span className="qp-role">Carpenter</span>
-                  <span className="qp-email">{c.name} • {c.phone}</span>
+                  <span className="qp-role">Super Admin</span>
+                  <span className="qp-email">+91-80000-00001</span>
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('+91-80000-00002', 'admin123')}
+                  className="quick-profile-btn"
+                >
+                  <span className="qp-role">Dispatcher</span>
+                  <span className="qp-email">+91-80000-00002</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('+91-80000-00003', 'admin123')}
+                  className="quick-profile-btn"
+                >
+                  <span className="qp-role">Inventory Mgr</span>
+                  <span className="qp-email">+91-80000-00003</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('+91-80000-00004', 'admin123')}
+                  className="quick-profile-btn"
+                >
+                  <span className="qp-role">CS Support</span>
+                  <span className="qp-email">+91-80000-00004</span>
+                </button>
+                {/* Dynamic carpenter accounts loaded from data store */}
+                {carpenters.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => handleQuickLogin(c.phone, 'carpenter123')}
+                    className="quick-profile-btn carpenter-btn"
+                  >
+                    <span className="qp-role">Carpenter</span>
+                    <span className="qp-email">{c.name} • {c.phone}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="demo-mode-note">
+                Demo mode: credentials are validated locally when PocketBase is offline.
+              </p>
             </div>
-            <p className="demo-mode-note">
-              Demo mode: credentials are validated locally when PocketBase is offline.
-            </p>
-          </div>
+          )}
         </div>
       </div>
     );

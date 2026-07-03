@@ -1,7 +1,7 @@
 // src/components/OrderDetailsModal.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
-  X, User, Phone, Package, CreditCard, Calendar, Clock, 
+  X, User, Package, Clock, 
   MessageSquare, History, Plus, AlertTriangle, CheckCircle, Send
 } from 'lucide-react';
 import { getCarpenters, updateOrder, addComment, getUserRole, getActiveWorkload, MAX_ACTIVE_JOBS } from '../utils/stateManager';
