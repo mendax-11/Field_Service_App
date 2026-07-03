@@ -235,10 +235,8 @@ export default function AdminPortal() {
   // n8n Webhook settings
   const [n8nUrl, setN8nUrl] = useState('');
   const [n8nEnabled, setN8nEnabled] = useState(false);
-  // eslint-disable-next-line no-unused-vars
   const [webhookTestStatus, setWebhookTestStatus] = useState('idle'); // idle, sending, success, error
 
-  // eslint-disable-next-line no-unused-vars
   const handleSaveN8nConfig = (e) => {
     e.preventDefault();
     const success = saveN8nConfig({ enabled: n8nEnabled, webhookUrl: n8nUrl.trim() });
@@ -250,7 +248,6 @@ export default function AdminPortal() {
     }
   };
 
-  // eslint-disable-next-line no-unused-vars
   const handleTestWebhook = async () => {
     if (!n8nUrl.trim()) {
       alert('Please configure an n8n webhook URL first.');
@@ -287,7 +284,6 @@ export default function AdminPortal() {
     }
   };
 
-  // eslint-disable-next-line no-unused-vars
   const handleCopyBlueprint = () => {
     navigator.clipboard?.writeText(n8nBlueprintJSON)
       .then(() => alert('n8n Workflow Blueprint JSON copied to clipboard! Import it by pasting in n8n.'))
@@ -1408,6 +1404,86 @@ export default function AdminPortal() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="tab-panel settings-panel animate-fade-in">
+            <div className="card-style" style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <Cpu size={22} className="theme-accent" />
+                <h3 style={{ margin: 0 }}>Integrations & Webhook Configuration</h3>
+              </div>
+              <p className="card-desc" style={{ marginBottom: '24px' }}>
+                TimberFlow can automatically push status updates (such as transit alerts or completion confirmations) to your n8n workflow, which in turn triggers automated WhatsApp notifications to customers.
+              </p>
+
+              <form onSubmit={handleSaveN8nConfig} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <input
+                    type="checkbox"
+                    id="n8n-enabled-toggle"
+                    checked={n8nEnabled}
+                    onChange={(e) => setN8nEnabled(e.target.checked)}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="n8n-enabled-toggle" style={{ fontWeight: '600', cursor: 'pointer', userSelect: 'none' }}>
+                    Enable Automated Webhook Notifications
+                  </label>
+                </div>
+
+                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>
+                    n8n Webhook URL
+                  </label>
+                  <input
+                    type="url"
+                    value={n8nUrl}
+                    onChange={(e) => setN8nUrl(e.target.value)}
+                    placeholder="https://n8n.yourdomain.com/webhook/timberflow-fsm-events"
+                    required
+                    style={{ width: '100%', backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '10px', fontSize: '13px', outline: 'none' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                  <button
+                    type="submit"
+                    className="add-pincode-submit"
+                    style={{ padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold' }}
+                  >
+                    Save Configuration
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleTestWebhook}
+                    className="import-toggle-btn"
+                    style={{ padding: '10px 20px', borderRadius: '6px' }}
+                  >
+                    {webhookTestStatus === 'sending' ? 'Sending Test...' : 'Test Webhook Connection'}
+                  </button>
+                </div>
+              </form>
+
+              <hr style={{ border: 'none', borderTop: '1px solid var(--admin-border-color)', margin: '30px 0' }} />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <h4 style={{ margin: '0 0 6px 0' }}>n8n Workflow Blueprint</h4>
+                <p className="card-desc">
+                  Import our predefined workflow in n8n to instantly set up Meta WhatsApp Cloud API templates for traveling alerts, SLA breaches, and completion notifications.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCopyBlueprint}
+                  className="import-toggle-btn"
+                  style={{ width: 'fit-content', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '6px', border: '1px dashed var(--admin-border-color)' }}
+                >
+                  <Upload size={14} />
+                  <span>Copy Workflow Blueprint JSON</span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>
