@@ -1,10 +1,9 @@
-// src/components/AdminPortal.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './AdminPortal.css';
 import { 
   ClipboardList, Package, HelpCircle, Bell, 
   Coins, UserCheck, ShieldAlert, Upload, Cpu, X,
-  LayoutDashboard, Activity, AlertCircle, ShieldCheck, MapPin,
+  LayoutDashboard, Activity, AlertCircle, ShieldCheck,
   Settings, Download
 } from 'lucide-react';
 import { 
@@ -197,6 +196,7 @@ const n8nBlueprintJSON = JSON.stringify({
 
 export default function AdminPortal() {
   const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, orders, inventory, support, technicians, payouts, settings
+  const mapRef = useRef(null);
   const [role, setRole] = useState('Super Admin');
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
@@ -384,6 +384,128 @@ export default function AdminPortal() {
       Notification.requestPermission();
     }
   }, []);
+
+  // Initialize and update Leaflet Live Dispatch Tracking Map
+  useEffect(() => {
+    if (activeTab !== 'dashboard' || !window.L) {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+      return;
+    }
+
+    const mapContainer = document.getElementById('dispatch-leaflet-map');
+    if (!mapContainer) return;
+
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
+
+    // Centered around general Mumbai/India area for Indian context
+    const defaultCenter = [19.0760, 72.8777];
+    const map = window.L.map('dispatch-leaflet-map', {
+      zoomControl: true,
+      scrollWheelZoom: true
+    }).setView(defaultCenter, 10);
+    
+    mapRef.current = map;
+
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const markersGroup = window.L.featureGroup().addTo(map);
+
+    // 1. Plot Technicians
+    const technicians = getCarpenters();
+    technicians.forEach(t => {
+      let coords;
+      if (t.gpsCoords && t.gpsCoords.lat && t.gpsCoords.lng) {
+        coords = [Number(t.gpsCoords.lat), Number(t.gpsCoords.lng)];
+      } else {
+        // Fallback: slight random spread around center for simulation
+        const hash = t.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const latOffset = ((hash & 0xFF) / 255 - 0.5) * 0.12;
+        const lngOffset = (((hash >> 8) & 0xFF) / 255 - 0.5) * 0.12;
+        coords = [defaultCenter[0] + latOffset, defaultCenter[1] + lngOffset];
+      }
+
+      const activeJobsCount = getOrders().filter(o => o.assignedCarpenter === t.name && o.jobStatus !== 'Completed').length;
+
+      const techIcon = window.L.divIcon({
+        className: 'custom-leaflet-tech-icon',
+        html: `<div style="background-color: #3b82f6; border: 2px solid white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+
+      const popupContent = `
+        <div style="font-family: system-ui, -apple-system, sans-serif; color: #1e293b; padding: 4px; min-width: 140px;">
+          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: #3b82f6;">👷 ${t.name}</h5>
+          <span style="font-size: 11px; color: #64748b;">Rank: ${t.rank}</span><br/>
+          <span style="font-size: 11px; color: #64748b;">Active Jobs: ${activeJobsCount} / ${t.maxActiveJobs || 3}</span><br/>
+          ${t.gpsCoords ? '<strong style="color: #22c55e; font-size: 10px;">● Online (Live GPS)</strong>' : '<em style="color: #94a3b8; font-size: 10px;">Offline (Last Position)</em>'}
+        </div>
+      `;
+
+      window.L.marker(coords, { icon: techIcon })
+        .bindPopup(popupContent)
+        .addTo(markersGroup);
+    });
+
+    // 2. Plot Active Orders
+    const activeOrders = getOrders().filter(o => o.jobStatus !== 'Completed');
+    activeOrders.forEach(o => {
+      // Deterministic offset based on pincode for clean grid grouping
+      const pinStr = o.pincode || '';
+      let hash = 0;
+      for (let i = 0; i < pinStr.length; i++) {
+        hash = pinStr.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const latOffset = ((hash & 0xFF) / 255 - 0.5) * 0.16;
+      const lngOffset = (((hash >> 8) & 0xFF) / 255 - 0.5) * 0.16;
+      const coords = [defaultCenter[0] + latOffset, defaultCenter[1] + lngOffset];
+
+      const statusColor = o.jobStatus === 'In Progress' ? '#eab308' : o.jobStatus === 'Assigned' ? '#10b981' : o.jobStatus === 'On Hold' ? '#f97316' : '#ef4444';
+
+      const orderIcon = window.L.divIcon({
+        className: 'custom-leaflet-order-icon',
+        html: `<div style="background-color: ${statusColor}; border: 2px solid white; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      });
+
+      const popupContent = `
+        <div style="font-family: system-ui, -apple-system, sans-serif; color: #1e293b; padding: 4px; min-width: 150px;">
+          <h5 style="margin: 0 0 4px 0; font-size: 13px; color: ${statusColor};">📦 ${o.orderId}</h5>
+          <span style="font-size: 11px;">Client: <strong>${o.customerName}</strong></span><br/>
+          <span style="font-size: 11px;">Pincode: ${o.pincode}</span><br/>
+          <span style="font-size: 11px;">Status: <strong style="color: ${statusColor}">${o.jobStatus}</strong></span><br/>
+          <span style="font-size: 11px;">Technician: ${o.assignedCarpenter || 'Unassigned'}</span>
+        </div>
+      `;
+
+      window.L.marker(coords, { icon: orderIcon })
+        .bindPopup(popupContent)
+        .addTo(markersGroup);
+    });
+
+    if (markersGroup.getLayers().length > 0) {
+      try {
+        map.fitBounds(markersGroup.getBounds().pad(0.1));
+      } catch (err) {}
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [activeTab, refreshTrigger]);
 
 
   const triggerRefresh = () => {
@@ -866,62 +988,18 @@ export default function AdminPortal() {
                 </div>
               </div>
 
-              {/* Live Dispatch map simulator */}
+              {/* Live Dispatch map */}
               <div className="live-map-card card-style">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                   <div>
                     <h4 style={{ margin: 0 }}>Live Dispatch Tracking</h4>
-                    <p className="card-desc" style={{ margin: 0 }}>Simulated real-time tracking of technicians and orders.</p>
+                    <p className="card-desc" style={{ margin: 0 }}>Real-time location of active technicians and pending orders.</p>
                   </div>
                   <span className="live-indicator"><span className="pulse-dot"></span> Live GPS</span>
                 </div>
 
-                <div className="mock-map-canvas">
-                  {/* Map Grid Matrix Lines */}
-                  <div className="map-grid-matrix"></div>
-                  
-                  {/* Map Cities / Regions */}
-                  <div className="map-city-label malibu" style={{ top: '25%', left: '15%' }}>Malibu (90265)</div>
-                  <div className="map-city-label burbank" style={{ top: '35%', left: '75%' }}>Burbank (91505)</div>
-                  <div className="map-city-label springfield" style={{ top: '65%', left: '45%' }}>Springfield (62704)</div>
-                  <div className="map-city-label ny" style={{ top: '80%', left: '80%' }}>New York (11201)</div>
-
-                  {/* Route lines */}
-                  <svg className="map-route-lines" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-                    <path d="M 50,50 L 150,80" stroke="rgba(59, 130, 246, 0.4)" strokeWidth="2" strokeDasharray="4 4" fill="none" />
-                    <path d="M 220,130 L 130,170" stroke="rgba(16, 185, 129, 0.4)" strokeWidth="2" strokeDasharray="4 4" fill="none" />
-                  </svg>
-
-                  {/* Technician positions pins */}
-                  <div className="map-pin tech-pin pulsing" style={{ top: '40%', left: '35%' }} title="John Carpenter - Dispatched to FLP-4421">
-                    <UserCheck size={12} style={{ color: 'white' }} />
-                    <span className="pin-label">John C.</span>
-                  </div>
-
-                  <div className="map-pin tech-pin idling" style={{ top: '60%', left: '70%' }} title="Mark Carpenter - Idling in NY">
-                    <UserCheck size={12} style={{ color: 'white' }} />
-                    <span className="pin-label">Mark C. (NY)</span>
-                  </div>
-
-                  {/* Order pins */}
-                  {getOrders().filter(o => o.jobStatus !== 'Completed').map((order, idx) => {
-                    // Spread the pins logically
-                    const topPos = order.pincode === '90265' ? '28%' : order.pincode === '62704' ? '70%' : order.pincode === '11201' ? '82%' : order.pincode === '91505' ? '42%' : `${30 + (idx * 15)}%`;
-                    const leftPos = order.pincode === '90265' ? '20%' : order.pincode === '62704' ? '50%' : order.pincode === '11201' ? '76%' : order.pincode === '91505' ? '70%' : `${25 + (idx * 12)}%`;
-                    const statusClass = order.jobStatus === 'In Progress' ? 'in-progress' : order.jobStatus === 'Assigned' ? 'assigned' : 'unassigned';
-
-                    return (
-                      <div 
-                        key={order.orderId} 
-                        className={`map-pin order-pin ${statusClass}`} 
-                        style={{ top: topPos, left: leftPos }}
-                        title={`${order.orderId}: ${order.customerName} (${order.jobStatus})`}
-                      >
-                        <MapPin size={10} style={{ color: 'white' }} />
-                        <span className="pin-tooltip">{order.orderId}</span>
-                      </div>
-                    );
-                  })}
+                <div style={{ position: 'relative', width: '100%' }}>
+                  <div id="dispatch-leaflet-map" style={{ height: '350px', borderRadius: '8px', zIndex: 1, border: '1px solid var(--admin-border-color)' }}></div>
                 </div>
               </div>
             </div>

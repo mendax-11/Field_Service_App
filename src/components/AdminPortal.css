@@ -2654,4 +2654,50 @@
   background: #ef4444; /* red */
 }
 
+/* ─────────────────────────────────────────────
+   LEAFLET CUSTOM DARK THEME OVERRIDES
+   ───────────────────────────────────────────── */
+.leaflet-container {
+  background: #0f172a !important; /* Matches our dark slate background */
+  font-family: inherit;
+}
+
+.leaflet-bar {
+  border: 1px solid var(--admin-border-color) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.leaflet-bar a {
+  background-color: var(--admin-bg-card) !important;
+  color: var(--admin-text-primary) !important;
+  border-bottom: 1px solid var(--admin-border-color) !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: var(--admin-bg-input) !important;
+  color: var(--admin-logo-color) !important;
+}
+
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: var(--admin-bg-card) !important;
+  color: var(--admin-text-primary) !important;
+  border: 1px solid var(--admin-border-color);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+  border-radius: 8px !important;
+}
+
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  line-height: 1.5;
+}
+
+.leaflet-popup-close-button {
+  color: var(--admin-text-secondary) !important;
+  padding: 8px !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: var(--color-danger, #ef4444) !important;
+}
+
 

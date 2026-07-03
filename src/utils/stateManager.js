@@ -1857,17 +1857,23 @@ function setupSlaMonitor() {
 }
 
 // ─────────────────────────────────────────────
+// Normalise phone number to last 10 digits for resilient matching (ignoring country codes, dashes, spaces)
+export function normalizePhoneForComparison(p) {
+  if (!p) return '';
+  const clean = p.replace(/[^0-9]/g, '');
+  return clean.slice(-10);
+}
+
 // AUTHENTICATION
 // ─────────────────────────────────────────────
 export async function authenticateUser(phone, password) {
-  // Normalise the phone input — strip spaces for flexible matching
-  const normalizedPhone = phone.replace(/\s+/g, '');
+  const cleanInputPhone = normalizePhoneForComparison(phone);
 
-  // Try PocketBase first (uses email lookup by phone field if your schema has it)
+  // Try PocketBase first
   try {
-    const userRecords = await pb.collection('users').getFullList({ filter: `phone="${phone}"` });
-    if (userRecords.length > 0) {
-      const pbUser = userRecords[0];
+    const userRecords = await pb.collection('users').getFullList();
+    const pbUser = userRecords.find(r => normalizePhoneForComparison(r.phone || r.username) === cleanInputPhone);
+    if (pbUser) {
       const authData = await pb.collection('users').authWithPassword(pbUser.email, password);
       if (authData?.record) {
         const record = authData.record;
@@ -1886,7 +1892,7 @@ export async function authenticateUser(phone, password) {
       }
     }
   } catch (pbErr) {
-    // PocketBase unavailable or no match — fall through to local demo
+    // PocketBase auth error or connection failure — fall through to local demo fallback
   }
 
   // Demo / offline fallback — match against phone numbers
@@ -1897,11 +1903,8 @@ export async function authenticateUser(phone, password) {
     { phone: '+91-80000-00004', password: 'admin123', role: 'Customer Support',   name: 'Support Executive' },
   ];
 
-  // Normalize stored phones the same way for comparison
-  const normalize = (p) => (p || '').replace(/\s+/g, '');
-
   const demoMatch = DEMO_ACCOUNTS.find(
-    a => normalize(a.phone) === normalizedPhone && a.password === password
+    a => normalizePhoneForComparison(a.phone) === cleanInputPhone && a.password === password
   );
   if (demoMatch) {
     return {
@@ -1914,7 +1917,7 @@ export async function authenticateUser(phone, password) {
   // Check carpenter list by phone number
   const carpenters = getCarpenters();
   const matchedCarpenter = carpenters.find(
-    c => normalize(c.phone) === normalizedPhone
+    c => normalizePhoneForComparison(c.phone) === cleanInputPhone
   );
   if (matchedCarpenter && password === 'carpenter123') {
     return {
