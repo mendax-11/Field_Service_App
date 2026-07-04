@@ -122,8 +122,12 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   const [jobs, setJobs] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'jobs' | 'wallet'
-  const [theme, setTheme] = useState('dark'); // 'dark' | 'light'
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('carpenter_app_theme');
+    return saved || 'dark';
+  });
   const [availability, setAvailability] = useState('Online'); // 'Online' | 'Break' | 'Offline'
+  const [uploadingPhoto, setUploadingPhoto] = useState({ before: false, after: false });
   
   // Form states
   const [damagePartName, setDamagePartName] = useState('');
@@ -274,6 +278,15 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   };
 
 
+  // Sync theme class list on document root
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light-theme');
+    } else {
+      document.documentElement.classList.remove('light-theme');
+    }
+  }, [theme]);
+
   // Load jobs initially
   useEffect(() => {
     const loadedJobs = stateManager.getJobs();
@@ -282,15 +295,6 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     if (directJobId) {
       setSelectedJobId(directJobId);
       setActiveTab('jobs');
-    }
-    
-    // Read theme from localStorage if available
-    const savedTheme = localStorage.getItem('carpenter_app_theme');
-    if (savedTheme) {
-      setTheme(savedTheme);
-      if (savedTheme === 'light') {
-        document.documentElement.classList.add('light-theme');
-      }
     }
   }, [directJobId]);
 
@@ -344,6 +348,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setUploadingPhoto(prev => ({ ...prev, [type]: true }));
     try {
       const stampedDataUrl = await captureAndStampPhoto(file, jobId);
       const currentJob = stateManager.getJobById(jobId);
@@ -352,6 +357,8 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       setJobs(stateManager.getJobs());
     } catch (err) {
       console.error('Failed to stamp and save photo:', err);
+    } finally {
+      setUploadingPhoto(prev => ({ ...prev, [type]: false }));
     }
   };
 
@@ -1373,7 +1380,26 @@ Your review helps us serve you better. Thank you!`;
                   
                   {/* Before Assembly Photo */}
                   <div className={`photo-uploader-box ${job.photos.before ? 'has-image' : ''}`}>
-                    {job.photos.before ? (
+                    {uploadingPhoto.before ? (
+                      <div className="upload-loading-spinner" style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '100%',
+                        gap: '8px'
+                      }}>
+                        <div className="spinner" style={{
+                          width: '24px',
+                          height: '24px',
+                          border: '3px solid rgba(255,255,255,0.1)',
+                          borderTopColor: 'var(--color-secondary, #3b82f6)',
+                          borderRadius: '50%',
+                          animation: 'spin 1s linear infinite'
+                        }}></div>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center' }}>Stamping GPS...</span>
+                      </div>
+                    ) : job.photos.before ? (
                       <>
                         <img src={job.photos.before} className="uploaded-thumb" alt="Before Assembly" />
                         <button 
@@ -1407,10 +1433,29 @@ Your review helps us serve you better. Thank you!`;
                       </>
                     )}
                   </div>
-
+ 
                   {/* After Assembly Photo */}
                   <div className={`photo-uploader-box ${job.photos.after ? 'has-image' : ''}`}>
-                    {job.photos.after ? (
+                    {uploadingPhoto.after ? (
+                      <div className="upload-loading-spinner" style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '100%',
+                        gap: '8px'
+                      }}>
+                        <div className="spinner" style={{
+                          width: '24px',
+                          height: '24px',
+                          border: '3px solid rgba(255,255,255,0.1)',
+                          borderTopColor: 'var(--color-secondary, #3b82f6)',
+                          borderRadius: '50%',
+                          animation: 'spin 1s linear infinite'
+                        }}></div>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center' }}>Stamping GPS...</span>
+                      </div>
+                    ) : job.photos.after ? (
                       <>
                         <img src={job.photos.after} className="uploaded-thumb" alt="After Assembly" />
                         <button 

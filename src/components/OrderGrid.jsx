@@ -31,6 +31,30 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
   // Selection state
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
 
+  // Column Selection states
+  const [showColumnDropdown, setShowColumnDropdown] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const cached = localStorage.getItem('fsa_visible_columns');
+    if (cached) {
+      try { return JSON.parse(cached); } catch (e) {}
+    }
+    return {
+      platform: true,
+      sku: true,
+      payout: true,
+      delivery: true,
+      jobStatus: true,
+      carpenter: true,
+      payment: true,
+      sla: true
+    };
+  });
+
+  // Save visible columns preference
+  useEffect(() => {
+    localStorage.setItem('fsa_visible_columns', JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
+
   const loadData = () => {
     setOrders(getOrders());
     setCarpenters(getCarpenters());
@@ -363,7 +387,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
             </select>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', position: 'relative' }}>
             <input 
               type="checkbox" 
               id="showArchived" 
@@ -374,9 +398,75 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
               }}
               style={{ cursor: 'pointer', width: '15px', height: '15px' }}
             />
-            <label htmlFor="showArchived" style={{ cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>
+            <label htmlFor="showArchived" style={{ cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginRight: '8px' }}>
               Show Archived
             </label>
+
+            {/* Column Selector Toggle Dropdown */}
+            <button
+              type="button"
+              onClick={() => setShowColumnDropdown(!showColumnDropdown)}
+              className="template-btn"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                margin: 0,
+                fontSize: '11px',
+                padding: '6px 12px',
+                background: 'transparent',
+                border: '1px solid var(--admin-border-color)',
+                color: 'var(--admin-text-primary)'
+              }}
+            >
+              <SlidersHorizontal size={12} />
+              <span>Columns</span>
+            </button>
+
+            {showColumnDropdown && (
+              <div style={{
+                position: 'absolute',
+                top: '32px',
+                right: '0',
+                backgroundColor: 'var(--admin-bg-secondary, #0f172a)',
+                border: '1px solid var(--admin-border-color)',
+                borderRadius: '8px',
+                padding: '10px',
+                zIndex: 1000,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
+                minWidth: '150px'
+              }}>
+                <span style={{ fontSize: '9px', textTransform: 'uppercase', color: 'var(--admin-text-secondary)', fontWeight: 'bold', borderBottom: '1px solid var(--admin-border-color)', paddingBottom: '4px', marginBottom: '2px' }}>
+                  Toggle Columns
+                </span>
+                {Object.keys(visibleColumns).map((colKey) => {
+                  const labels = {
+                    platform: 'Platform',
+                    sku: 'SKU / Item',
+                    payout: 'Payout (₹)',
+                    delivery: 'Delivery Status',
+                    jobStatus: 'Job Status',
+                    carpenter: 'Carpenter',
+                    payment: 'Payment Type',
+                    sla: 'SLA priority'
+                  };
+                  return (
+                    <label key={colKey} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: 'var(--admin-text-primary)' }}>
+                      <input
+                        type="checkbox"
+                        checked={visibleColumns[colKey]}
+                        onChange={() => setVisibleColumns(prev => ({ ...prev, [colKey]: !prev[colKey] }))}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span>{labels[colKey]}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -438,15 +528,15 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
                 />
               </th>
               <th>Order ID</th>
-              <th>Platform</th>
+              {visibleColumns.platform && <th>Platform</th>}
               <th>Customer Name</th>
-              <th>SKU</th>
-              <th>Payout</th>
-              <th>Delivery</th>
-              <th>Job Status</th>
-              <th>Carpenter</th>
-              <th>Payment</th>
-              <th>SLA</th>
+              {visibleColumns.sku && <th>SKU</th>}
+              {visibleColumns.payout && <th>Payout</th>}
+              {visibleColumns.delivery && <th>Delivery</th>}
+              {visibleColumns.jobStatus && <th>Job Status</th>}
+              {visibleColumns.carpenter && <th>Carpenter</th>}
+              {visibleColumns.payment && <th>Payment</th>}
+              {visibleColumns.sla && <th>SLA</th>}
               <th className="text-center">Actions</th>
             </tr>
           </thead>
@@ -469,41 +559,53 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
                     />
                   </td>
                   <td className="font-mono text-bold">{order.orderId}</td>
-                  <td>
-                    <span className={`platform-tag ${order.platform.toLowerCase()}`}>
-                      {order.platform}
-                    </span>
-                  </td>
+                  {visibleColumns.platform && (
+                    <td>
+                      <span className={`platform-tag ${order.platform.toLowerCase()}`}>
+                        {order.platform}
+                      </span>
+                    </td>
+                  )}
                   <td>{order.customerName}</td>
-                  <td className="font-mono text-small" title={order.sku}>{order.sku}</td>
-                  <td className="text-bold price">₹{order.payout}</td>
-                  <td>
-                    <span className={`status-badge delivery-${order.deliveryStatus.toLowerCase().replace(/\s+/g, '-')}`}>
-                      {order.deliveryStatus}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`status-badge job-${order.jobStatus.toLowerCase().replace(/\s+/g, '-')}`}>
-                      {order.jobStatus}
-                    </span>
-                  </td>
-                  <td className="carpenter-cell">
-                    {order.assignedCarpenter ? (
-                      <span className="carpenter-assigned">{order.assignedCarpenter}</span>
-                    ) : (
-                      <span className="carpenter-unassigned">None</span>
-                    )}
-                  </td>
-                  <td>
-                    <span className={`payment-badge ${order.paymentStatus.toLowerCase()}`}>
-                      {order.paymentStatus}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`sla-indicator-badge ${slaBadge.class}`}>
-                      {slaBadge.text}
-                    </span>
-                  </td>
+                  {visibleColumns.sku && <td className="font-mono text-small" title={order.sku}>{order.sku}</td>}
+                  {visibleColumns.payout && <td className="text-bold price">₹{order.payout}</td>}
+                  {visibleColumns.delivery && (
+                    <td>
+                      <span className={`status-badge delivery-${order.deliveryStatus.toLowerCase().replace(/\s+/g, '-')}`}>
+                        {order.deliveryStatus}
+                      </span>
+                    </td>
+                  )}
+                  {visibleColumns.jobStatus && (
+                    <td>
+                      <span className={`status-badge job-${order.jobStatus.toLowerCase().replace(/\s+/g, '-')}`}>
+                        {order.jobStatus}
+                      </span>
+                    </td>
+                  )}
+                  {visibleColumns.carpenter && (
+                    <td className="carpenter-cell">
+                      {order.assignedCarpenter ? (
+                        <span className="carpenter-assigned">{order.assignedCarpenter}</span>
+                      ) : (
+                        <span className="carpenter-unassigned">None</span>
+                      )}
+                    </td>
+                  )}
+                  {visibleColumns.payment && (
+                    <td>
+                      <span className={`payment-badge ${order.paymentStatus.toLowerCase()}`}>
+                        {order.paymentStatus}
+                      </span>
+                    </td>
+                  )}
+                  {visibleColumns.sla && (
+                    <td>
+                      <span className={`sla-indicator-badge ${slaBadge.class}`}>
+                        {slaBadge.text}
+                      </span>
+                    </td>
+                  )}
                   <td className="actions-cell text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="action-buttons-wrapper">
                       <button 
