@@ -1877,21 +1877,34 @@ export async function authenticateUser(phone, password) {
   try {
     let authData = null;
     
-    // Try 1: Authenticate directly with the cleaned phone input
-    try {
-      authData = await pb.collection('users').authWithPassword(cleanPhoneDigits, password);
-    } catch (e) {
-      // Try 2: If the input has country prefix, try matching just the last 10 digits
-      if (cleanPhoneDigits.length > 10) {
-        try {
-          authData = await pb.collection('users').authWithPassword(cleanPhoneDigits.slice(-10), password);
-        } catch (e2) {}
-      } 
-      // Try 3: If it was 10 digits, try prepending the 91 country code
-      else if (cleanPhoneDigits.length === 10) {
-        try {
-          authData = await pb.collection('users').authWithPassword('91' + cleanPhoneDigits, password);
-        } catch (e3) {}
+    // Build possible login identity candidates (usernames or emails)
+    const candidates = [];
+    
+    if (phone.includes('@')) {
+      // If the user typed a direct email, prioritize it
+      candidates.push(phone.trim().toLowerCase());
+    } else {
+      // Otherwise build phone-based candidates
+      candidates.push(cleanPhoneDigits);
+      candidates.push(`${cleanPhoneDigits}@timberflow.in`);
+      
+      if (cleanPhoneDigits.length === 10) {
+        candidates.push('91' + cleanPhoneDigits);
+        candidates.push(`91${cleanPhoneDigits}@timberflow.in`);
+      } else if (cleanPhoneDigits.length > 10) {
+        const last10 = cleanPhoneDigits.slice(-10);
+        candidates.push(last10);
+        candidates.push(`${last10}@timberflow.in`);
+      }
+    }
+
+    // Try each login identity candidate until one succeeds
+    for (const identity of candidates) {
+      try {
+        authData = await pb.collection('users').authWithPassword(identity, password);
+        if (authData?.record) break;
+      } catch (err) {
+        // try next candidate
       }
     }
 
