@@ -1532,8 +1532,13 @@ async function syncCarpentersFromPocketBase() {
     const serverEmails = new Set(records.map(r => (r.email || '').toLowerCase()));
     const serverPhones = new Set(records.map(r => (r.phone || r.username || '').replace(/[^0-9]/g, '')));
 
-    // 1. Upload local-only carpenters to PocketBase
+     // 1. Upload local-only carpenters to PocketBase
     for (const carp of localCarps) {
+      // Skip default mock carpenters to allow deletion from server
+      if (['c1', 'c2', 'c3', 'c4'].includes(carp.id) || carp.email?.toLowerCase().endsWith('@service.com')) {
+        continue;
+      }
+
       const cleanPhone = (carp.phone || '').replace(/[^0-9]/g, '');
       const hasEmail = carp.email && serverEmails.has(carp.email.toLowerCase());
       const hasPhone = cleanPhone && serverPhones.has(cleanPhone);
@@ -1567,22 +1572,20 @@ async function syncCarpentersFromPocketBase() {
       filter: 'role="Carpenter"'
     });
 
-    if (freshRecords.length > 0) {
-      const merged = freshRecords.map(r => {
-        const match = localCarps.find(lc => lc.phone === r.phone || lc.id === r.id || lc.phone === r.username || lc.email === r.email);
-        return {
-          id: r.id,
-          name: r.name || r.username,
-          phone: r.phone || r.username || '',
-          email: r.email || '',
-          rank: r.rank || 'Expert',
-          activeJobs: match ? (match.activeJobs || 0) : 0,
-          maxActiveJobs: Number(r.max_active_jobs || 3),
-          pincodes: r.pincodes || []
-        };
-      });
-      saveCarpentersLocalOnly(merged);
-    }
+    const merged = freshRecords.map(r => {
+      const match = localCarps.find(lc => lc.phone === r.phone || lc.id === r.id || lc.phone === r.username || lc.email === r.email);
+      return {
+        id: r.id,
+        name: r.name || r.username,
+        phone: r.phone || r.username || '',
+        email: r.email || '',
+        rank: r.rank || 'Expert',
+        activeJobs: match ? (match.activeJobs || 0) : 0,
+        maxActiveJobs: Number(r.max_active_jobs || 3),
+        pincodes: r.pincodes || []
+      };
+    });
+    saveCarpentersLocalOnly(merged);
   } catch (e) {
     console.error("[PocketBase Sync] Error during carpenters sync:", e);
   }
