@@ -332,6 +332,12 @@ body {
   z-index: 100;
 }
 
+@media (max-width: 767px) {
+  .app-top-switcher-bar {
+    display: none !important;
+  }
+}
+
 .switcher-info {
   display: flex;
   align-items: center;

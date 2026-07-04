@@ -709,7 +709,7 @@ Your review helps us serve you better. Thank you!`;
             {/* Header Bar */}
             <header className="app-header">
           <div className="header-brand">
-            <div className="welcome-avatar">J</div>
+            <div className="welcome-avatar">{(carpenterName || 'C').charAt(0).toUpperCase()}</div>
             <div>
               <h1>CarpentryPro</h1>
               <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Carpenter Portal</span>
@@ -737,13 +737,31 @@ Your review helps us serve you better. Thank you!`;
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
             {!directJobId && (
-              <button 
-                type="button" 
-                onClick={handleResetDemo} 
-                className="btn-reset-demo"
-              >
-                Reset Demo
-              </button>
+              <>
+                <button 
+                  type="button" 
+                  onClick={handleResetDemo} 
+                  className="btn-reset-demo"
+                >
+                  Reset
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    localStorage.removeItem('fsa_logged_in_user');
+                    window.location.reload();
+                  }} 
+                  className="btn-reset-demo"
+                  style={{ 
+                    marginLeft: '6px', 
+                    background: 'rgba(239, 68, 68, 0.12)', 
+                    border: '1px solid rgba(239, 68, 68, 0.25)', 
+                    color: 'var(--color-danger)' 
+                  }}
+                >
+                  Logout
+                </button>
+              </>
             )}
           </div>
         </header>
