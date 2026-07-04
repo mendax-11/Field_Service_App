@@ -16,7 +16,10 @@ export default function App() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [carpenters, setCarpenters] = useState([]);
-  const [showMobileFrame, setShowMobileFrame] = useState(true);
+  const [showMobileFrame, setShowMobileFrame] = useState(() => {
+    const saved = localStorage.getItem('fsa_show_mobile_frame');
+    return saved === 'true'; // Defaults to false if not set
+  });
 
   const [trackOrderId] = useState(() => new URLSearchParams(window.location.search).get('track'));
   const [directJobId] = useState(() => new URLSearchParams(window.location.search).get('job'));
@@ -251,7 +254,11 @@ export default function App() {
           {isCarpenter && (
             <button
               type="button"
-              onClick={() => setShowMobileFrame(!showMobileFrame)}
+              onClick={() => {
+                const nextVal = !showMobileFrame;
+                setShowMobileFrame(nextVal);
+                localStorage.setItem('fsa_show_mobile_frame', String(nextVal));
+              }}
               className="btn-logout-switcher"
               style={{ marginRight: '12px', background: 'rgba(255, 255, 255, 0.1)', borderColor: 'rgba(255, 255, 255, 0.2)' }}
             >
