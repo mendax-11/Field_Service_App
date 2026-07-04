@@ -5,7 +5,7 @@ import CarpenterPortal from './components/CarpenterPortal';
 import CustomerPortal from './components/CustomerPortal';
 import { setActiveUser, setUserRole, getCarpenters, authenticateUser } from './utils/stateManager';
 
-import { LogOut, ClipboardList, Shield, Eye, EyeOff, Wifi, WifiOff, Lock } from 'lucide-react';
+import { LogOut, ClipboardList, Shield, Eye, EyeOff, Wifi, WifiOff, Lock, Smartphone, Monitor } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -16,12 +16,16 @@ export default function App() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [carpenters, setCarpenters] = useState([]);
+  const [showMobileFrame, setShowMobileFrame] = useState(true);
 
   const [trackOrderId] = useState(() => new URLSearchParams(window.location.search).get('track'));
   const [directJobId] = useState(() => new URLSearchParams(window.location.search).get('job'));
 
   // Load session from localStorage on mount
   useEffect(() => {
+    if (window.innerWidth < 768) {
+      setShowMobileFrame(false);
+    }
     const cachedUser = localStorage.getItem('fsa_logged_in_user');
     if (cachedUser) {
       try {
@@ -243,25 +247,46 @@ export default function App() {
           <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>({user.phone || user.email})</span>
         </div>
 
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="btn-logout-switcher"
-        >
-          <LogOut size={13} />
-          <span>Logout &amp; Swap Role</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          {isCarpenter && (
+            <button
+              type="button"
+              onClick={() => setShowMobileFrame(!showMobileFrame)}
+              className="btn-logout-switcher"
+              style={{ marginRight: '12px', background: 'rgba(255, 255, 255, 0.1)', borderColor: 'rgba(255, 255, 255, 0.2)' }}
+            >
+              {showMobileFrame ? <Monitor size={13} /> : <Smartphone size={13} />}
+              <span>{showMobileFrame ? 'Use Desktop View' : 'Use Mobile Frame'}</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="btn-logout-switcher"
+          >
+            <LogOut size={13} />
+            <span>Logout &amp; Swap Role</span>
+          </button>
+        </div>
       </div>
 
       {isCarpenter ? (
-        /* Render Carpenter Mobile App inside phone mock frame simulator */
-        <div className="mobile-simulator-layout">
-          <div className="mobile-phone-frame">
-            <div className="mobile-screen-content">
-              <CarpenterPortal carpenterName={user.name} />
+        showMobileFrame ? (
+          /* Render Carpenter Mobile App inside phone mock frame simulator */
+          <div className="mobile-simulator-layout">
+            <div className="mobile-phone-frame">
+              <div className="mobile-screen-content">
+                <CarpenterPortal carpenterName={user.name} />
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          /* Render Carpenter Mobile App full screen for desktop users */
+          <div style={{ minHeight: 'calc(100vh - 50px)', background: 'var(--slate-950)' }}>
+            <CarpenterPortal carpenterName={user.name} />
+          </div>
+        )
       ) : (
         /* Render Backend Desktop Dashboard */
         <AdminPortal />
