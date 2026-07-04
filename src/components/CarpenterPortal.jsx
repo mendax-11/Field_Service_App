@@ -117,7 +117,7 @@ async function captureAndStampPhoto(file, orderId, { maxWidth = 800, maxHeight =
   });
 }
 
-export default function CarpenterPortal({ carpenterName = 'John Carpenter', directJobId = null }) {
+export default function CarpenterPortal({ carpenterName = 'John Carpenter', directJobId = null, isSimulator = false }) {
 
   const [jobs, setJobs] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState(null);
@@ -660,8 +660,8 @@ Your review helps us serve you better. Thank you!`;
   const isReadyToComplete = isChecklistFinished && isBeforeUploaded && isAfterUploaded;
 
   return (
-    <div className="carpenter-app-simulator">
-      <div className="carpenter-app-container">
+    <div className={`carpenter-app-simulator ${isSimulator ? 'is-simulator' : 'is-website'}`}>
+      <div className={`carpenter-app-container ${isSimulator ? 'is-simulator' : 'is-website'}`}>
         
         {directJobId && !pinVerified ? (
           <div className="pin-verification-screen" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', boxSizing: 'border-box' }}>

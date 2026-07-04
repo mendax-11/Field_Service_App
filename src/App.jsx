@@ -107,7 +107,7 @@ export default function App() {
   }
 
   if (directJobId) {
-    return <CarpenterPortal directJobId={directJobId} carpenterName="Field Technician" />;
+    return <CarpenterPortal directJobId={directJobId} carpenterName="Field Technician" isSimulator={false} />;
   }
 
   if (!user) {
@@ -284,14 +284,14 @@ export default function App() {
           <div className="mobile-simulator-layout">
             <div className="mobile-phone-frame">
               <div className="mobile-screen-content">
-                <CarpenterPortal carpenterName={user.name} />
+                <CarpenterPortal carpenterName={user.name} isSimulator={true} />
               </div>
             </div>
           </div>
         ) : (
           /* Render Carpenter Mobile App full screen for desktop users */
           <div style={{ minHeight: 'calc(100vh - 50px)', background: 'var(--slate-950)' }}>
-            <CarpenterPortal carpenterName={user.name} />
+            <CarpenterPortal carpenterName={user.name} isSimulator={false} />
           </div>
         )
       ) : (
