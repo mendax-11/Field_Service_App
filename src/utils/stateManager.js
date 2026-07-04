@@ -1868,28 +1868,44 @@ export function normalizePhoneForComparison(p) {
 // ─────────────────────────────────────────────
 export async function authenticateUser(phone, password) {
   const cleanInputPhone = normalizePhoneForComparison(phone);
+  const cleanPhoneDigits = phone.replace(/[^0-9]/g, '');
 
   // Try PocketBase first
   try {
-    const userRecords = await pb.collection('users').getFullList();
-    const pbUser = userRecords.find(r => normalizePhoneForComparison(r.phone || r.username) === cleanInputPhone);
-    if (pbUser) {
-      const authData = await pb.collection('users').authWithPassword(pbUser.email, password);
-      if (authData?.record) {
-        const record = authData.record;
-        const role = record.role || 'Carpenter';
-        return {
-          success: true,
-          user: {
-            role,
-            name: record.name || record.username,
-            phone: record.phone || phone,
-            email: record.email,
-            id: record.id
-          },
-          source: 'pocketbase'
-        };
+    let authData = null;
+    
+    // Try 1: Authenticate directly with the cleaned phone input
+    try {
+      authData = await pb.collection('users').authWithPassword(cleanPhoneDigits, password);
+    } catch (e) {
+      // Try 2: If the input has country prefix, try matching just the last 10 digits
+      if (cleanPhoneDigits.length > 10) {
+        try {
+          authData = await pb.collection('users').authWithPassword(cleanPhoneDigits.slice(-10), password);
+        } catch (e2) {}
+      } 
+      // Try 3: If it was 10 digits, try prepending the 91 country code
+      else if (cleanPhoneDigits.length === 10) {
+        try {
+          authData = await pb.collection('users').authWithPassword('91' + cleanPhoneDigits, password);
+        } catch (e3) {}
       }
+    }
+
+    if (authData?.record) {
+      const record = authData.record;
+      const role = record.role || 'Carpenter';
+      return {
+        success: true,
+        user: {
+          role,
+          name: record.name || record.username,
+          phone: record.phone || phone,
+          email: record.email,
+          id: record.id
+        },
+        source: 'pocketbase'
+      };
     }
   } catch (pbErr) {
     // PocketBase auth error or connection failure — fall through to local demo fallback
