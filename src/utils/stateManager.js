@@ -9,10 +9,10 @@ if (typeof window !== 'undefined' && window.location) {
   const protocol = window.location.protocol;
   
   if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
-    // If the site is served over HTTPS, connect via reverse proxy path /pb to avoid mixed content block.
-    // If served over HTTP, we can use the direct port 8090.
+    // Caddy routes /api/* and /_* directly to PocketBase — no /pb prefix needed.
+    // For HTTP deployments, PocketBase may be on port 8090 directly.
     if (protocol === 'https:') {
-      POCKETBASE_URL = `${protocol}//${hostname}/pb`;
+      POCKETBASE_URL = `${protocol}//${hostname}`;
     } else {
       POCKETBASE_URL = `${protocol}//${hostname}:8090`;
     }
@@ -1956,6 +1956,7 @@ export async function authenticateUser(phone, password) {
   const cleanPhoneDigits = phone.replace(/[^0-9]/g, '');
 
   // Try PocketBase first
+  let pbAuthError = null;
   try {
     let authData = null;
     
@@ -1980,12 +1981,19 @@ export async function authenticateUser(phone, password) {
       }
     }
 
+    console.log('[Auth] Trying PocketBase candidates:', candidates);
+
     // Try each login identity candidate until one succeeds
     for (const identity of candidates) {
       try {
         authData = await pb.collection('users').authWithPassword(identity, password);
-        if (authData?.record) break;
+        if (authData?.record) {
+          console.log('[Auth] PocketBase login succeeded with identity:', identity);
+          break;
+        }
       } catch (err) {
+        pbAuthError = err;
+        console.warn('[Auth] Candidate failed:', identity, err?.message || err);
         // try next candidate
       }
     }
