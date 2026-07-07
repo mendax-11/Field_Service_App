@@ -1390,7 +1390,7 @@ async function syncOrderToPocketBase(orderId, order) {
     const pbFields = {
       order_id: orderId,
       platform: order.platform || 'Amazon',
-      customer_name: order.customerName || order.customer_name || '',
+      customer_name: order.customerName || order.customer_name || 'Unknown Customer',
       customer_phone: order.customerPhone || order.customer_phone || '',
       customer_address: order.customerAddress || order.customer_address || '',
       city: order.city || '',
