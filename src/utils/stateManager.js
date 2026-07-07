@@ -1,9 +1,25 @@
 import PocketBase from 'pocketbase';
 
 // Connect to local or remote PocketBase instance.
-// Set VITE_POCKETBASE_URL in your .env file when deploying to a VPS.
-// e.g.  VITE_POCKETBASE_URL=https://pb.yourfsmdomain.com
-const POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090';
+let POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090';
+
+// Dynamic runtime override for remote clients (avoids hardcoded localhost from .env during Vite build)
+if (typeof window !== 'undefined' && window.location) {
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
+  
+  if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    // If the site is served over HTTPS, connect via reverse proxy path /pb to avoid mixed content block.
+    // If served over HTTP, we can use the direct port 8090.
+    if (protocol === 'https:') {
+      POCKETBASE_URL = `${protocol}//${hostname}/pb`;
+    } else {
+      POCKETBASE_URL = `${protocol}//${hostname}:8090`;
+    }
+  }
+}
+
+console.log('[PocketBase Engine] Connecting to:', POCKETBASE_URL);
 export const pb = new PocketBase(POCKETBASE_URL);
 
 
