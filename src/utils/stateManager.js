@@ -1382,7 +1382,7 @@ async function syncOrderToPocketBase(orderId, order) {
   try {
     let record = null;
     try {
-      record = await pb.collection('orders').getFirstListItem(`order_id="${orderId}"`);
+      record = await pb.collection('orders').getFirstListItem(`order_id="${orderId}"`, { $autoCancel: false });
     } catch (err) {
       // 404
     }
@@ -1446,7 +1446,7 @@ async function syncOrderToPocketBase(orderId, order) {
       } else {
         // Step 3: Last resort — try PB API lookup (may fail due to collection API rules)
         try {
-          const userRec = await pb.collection('users').getFirstListItem(`name="${order.assignedCarpenter}"`);
+          const userRec = await pb.collection('users').getFirstListItem(`name="${order.assignedCarpenter}"`, { $autoCancel: false });
           if (userRec) pbFields.assigned_carpenter = userRec.id;
         } catch (e) {
           // PocketBase collection rules block listing — silent fail, name is still saved in assigned_carpenter_name
@@ -1498,25 +1498,25 @@ async function syncOrderToPocketBase(orderId, order) {
       try {
         // Attempt upload with files
         if (record) {
-          updatedRecord = await pb.collection('orders').update(record.id, formData);
+          updatedRecord = await pb.collection('orders').update(record.id, formData, { $autoCancel: false });
         } else {
-          updatedRecord = await pb.collection('orders').create(formData);
+          updatedRecord = await pb.collection('orders').create(formData, { $autoCancel: false });
         }
       } catch (uploadError) {
         console.warn('File upload to PocketBase failed (collection might lack file fields). Falling back to JSON/base64 sync:', uploadError);
         // Fallback to JSON if file upload fails
         if (record) {
-          updatedRecord = await pb.collection('orders').update(record.id, pbFields);
+          updatedRecord = await pb.collection('orders').update(record.id, pbFields, { $autoCancel: false });
         } else {
-          updatedRecord = await pb.collection('orders').create(pbFields);
+          updatedRecord = await pb.collection('orders').create(pbFields, { $autoCancel: false });
         }
       }
     } else {
       // Normal JSON update/create
       if (record) {
-        updatedRecord = await pb.collection('orders').update(record.id, pbFields);
+        updatedRecord = await pb.collection('orders').update(record.id, pbFields, { $autoCancel: false });
       } else {
-        updatedRecord = await pb.collection('orders').create(pbFields);
+        updatedRecord = await pb.collection('orders').create(pbFields, { $autoCancel: false });
       }
     }
 
