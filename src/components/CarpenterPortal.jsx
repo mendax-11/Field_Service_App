@@ -1080,6 +1080,7 @@ Your review helps us serve you better. Thank you!`;
                         Session Diagnostics:
                       </span>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div><strong>Database Sync:</strong> {window.fsa_db_sync_error ? <span style={{ color: 'var(--color-danger)' }}>"❌ {window.fsa_db_sync_error}"</span> : <span style={{ color: 'var(--color-success)' }}>"✅ Connected"</span>}</div>
                         <div><strong>Logged-in User Name:</strong> "{activeUser?.name || 'empty'}"</div>
                         <div><strong>Logged-in Username:</strong> "{activeUser?.username || 'empty'}"</div>
                         <div><strong>Logged-in Phone:</strong> "{activeUser?.phone || 'empty'}"</div>

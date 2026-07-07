@@ -2040,6 +2040,8 @@ setTimeout(() => {
   (async () => {
     try {
       const records = await pb.collection('orders').getFullList({ sort: '-created', expand: 'assigned_carpenter' });
+      window.fsa_db_sync_error = null;
+      window.dispatchEvent(new Event('fsa_storage_update'));
       if (records.length > 0) {
         const mapped = records.map(mapRecordToOrder);
         saveOrdersLocalOnly(mapped);
@@ -2048,7 +2050,8 @@ setTimeout(() => {
         selfHealMissingRelations(records);
       }
     } catch (e) {
-      // Fail silently — PocketBase not running
+      window.fsa_db_sync_error = e.message || String(e);
+      window.dispatchEvent(new Event('fsa_storage_update'));
     }
   })();
   setupPocketBaseRealtime();
