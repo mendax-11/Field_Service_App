@@ -279,7 +279,15 @@ export function normalizeOrder(o) {
   if (paymentType === 'Company') paymentType = 'Company Pay';
   if (paymentType === 'Customer') paymentType = 'Customer Pay';
 
-  const assignedCarpenter = o.assignedCarpenter || o.assigned_carpenter || null;
+  let assignedCarpenter = o.assignedCarpenter || o.assignedCarpenterName || o.assigned_carpenter_name || '';
+  let assignedCarpenterId = o.assignedCarpenterId || o.assigned_carpenter_id || '';
+
+  // If assigned_carpenter contains the ID
+  if (o.assigned_carpenter && o.assigned_carpenter.length > 10) {
+    assignedCarpenterId = o.assigned_carpenter;
+  } else if (o.assigned_carpenter) {
+    assignedCarpenter = o.assigned_carpenter;
+  }
   const assignedDate = o.assignedDate || o.assigned_date || '';
   const productImage = o.productImage || o.product_image || o.product_image_url || 'https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&w=600&q=80';
   const productRefLink = o.productRefLink || o.product_ref_link || o.product_review_link || 'https://manuals.service.com/assembly-guide.pdf';
@@ -322,7 +330,8 @@ export function normalizeOrder(o) {
     status: jobStatus,
     payment_status: paymentStatus,
     payment_type: paymentType,
-    assigned_carpenter: assignedCarpenter,
+    assigned_carpenter: assignedCarpenterId || assignedCarpenter || null,
+    assigned_carpenter_name: assignedCarpenter,
     assigned_date: assignedDate,
     product_image: productImage,
     product_ref_link: productRefLink,
@@ -346,6 +355,7 @@ export function normalizeOrder(o) {
     paymentStatus,
     paymentType,
     assignedCarpenter,
+    assignedCarpenterId,
     assignedDate,
     productImage,
     productRefLink,
@@ -591,6 +601,18 @@ export const updateOrder = (orderId, updatedFields) => {
           carpenterName: updated.assignedCarpenter || '',
           etaMinutes: 25,
           trackingUrl: trackLink
+        });
+      } else if (newStatus === 'Assigned') {
+        const directLink = `${window.location.origin}${window.location.pathname}?job=${updated.orderId}`;
+        triggerN8nWebhook('job_assigned', {
+          orderId: updated.orderId,
+          customerName: updated.customerName,
+          customerPhone: updated.customerPhone || '',
+          customerAddress: updated.customerAddress || '',
+          pincode: updated.pincode || '',
+          carpenterName: updated.assignedCarpenter || '',
+          payout: updated.payout || 0,
+          jobLink: directLink
         });
       }
     }
@@ -1263,6 +1285,14 @@ export const stateManager = {
     localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
     initializeStorage();
     return getOrders();
+  },
+
+  getCarpenters() {
+    return getCarpenters();
+  },
+
+  getActiveUser() {
+    return getActiveUser();
   }
 };
 
@@ -1606,7 +1636,11 @@ function setupPocketBaseRealtime() {
           saveOrdersLocalOnly(filtered);
         }
       } else {
-        const updatedOrder = mapRecordToOrder(record);
+        let fullRecord = record;
+        try {
+          fullRecord = await pb.collection('orders').getOne(record.id, { expand: 'assigned_carpenter' });
+        } catch (err) {}
+        const updatedOrder = mapRecordToOrder(fullRecord);
         if (orderIndex !== -1) {
           orders[orderIndex] = updatedOrder;
         } else {
@@ -1970,7 +2004,7 @@ setTimeout(() => {
   syncCarpentersFromPocketBase();
   (async () => {
     try {
-      const records = await pb.collection('orders').getFullList({ sort: '-created' });
+      const records = await pb.collection('orders').getFullList({ sort: '-created', expand: 'assigned_carpenter' });
       if (records.length > 0) {
         const mapped = records.map(mapRecordToOrder);
         saveOrdersLocalOnly(mapped);

@@ -633,13 +633,46 @@ Your review helps us serve you better. Thank you!`;
     }, 1500);
   };
 
-  // Filter jobs for this specific carpenter (RBAC Isolation) - case-insensitive and trimmed comparison
+  // Filter jobs for this specific carpenter (RBAC Isolation) - multi-field resilient comparison
+  const activeUser = stateManager.getActiveUser ? stateManager.getActiveUser() : null;
   const cleanCarpenterName = (carpenterName || '').trim().toLowerCase();
+  
   const carpenterJobs = directJobId 
     ? jobs.filter(j => j.id === directJobId)
     : jobs.filter(j => {
-        const orderCarp = (j.assignedCarpenter || j.assigned_carpenter || '').trim().toLowerCase();
-        return orderCarp === cleanCarpenterName && orderCarp !== '';
+        // 1. Compare PocketBase relation User ID
+        const jobCarpId = j.assignedCarpenterId || j.assigned_carpenter_id || (j.assigned_carpenter && j.assigned_carpenter.length > 10 ? j.assigned_carpenter : '');
+        if (activeUser && activeUser.id && jobCarpId && activeUser.id === jobCarpId) {
+          return true;
+        }
+
+        // 2. Compare display names (case-insensitive)
+        const orderCarp = (j.assignedCarpenter || j.assigned_carpenter_name || '').trim().toLowerCase();
+        if (orderCarp && cleanCarpenterName && orderCarp === cleanCarpenterName) {
+          return true;
+        }
+
+        // 3. Fallback: Compare active user's actual username or name against assigned name
+        if (activeUser) {
+          const uName = (activeUser.name || '').trim().toLowerCase();
+          const uUsername = (activeUser.username || '').trim().toLowerCase();
+          if (orderCarp && ((uName && orderCarp === uName) || (uUsername && orderCarp === uUsername))) {
+            return true;
+          }
+        }
+
+        // 4. Fallback: Compare phone numbers from local carpenters master list
+        const localCarps = stateManager.getCarpenters ? stateManager.getCarpenters() : [];
+        const match = localCarps.find(c => c.name?.toLowerCase() === orderCarp);
+        if (match && activeUser) {
+          const carpPhone = (match.phone || '').replace(/[^0-9]/g, '').slice(-10);
+          const loggedPhone = (activeUser.phone || '').replace(/[^0-9]/g, '').slice(-10);
+          if (carpPhone && loggedPhone && carpPhone === loggedPhone) {
+            return true;
+          }
+        }
+
+        return false;
       });
 
   // Wallet stats summary calculation for this carpenter only
