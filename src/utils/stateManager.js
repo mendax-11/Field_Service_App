@@ -2000,6 +2000,25 @@ export async function authenticateUser(phone, password) {
 // ─────────────────────────────────────────────
 // Initial Sync trigger on boot
 // ─────────────────────────────────────────────
+async function selfHealMissingRelations(records) {
+  try {
+    const localCarps = getCarpenters();
+    for (const r of records) {
+      if (!r.assigned_carpenter && r.assigned_carpenter_name) {
+        const match = localCarps.find(c => c.name?.toLowerCase() === r.assigned_carpenter_name.toLowerCase());
+        if (match && match.id && !match.id.startsWith('c')) {
+          await pb.collection('orders').update(r.id, {
+            assigned_carpenter: match.id
+          });
+          console.log(`[Self-Heal] Resolved relation ID for order ${r.order_id} -> carpenter ${match.name}`);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Self-Heal] Failed to heal order relations:', err);
+  }
+}
+
 setTimeout(() => {
   syncCarpentersFromPocketBase();
   (async () => {
@@ -2008,6 +2027,9 @@ setTimeout(() => {
       if (records.length > 0) {
         const mapped = records.map(mapRecordToOrder);
         saveOrdersLocalOnly(mapped);
+        
+        // Heal relations for orders assigned before current ID sync was deployed
+        selfHealMissingRelations(records);
       }
     } catch (e) {
       // Fail silently — PocketBase not running
