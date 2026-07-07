@@ -1956,7 +1956,6 @@ export async function authenticateUser(phone, password) {
   const cleanPhoneDigits = phone.replace(/[^0-9]/g, '');
 
   // Try PocketBase first
-  let pbAuthError = null;
   try {
     let authData = null;
     
@@ -1992,7 +1991,6 @@ export async function authenticateUser(phone, password) {
           break;
         }
       } catch (err) {
-        pbAuthError = err;
         console.warn('[Auth] Candidate failed:', identity, err?.message || err);
         // try next candidate
       }
