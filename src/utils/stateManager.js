@@ -1430,22 +1430,33 @@ async function syncOrderToPocketBase(orderId, order) {
 
     if (order.assignedCarpenter) {
       pbFields.assigned_carpenter_name = order.assignedCarpenter;
-      try {
-        const userRec = await pb.collection('users').getFirstListItem(`name="${order.assignedCarpenter}"`);
-        if (userRec) pbFields.assigned_carpenter = userRec.id;
-        else console.warn('[PocketBase] Carpenter relation lookup returned null for name:', order.assignedCarpenter);
-      } catch (e) {
-        console.warn('[PocketBase] Carpenter relation lookup failed for name:', order.assignedCarpenter, e.message);
-        // Try by username as fallback
+
+      // Step 1: Resolve relation ID from local carpenters cache (already has real PB IDs from boot sync).
+      // This avoids the permission-blocked API lookup (PocketBase users collection blocks listing).
+      const localCarps = getCarpenters();
+      const localMatch = localCarps.find(
+        c => c.name?.toLowerCase() === order.assignedCarpenter.toLowerCase()
+      );
+      if (localMatch && localMatch.id && localMatch.id.length > 10 && !localMatch.id.startsWith('c')) {
+        pbFields.assigned_carpenter = localMatch.id;
+        console.log('[PocketBase] Carpenter relation resolved from local cache:', localMatch.name, '->', localMatch.id);
+      } else if (order.assignedCarpenterId && order.assignedCarpenterId.length > 10) {
+        // Step 2: Use already-known relation ID if cached on the order itself
+        pbFields.assigned_carpenter = order.assignedCarpenterId;
+      } else {
+        // Step 3: Last resort — try PB API lookup (may fail due to collection API rules)
         try {
-          const userRecByUsername = await pb.collection('users').getFirstListItem(`username="${order.assignedCarpenter}"`);
-          if (userRecByUsername) pbFields.assigned_carpenter = userRecByUsername.id;
-        } catch (e2) {}
+          const userRec = await pb.collection('users').getFirstListItem(`name="${order.assignedCarpenter}"`);
+          if (userRec) pbFields.assigned_carpenter = userRec.id;
+        } catch (e) {
+          // PocketBase collection rules block listing — silent fail, name is still saved in assigned_carpenter_name
+        }
       }
     } else {
       pbFields.assigned_carpenter_name = '';
       pbFields.assigned_carpenter = null;
     }
+
 
     // Prepare files to upload if any fields contain base64 data URLs
     let hasFiles = false;
@@ -1558,37 +1569,25 @@ async function syncOrderToPocketBase(orderId, order) {
 
 async function syncCarpenterPincodesToPocketBase(carpId, pincodes) {
   try {
-    const localCarps = getCarpenters();
-    const carp = localCarps.find(c => c.id === carpId);
-    if (carp) {
-      const cleanPhone = (carp.phone || '').replace(/[^0-9]/g, '');
-      let record = null;
-      if (cleanPhone) {
-        try {
-          record = await pb.collection('users').getFirstListItem(`username="${cleanPhone}"`);
-        } catch (e) {
-          record = await pb.collection('users').getFirstListItem(`phone="${carp.phone}"`);
-        }
-      }
-      if (!record && carp.email) {
-        try {
-          record = await pb.collection('users').getFirstListItem(`email="${carp.email}"`);
-        } catch (e) {}
-      }
-      if (record) {
-        await pb.collection('users').update(record.id, {
-          name: carp.name,
-          phone: carp.phone || '',
-          rank: carp.rank || 'Expert',
-          pincodes: pincodes || carp.pincodes || [],
-          max_active_jobs: Number(carp.maxActiveJobs || 3)
+    // If carpId is a real PocketBase record ID (not a mock local ID like 'c1', 'c2'),
+    // try a direct PATCH. This avoids the permission-blocked username/phone filter queries.
+    if (carpId && carpId.length > 10 && !carpId.startsWith('c')) {
+      try {
+        await pb.collection('users').update(carpId, {
+          pincodes: pincodes || []
         });
+        console.log('[PocketBase] Carpenter pincodes synced directly by ID:', carpId);
+        return;
+      } catch (e) {
+        // 404 = record not in this PB instance, or API rules deny update — skip silently
       }
     }
+    // Local-only mock carpenters (c1/c2/c3/c4) are not synced to PocketBase
   } catch (e) {
     // Fail silently in offline mode
   }
 }
+
 
 async function syncCarpentersFromPocketBase() {
   try {
