@@ -1315,6 +1315,17 @@ export const stateManager = {
 // PocketBase Synchronization Helpers
 
 function mapRecordToOrder(r) {
+  // Extract the PocketBase relation ID for assigned_carpenter
+  // r.assigned_carpenter is the relation ID string (or null)
+  // r.expand.assigned_carpenter is the full expanded user record
+  const carpenterId = (typeof r.assigned_carpenter === 'string' && r.assigned_carpenter.length > 8)
+    ? r.assigned_carpenter
+    : '';
+  const carpenterName = r.expand?.assigned_carpenter?.name
+    || r.expand?.assigned_carpenter?.username
+    || r.assigned_carpenter_name
+    || '';
+
   return normalizeOrder({
     orderId: r.order_id,
     platform: r.platform || 'Amazon',
@@ -1327,7 +1338,10 @@ function mapRecordToOrder(r) {
     status: r.status || 'Unassigned',
     paymentStatus: r.payment_status || 'Unpaid',
     paymentType: r.payment_type || 'Company Pay',
-    assignedCarpenter: r.expand?.assigned_carpenter?.name || r.assigned_carpenter_name || '',
+    assignedCarpenter: carpenterName,
+    assignedCarpenterId: carpenterId,
+    assigned_carpenter_name: carpenterName,
+    assigned_carpenter_id: carpenterId,
     assembly_payout: Number(r.assembly_payout || 0),
     deliveryStatus: r.delivery_status || 'Pending',
     deliveryDate: r.delivery_date || '',
@@ -1419,7 +1433,15 @@ async function syncOrderToPocketBase(orderId, order) {
       try {
         const userRec = await pb.collection('users').getFirstListItem(`name="${order.assignedCarpenter}"`);
         if (userRec) pbFields.assigned_carpenter = userRec.id;
-      } catch (e) {}
+        else console.warn('[PocketBase] Carpenter relation lookup returned null for name:', order.assignedCarpenter);
+      } catch (e) {
+        console.warn('[PocketBase] Carpenter relation lookup failed for name:', order.assignedCarpenter, e.message);
+        // Try by username as fallback
+        try {
+          const userRecByUsername = await pb.collection('users').getFirstListItem(`username="${order.assignedCarpenter}"`);
+          if (userRecByUsername) pbFields.assigned_carpenter = userRecByUsername.id;
+        } catch (e2) {}
+      }
     } else {
       pbFields.assigned_carpenter_name = '';
       pbFields.assigned_carpenter = null;
@@ -1657,13 +1679,23 @@ function setupPocketBaseRealtime() {
           fullRecord = await pb.collection('orders').getOne(record.id, { expand: 'assigned_carpenter' });
         } catch (err) {}
         const updatedOrder = mapRecordToOrder(fullRecord);
+        
+        // If PB record has no carpenter info, preserve local order's carpenter data
+        // This handles the case when assigned_carpenter_name field doesn't exist in PB schema
         if (orderIndex !== -1) {
+          const existingOrder = orders[orderIndex];
+          if (!updatedOrder.assignedCarpenter && existingOrder.assignedCarpenter) {
+            updatedOrder.assignedCarpenter = existingOrder.assignedCarpenter;
+            updatedOrder.assigned_carpenter_name = existingOrder.assignedCarpenter;
+            updatedOrder.assignedCarpenterId = updatedOrder.assignedCarpenterId || existingOrder.assignedCarpenterId;
+          }
           orders[orderIndex] = updatedOrder;
         } else {
           orders.unshift(updatedOrder);
         }
         saveOrdersLocalOnly(orders);
       }
+
     });
     
     pb.collection('users').subscribe('*', async (e) => {
@@ -1966,6 +1998,7 @@ export async function authenticateUser(phone, password) {
         user: {
           role,
           name: record.name || record.username,
+          username: record.username,
           phone: record.phone || phone,
           email: record.email,
           id: record.id
@@ -2004,7 +2037,7 @@ export async function authenticateUser(phone, password) {
   if (matchedCarpenter && password === 'carpenter123') {
     return {
       success: true,
-      user: { role: 'Carpenter', name: matchedCarpenter.name, phone: matchedCarpenter.phone, email: matchedCarpenter.email },
+      user: { role: 'Carpenter', name: matchedCarpenter.name, username: matchedCarpenter.name, phone: matchedCarpenter.phone, email: matchedCarpenter.email, id: matchedCarpenter.id },
       source: 'demo'
     };
   }
@@ -2019,12 +2052,20 @@ export async function authenticateUser(phone, password) {
 async function selfHealMissingRelations(records) {
   try {
     const localCarps = getCarpenters();
+    const localOrders = getOrders();
     for (const r of records) {
-      if (!r.assigned_carpenter && r.assigned_carpenter_name) {
-        const match = localCarps.find(c => c.name?.toLowerCase() === r.assigned_carpenter_name.toLowerCase());
+      if (!r.assigned_carpenter) {
+        // Get carpenter name: from PB field or fallback to local data
+        const carpName = r.assigned_carpenter_name
+          || localOrders.find(o => o.orderId === r.order_id)?.assignedCarpenter
+          || '';
+        if (!carpName) continue;
+        
+        const match = localCarps.find(c => c.name?.toLowerCase() === carpName.toLowerCase());
         if (match && match.id && !match.id.startsWith('c')) {
           await pb.collection('orders').update(r.id, {
-            assigned_carpenter: match.id
+            assigned_carpenter: match.id,
+            assigned_carpenter_name: match.name  // write back name too in case field exists
           });
           console.log(`[Self-Heal] Resolved relation ID for order ${r.order_id} -> carpenter ${match.name}`);
         }
@@ -2035,6 +2076,7 @@ async function selfHealMissingRelations(records) {
   }
 }
 
+
 setTimeout(() => {
   syncCarpentersFromPocketBase();
   (async () => {
@@ -2043,12 +2085,26 @@ setTimeout(() => {
       window.fsa_db_sync_error = null;
       window.dispatchEvent(new Event('fsa_storage_update'));
       if (records.length > 0) {
-        const mapped = records.map(mapRecordToOrder);
+        const localOrders = getOrders(); // existing local orders before overwrite
+        const mapped = records.map(r => {
+          const order = mapRecordToOrder(r);
+          // Preserve local carpenter assignment if PB expand/name field is empty
+          if (!order.assignedCarpenter) {
+            const existingLocal = localOrders.find(o => o.orderId === order.orderId);
+            if (existingLocal && existingLocal.assignedCarpenter) {
+              order.assignedCarpenter = existingLocal.assignedCarpenter;
+              order.assigned_carpenter_name = existingLocal.assignedCarpenter;
+              order.assignedCarpenterId = order.assignedCarpenterId || existingLocal.assignedCarpenterId;
+            }
+          }
+          return order;
+        });
         saveOrdersLocalOnly(mapped);
         
         // Heal relations for orders assigned before current ID sync was deployed
         selfHealMissingRelations(records);
       }
+
     } catch (e) {
       window.fsa_db_sync_error = e.message || String(e);
       window.dispatchEvent(new Event('fsa_storage_update'));
