@@ -43,16 +43,25 @@ export default function CustomerPortal({ orderId }) {
   const [rated, setRated] = useState(false);
 
   useEffect(() => {
-    const orders = getOrders();
-    const found = orders.find(
-      o => o.orderId?.toLowerCase() === orderId?.toLowerCase() ||
-           o.order_id?.toLowerCase() === orderId?.toLowerCase()
-    );
-    if (found) {
-      setOrder(found);
-    } else {
-      setNotFound(true);
-    }
+    const handleUpdate = () => {
+      const orders = getOrders();
+      const found = orders.find(
+        o => o.orderId?.toLowerCase() === orderId?.toLowerCase() ||
+             o.order_id?.toLowerCase() === orderId?.toLowerCase()
+      );
+      if (found) {
+        setOrder(found);
+      } else {
+        setNotFound(true);
+      }
+    };
+
+    handleUpdate();
+
+    window.addEventListener('fsa_storage_update', handleUpdate);
+    return () => {
+      window.removeEventListener('fsa_storage_update', handleUpdate);
+    };
   }, [orderId]);
 
   if (notFound) {

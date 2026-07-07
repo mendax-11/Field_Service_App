@@ -287,15 +287,24 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     }
   }, [theme]);
 
-  // Load jobs initially
+  // Load jobs initially and listen to storage updates for real-time sync
   useEffect(() => {
-    const loadedJobs = stateManager.getJobs();
-    setJobs(loadedJobs);
+    const handleUpdate = () => {
+      const loadedJobs = stateManager.getJobs();
+      setJobs(loadedJobs);
+    };
+
+    handleUpdate();
     
     if (directJobId) {
       setSelectedJobId(directJobId);
       setActiveTab('jobs');
     }
+
+    window.addEventListener('fsa_storage_update', handleUpdate);
+    return () => {
+      window.removeEventListener('fsa_storage_update', handleUpdate);
+    };
   }, [directJobId]);
 
   // Sync scroll on new comments
@@ -624,10 +633,14 @@ Your review helps us serve you better. Thank you!`;
     }, 1500);
   };
 
-  // Filter jobs for this specific carpenter (RBAC Isolation)
+  // Filter jobs for this specific carpenter (RBAC Isolation) - case-insensitive and trimmed comparison
+  const cleanCarpenterName = (carpenterName || '').trim().toLowerCase();
   const carpenterJobs = directJobId 
     ? jobs.filter(j => j.id === directJobId)
-    : jobs.filter(j => j.assignedCarpenter === carpenterName || j.assigned_carpenter === carpenterName);
+    : jobs.filter(j => {
+        const orderCarp = (j.assignedCarpenter || j.assigned_carpenter || '').trim().toLowerCase();
+        return orderCarp === cleanCarpenterName && orderCarp !== '';
+      });
 
   // Wallet stats summary calculation for this carpenter only
   const getCarpenterEarnings = () => {
