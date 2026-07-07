@@ -1649,7 +1649,7 @@ async function syncCarpentersFromPocketBase() {
         rank: r.rank || 'Expert',
         activeJobs: match ? (match.activeJobs || 0) : 0,
         maxActiveJobs: Number(r.max_active_jobs || 3),
-        pincodes: r.pincodes || []
+        pincodes: (match && match.pincodes !== undefined) ? match.pincodes : (r.pincodes || [])
       };
     });
     saveCarpentersLocalOnly(merged);
@@ -1703,7 +1703,9 @@ function setupPocketBaseRealtime() {
         const localCarps = getCarpenters();
         const index = localCarps.findIndex(c => c.email === record.email);
         if (index !== -1) {
-          localCarps[index].pincodes = record.pincodes || [];
+          // Preserve local pincodes if they exist since PB updates may fail for guests
+          const localPincodes = localCarps[index].pincodes;
+          localCarps[index].pincodes = (localPincodes !== undefined) ? localPincodes : (record.pincodes || []);
           localCarps[index].name = record.name || record.username;
           localCarps[index].rank = record.rank || 'Expert';
           saveCarpentersLocalOnly(localCarps);
