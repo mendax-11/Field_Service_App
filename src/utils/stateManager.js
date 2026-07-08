@@ -497,7 +497,7 @@ export const initializeStorage = async () => {
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(DEFAULT_ORDERS.map(normalizeOrder)));
   }
   if (!localStorage.getItem(STORAGE_KEYS.CARPENTERS)) {
-    localStorage.setItem(STORAGE_KEYS.CARPENTERS, JSON.stringify(DEFAULT_CARPENTERS));
+    localStorage.setItem(STORAGE_KEYS.CARPENTERS, JSON.stringify([]));
   }
   if (!localStorage.getItem(STORAGE_KEYS.USER_ROLE)) {
     localStorage.setItem(STORAGE_KEYS.USER_ROLE, 'Super Admin'); // Default role
@@ -800,7 +800,7 @@ export const getCarpenters = () => {
     memoryCarpenters = raw;
     return memoryCarpenters;
   } catch (e) {
-    memoryCarpenters = DEFAULT_CARPENTERS;
+    memoryCarpenters = [];
     return memoryCarpenters;
   }
 };
