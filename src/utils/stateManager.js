@@ -1561,8 +1561,11 @@ async function syncOrderToPocketBase(orderId, order) {
         }
       }
     }
-  } catch (e) {
-    console.error('Failed to sync order to PocketBase:', e);
+  } catch (err) {
+    console.error('Failed to sync order to PocketBase:', err);
+    if (err.response) {
+      console.error('PocketBase Validation Error Details:', JSON.stringify(err.response, null, 2));
+    }
   }
 }
 
@@ -1636,7 +1639,8 @@ async function syncCarpentersFromPocketBase() {
 
     // 2. Fetch fresh list from server to merge
     const freshRecords = await pb.collection('users').getFullList({
-      filter: 'role="Carpenter"'
+      filter: 'role="Carpenter"',
+      $autoCancel: false
     });
 
     const merged = freshRecords.map(r => {
@@ -2088,7 +2092,7 @@ setTimeout(() => {
   syncCarpentersFromPocketBase();
   (async () => {
     try {
-      const records = await pb.collection('orders').getFullList({ sort: '-created', expand: 'assigned_carpenter' });
+      const records = await pb.collection('orders').getFullList({ sort: '-created', expand: 'assigned_carpenter', $autoCancel: false });
       window.fsa_db_sync_error = null;
       window.dispatchEvent(new Event('fsa_storage_update'));
       if (records.length > 0) {
