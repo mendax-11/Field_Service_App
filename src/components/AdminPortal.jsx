@@ -150,7 +150,7 @@ const n8nBlueprintJSON = JSON.stringify({
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"messaging_product\": \"whatsapp\", \"to\": \"{{$node[\\\"TimberFlow Event Webhook\\\"].json.body.data.customerPhone.replace(/[^0-9]/g, '')}}\", \"type\": \"template\", \"template\": {\"name\": \"fsm_otp_verification\", \"language\": {\"code\": \"en_US\"}, \"components\": [{\"type\": \"body\", \"parameters\": [{\"type\": \"text\", \"text\": \"{{$node[\\\"TimberFlow Event Webhook\\\"].json.body.data.customerName}}\"}, {\"type\": \"text\", \"text\": \"{{$node[\\\"TimberFlow Event Webhook\\\"].json.body.data.otp}}\"}]}]}}"
+        "jsonBody": "={\"messaging_product\": \"whatsapp\", \"to\": \"{{$node[\\\"TimberFlow Event Webhook\\\"].json.body.data.customerPhone.replace(/[^0-9]/g, '')}}\", \"type\": \"template\", \"template\": {\"name\": \"fsm_otp_verification\", \"language\": {\"code\": \"en_US\"}, \"components\": [{\"type\": \"body\", \"parameters\": [{\"type\": \"text\", \"text\": \"{{$node[\\\"TimberFlow Event Webhook\\\"].json.body.data.otp}}\"}]}, {\"type\": \"button\", \"sub_type\": \"url\", \"index\": \"0\", \"parameters\": [{\"type\": \"text\", \"text\": \"{{$node[\\\"TimberFlow Event Webhook\\\"].json.body.data.otp}}\"}]}]}}"
       },
       "id": "782cd981-d1a2-4a00-bf64-0c2d3aef6623",
       "name": "WhatsApp: Send OTP Code",
