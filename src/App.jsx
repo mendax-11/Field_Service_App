@@ -127,14 +127,14 @@ export default function App() {
 
           <form onSubmit={handleLogin} className="login-form">
             <div className="form-group-login">
-              <label>Phone Number</label>
+              <label>Phone Number or Email</label>
               <input
-                type="tel"
+                type="text"
                 value={loginPhone}
                 onChange={(e) => { setLoginPhone(e.target.value); setLoginError(''); }}
-                placeholder="e.g. +91-95555-01234"
+                placeholder="e.g. +91-95555-01234 or admin@timberflow.in"
                 className="login-input"
-                autoComplete="tel"
+                autoComplete="username"
               />
             </div>
 
