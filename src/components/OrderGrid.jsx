@@ -707,7 +707,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
             setSelectedOrder(currentSelected || null);
             if (onRefresh) onRefresh();
           }}
-          readOnly={role !== 'Super Admin' && (selectedOrder.paymentStatus === 'Paid' || selectedOrder.jobStatus === 'Completed' || selectedOrder.status === 'Completed')}
+          readOnly={role !== 'Super Admin' && (role !== 'Dispatcher' || selectedOrder.paymentStatus === 'Paid' || selectedOrder.jobStatus === 'Completed' || selectedOrder.status === 'Completed')}
         />
       )}
     </div>

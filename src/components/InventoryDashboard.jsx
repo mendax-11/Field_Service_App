@@ -1,7 +1,7 @@
 // src/components/InventoryDashboard.jsx
 import { useState, useEffect } from 'react';
 import { Package, Check, ClipboardList, AlertOctagon, User, FileText, Image as ImageIcon } from 'lucide-react';
-import { getOrders, updateOrder, addNotification } from '../utils/stateManager';
+import { getOrders, updateOrder, addNotification, getUserRole } from '../utils/stateManager';
 
 export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
   const [onHoldOrders, setOnHoldOrders] = useState([]);
@@ -43,7 +43,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
             {
               timestamp,
               action: 'Parts Dispatched',
-              user: 'Logistics Manager',
+              user: getUserRole(),
               comments: `Parts approved & dispatched: ${partsList || 'Requested parts package'}`
             }
           ]

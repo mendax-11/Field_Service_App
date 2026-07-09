@@ -11,7 +11,7 @@ import {
   getNotifications, clearNotifications, autoAllocateOrders, 
   saveOrders, addNotification, updateOrder, addOrder, checkSlaBreaches,
   getN8nConfig, saveN8nConfig,
-  exportOrdersCSV
+  exportOrdersCSV, pb
 } from '../utils/stateManager';
 
 import OrderGrid from './OrderGrid';
@@ -398,6 +398,27 @@ export default function AdminPortal() {
     window.addEventListener('fsa_storage_update', handleUpdate);
     return () => window.removeEventListener('fsa_storage_update', handleUpdate);
   }, []);
+
+  // Set default tab based on role and enforce access control
+  useEffect(() => {
+    const currentRole = getUserRole();
+    setRole(currentRole);
+
+    // Define allowed tabs for each role
+    const allowedTabs = {
+      'Super Admin': ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'payouts', 'settings'],
+      'Dispatcher': ['dashboard', 'orders', 'technicians'],
+      'Inventory Manager': ['inventory', 'orders'],
+      'Customer Support': ['support', 'orders']
+    };
+
+    const userAllowed = allowedTabs[currentRole] || ['dashboard'];
+    
+    // Redirect to default tab if current activeTab is not allowed
+    if (!userAllowed.includes(activeTab)) {
+      setActiveTab(userAllowed[0]);
+    }
+  }, [role, activeTab]);
 
   // Request browser notification permission on mount
   useEffect(() => {
@@ -804,71 +825,89 @@ export default function AdminPortal() {
             )}
           </div>
 
-          {/* Role Switcher */}
-          <div className="role-switcher-wrapper">
-            <span className="role-label">System Role:</span>
-            <select 
-              value={role} 
-              onChange={handleRoleChange} 
-              className="role-selector-dropdown"
-            >
-              <option value="Super Admin">Super Admin</option>
-              <option value="Dispatcher">Dispatcher</option>
-              <option value="Inventory Manager">Inventory Manager</option>
-              <option value="Customer Support">Customer Support</option>
-            </select>
-          </div>
+          {/* Role Switcher (Hidden in Server Mode for strict security) */}
+          {!pb.authStore.isValid && (
+            <div className="role-switcher-wrapper">
+              <span className="role-label">System Role:</span>
+              <select 
+                value={role} 
+                onChange={handleRoleChange} 
+                className="role-selector-dropdown"
+              >
+                <option value="Super Admin">Super Admin</option>
+                <option value="Dispatcher">Dispatcher</option>
+                <option value="Inventory Manager">Inventory Manager</option>
+                <option value="Customer Support">Customer Support</option>
+              </select>
+            </div>
+          )}
         </div>
       </header>
 
       {/* Main Tab Navigation */}
       <nav className="portal-tabs">
-        <button 
-          className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('dashboard'); setShowNotifDropdown(false); }}
-        >
-          <LayoutDashboard size={18} /> Overview Dashboard
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('orders'); setShowNotifDropdown(false); }}
-        >
-          <Package size={18} /> Orders Dashboard
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('inventory'); setShowNotifDropdown(false); }}
-        >
-          <ClipboardList size={18} /> Logistics & Parts
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'support' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('support'); setShowNotifDropdown(false); }}
-        >
-          <HelpCircle size={18} /> Support Portal
-        </button>
+        {(role === 'Super Admin' || role === 'Dispatcher') && (
+          <button 
+            className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('dashboard'); setShowNotifDropdown(false); }}
+          >
+            <LayoutDashboard size={18} /> Overview Dashboard
+          </button>
+        )}
         
-        <button 
-          className={`tab-btn ${activeTab === 'technicians' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('technicians'); setShowNotifDropdown(false); }}
-        >
-          <UserCheck size={18} /> Technicians
-        </button>
-        
-        {/* Payout Ledger (Super Admin Only visible or displays restricted screen) */}
-        <button 
-          className={`tab-btn ${activeTab === 'payouts' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('payouts'); setShowNotifDropdown(false); }}
-        >
-          <Coins size={18} /> Payout Ledger
-        </button>
+        {(role === 'Super Admin' || role === 'Dispatcher' || role === 'Inventory Manager' || role === 'Customer Support') && (
+          <button 
+            className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('orders'); setShowNotifDropdown(false); }}
+          >
+            <Package size={18} /> Orders Dashboard
+          </button>
+        )}
 
-        <button 
-          className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('settings'); setShowNotifDropdown(false); }}
-        >
-          <Settings size={18} /> Integrations & API
-        </button>
+        {(role === 'Super Admin' || role === 'Inventory Manager') && (
+          <button 
+            className={`tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('inventory'); setShowNotifDropdown(false); }}
+          >
+            <ClipboardList size={18} /> Logistics & Parts
+          </button>
+        )}
+
+        {(role === 'Super Admin' || role === 'Customer Support') && (
+          <button 
+            className={`tab-btn ${activeTab === 'support' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('support'); setShowNotifDropdown(false); }}
+          >
+            <HelpCircle size={18} /> Support Portal
+          </button>
+        )}
+        
+        {(role === 'Super Admin' || role === 'Dispatcher') && (
+          <button 
+            className={`tab-btn ${activeTab === 'technicians' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('technicians'); setShowNotifDropdown(false); }}
+          >
+            <UserCheck size={18} /> Technicians
+          </button>
+        )}
+        
+        {role === 'Super Admin' && (
+          <button 
+            className={`tab-btn ${activeTab === 'payouts' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('payouts'); setShowNotifDropdown(false); }}
+          >
+            <Coins size={18} /> Payout Ledger
+          </button>
+        )}
+
+        {role === 'Super Admin' && (
+          <button 
+            className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('settings'); setShowNotifDropdown(false); }}
+          >
+            <Settings size={18} /> Integrations & API
+          </button>
+        )}
       </nav>
 
       {/* Main Workspace Body */}

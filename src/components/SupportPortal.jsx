@@ -4,7 +4,7 @@ import {
   Search, MessageSquare, History, ArrowLeft, User, 
   Package, Clock, Plus, HelpCircle
 } from 'lucide-react';
-import { getOrders, addComment } from '../utils/stateManager';
+import { getOrders, addComment, getUserRole } from '../utils/stateManager';
 
 export default function SupportPortal({ refreshTrigger, onRefresh }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,7 +52,7 @@ export default function SupportPortal({ refreshTrigger, onRefresh }) {
     if (!newComment.trim() || !selectedOrderId) return;
     
     // Add comment as Customer Support role
-    addComment(selectedOrderId, newComment.trim(), 'Customer Support');
+    addComment(selectedOrderId, newComment.trim(), getUserRole());
     setNewComment('');
     loadData();
     if (onRefresh) onRefresh();

@@ -516,7 +516,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                                   </span>
                                 </div>
 
-                                {isPending && (
+                                {isPending && !readOnly && (
                                   <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
                                     <button
                                       type="button"

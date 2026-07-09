@@ -32,13 +32,6 @@ const STORAGE_KEYS = {
   SYNC_QUEUE: 'fsa_sync_queue'          // Offline operation retry queue
 };
 
-const DEFAULT_CARPENTERS = [
-  { id: 'c1', name: 'John Carpenter', phone: '+91-95555-01234', email: 'john.carpenter@service.com', rank: 'Expert', activeJobs: 0, maxActiveJobs: 4, pincodes: ['90265', '62704', '11375'] },
-  { id: 'c2', name: 'Mark Carpenter', phone: '+91-95555-05678', email: 'mark.carpenter@service.com', rank: 'Intermediate', activeJobs: 0, maxActiveJobs: 3, pincodes: ['11201', '45202', '91505'] },
-  { id: 'c3', name: 'Bob Johnson', phone: '+91-95555-09012', email: 'bob.johnson@service.com', rank: 'Apprentice', activeJobs: 0, maxActiveJobs: 2, pincodes: ['62704', '90028'] },
-  { id: 'c4', name: 'Alice Brown', phone: '+91-95555-09999', email: 'alice.brown@service.com', rank: 'Expert', activeJobs: 0, maxActiveJobs: 3, pincodes: ['11201', '90265'] },
-];
-
 const getRelativeDate = (offsetDays) => {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
@@ -584,6 +577,47 @@ export const saveOrders = (orders) => {
   normalized.forEach(o => {
     syncOrderToPocketBase(o.orderId, o);
   });
+};
+
+export const rejectJob = (orderId, carpenterName, reason) => {
+  const orders = getOrders();
+  const index = orders.findIndex(o => o.orderId === orderId);
+  if (index !== -1) {
+    const order = orders[index];
+    const newStatus = 'Unassigned';
+    
+    // Update order
+    orders[index] = { 
+      ...order, 
+      assignedCarpenter: '', 
+      assignedCarpenterId: '',
+      jobStatus: newStatus,
+      status: newStatus
+    };
+    
+    saveOrders(orders);
+    
+    // Add comment
+    addComment(
+      orderId,
+      `Carpenter ${carpenterName} rejected/skipped the order. Reason: ${reason}`,
+      'System'
+    );
+    
+    // Add audit log manually since we updated the order already
+    const updatedOrders = getOrders();
+    const updatedIndex = updatedOrders.findIndex(o => o.orderId === orderId);
+    if (updatedIndex !== -1) {
+      if (!updatedOrders[updatedIndex].auditLogs) updatedOrders[updatedIndex].auditLogs = [];
+      updatedOrders[updatedIndex].auditLogs.push({
+        timestamp: new Date().toISOString(),
+        user: 'System',
+        action: 'Job Rejected',
+        comments: `Carpenter ${carpenterName} skipped order: ${reason}`
+      });
+      saveOrders(updatedOrders);
+    }
+  }
 };
 
 export const updateOrder = (orderId, updatedFields) => {
