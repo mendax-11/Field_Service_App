@@ -141,6 +141,11 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   const [chargeAmount, setChargeAmount] = useState('');
   const [chargeNotes, setChargeNotes] = useState('');
   const [chargeReceipt, setChargeReceipt] = useState('');
+
+  // Reject / Skip Order State
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [customRejectReason, setCustomRejectReason] = useState('');
   
   // Direct Job link security check
   const [pinVerified, setPinVerified] = useState(false);
@@ -461,6 +466,26 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
 
     setJobs(stateManager.getJobs());
     alert("Reimbursement request submitted successfully!");
+  };
+
+  // Submit Reject/Skip Order
+  const handleRejectSubmit = (e) => {
+    e.preventDefault();
+    const finalReason = rejectReason === 'Other' ? customRejectReason : rejectReason;
+    
+    if (!finalReason) {
+      alert("Please specify a reason for rejecting the order.");
+      return;
+    }
+
+    stateManager.rejectJob(selectedJobId, carpenterName, finalReason);
+    
+    setJobs(stateManager.getJobs());
+    setShowRejectForm(false);
+    setRejectReason('');
+    setCustomRejectReason('');
+    setSelectedJobId(null);
+    setActiveTab('jobs');
   };
 
   // Handle Mock Damage Photo
@@ -1258,6 +1283,20 @@ Your review helps us serve you better. Thank you!`;
                 </div>
               </div>
 
+              {/* Action: Reject / Skip Order */}
+              {(!isCompletedMoreThan24Hours(job) && job.status !== 'Completed') && (
+                <div className="detail-card" style={{ padding: '12px' }}>
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ width: '100%', borderColor: 'var(--danger-color)', color: 'var(--danger-color)' }}
+                    onClick={() => setShowRejectForm(true)}
+                  >
+                    <AlertTriangle size={16} style={{ marginRight: '8px' }} />
+                    Reject / Skip Order
+                  </button>
+                </div>
+              )}
+
               {/* Customer & Address Details with Navigation */}
               <div className="detail-card">
                 <h4 className="detail-card-title">
@@ -1999,6 +2038,56 @@ Your review helps us serve you better. Thank you!`;
                 </form>
               </div>
             </>
+          )}
+
+          {/* Reject / Skip Order Modal */}
+          {showRejectForm && (
+            <div className="modal-overlay" onClick={() => setShowRejectForm(false)}>
+              <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3 style={{ color: 'var(--danger-color)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AlertTriangle size={20} /> Reject Order
+                  </h3>
+                  <button className="btn-close" onClick={() => setShowRejectForm(false)}>✕</button>
+                </div>
+                <form className="damage-form" onSubmit={handleRejectSubmit}>
+                  <div className="form-group">
+                    <label>Reason for Rejection *</label>
+                    <select value={rejectReason} onChange={e => setRejectReason(e.target.value)} required>
+                      <option value="">-- Select Reason --</option>
+                      <option value="Out of service area">Out of service area</option>
+                      <option value="Schedule conflict / No time">Schedule conflict / No time</option>
+                      <option value="Vehicle breakdown">Vehicle breakdown</option>
+                      <option value="Customer requested reschedule">Customer requested reschedule</option>
+                      <option value="Incomplete tools / materials">Incomplete tools / materials</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  
+                  {rejectReason === 'Other' && (
+                    <div className="form-group">
+                      <label>Specify Reason *</label>
+                      <textarea 
+                        value={customRejectReason} 
+                        onChange={e => setCustomRejectReason(e.target.value)} 
+                        placeholder="Please specify the reason..."
+                        rows={3}
+                        required
+                      />
+                    </div>
+                  )}
+
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                    Rejecting this order will unassign it from you and notify the dispatcher immediately. This action cannot be undone.
+                  </p>
+
+                  <div className="modal-actions">
+                    <button type="button" className="btn btn-secondary" onClick={() => setShowRejectForm(false)}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" style={{ backgroundColor: 'var(--danger-color)', borderColor: 'var(--danger-color)' }}>Confirm Reject</button>
+                  </div>
+                </form>
+              </div>
+            </div>
           )}
 
         </main>
