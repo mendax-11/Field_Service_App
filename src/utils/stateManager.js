@@ -2072,9 +2072,21 @@ export async function authenticateUser(phone, password) {
   ];
 
   const demoMatch = DEMO_ACCOUNTS.find(a => {
+    const cleanInput = phone.trim().toLowerCase();
+    
+    // 1. Match by email
     if (phone.includes('@')) {
-      return a.email && a.email.toLowerCase() === phone.trim().toLowerCase() && a.password === password;
+      return a.email && a.email.toLowerCase() === cleanInput && a.password === password;
     }
+    
+    // 2. Match by name or role string (e.g. "superadmin", "dispatcher")
+    const cleanDemoName = a.name.replace(/\s+/g, '').toLowerCase();
+    const cleanDemoRole = a.role.replace(/\s+/g, '').toLowerCase();
+    if (cleanDemoName === cleanInput || cleanDemoRole === cleanInput) {
+      return a.password === password;
+    }
+    
+    // 3. Match by phone number
     return normalizePhoneForComparison(a.phone) === cleanInputPhone && a.password === password;
   });
   if (demoMatch) {
