@@ -1428,6 +1428,43 @@ async function syncOrderToPocketBase(orderId, order) {
       // 404
     }
 
+    let mergedComments = order.comments || [];
+    let mergedAuditLogs = order.auditLogs || order.audit_logs || [];
+
+    if (record) {
+      // Merge comments: sort chronologically and deduplicate
+      const serverComments = record.comments || [];
+      const seenComments = new Set();
+      const tempComments = [];
+      const addCommentObj = (c) => {
+        if (!c || !c.text) return;
+        const key = `${c.timestamp}_${c.author}_${c.text}`;
+        if (!seenComments.has(key)) {
+          seenComments.add(key);
+          tempComments.push(c);
+        }
+      };
+      mergedComments.forEach(addCommentObj);
+      serverComments.forEach(addCommentObj);
+      mergedComments = tempComments.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      // Merge audit logs: sort chronologically and deduplicate
+      const serverLogs = record.audit_logs || [];
+      const seenLogs = new Set();
+      const tempLogs = [];
+      const addLogObj = (l) => {
+        if (!l || !l.action) return;
+        const key = `${l.timestamp}_${l.action}_${l.user}_${l.comments}`;
+        if (!seenLogs.has(key)) {
+          seenLogs.add(key);
+          tempLogs.push(l);
+        }
+      };
+      mergedAuditLogs.forEach(addLogObj);
+      serverLogs.forEach(addLogObj);
+      mergedAuditLogs = tempLogs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    }
+
     const pbFields = {
       order_id: orderId,
       platform: order.platform || 'Amazon',
@@ -1445,8 +1482,8 @@ async function syncOrderToPocketBase(orderId, order) {
       delivery_date: order.deliveryDate || order.delivery_date || '',
       promise_date: order.promiseDate || order.promise_date || '',
       checklist: order.checklist || [],
-      comments: order.comments || [],
-      audit_logs: order.auditLogs || order.audit_logs || [],
+      comments: mergedComments,
+      audit_logs: mergedAuditLogs,
       damage_report: order.damageReport || order.damage_report || null,
       photos: order.photos || { before: null, after: null },
       signature: order.signature || null,
@@ -1589,17 +1626,19 @@ async function syncOrderToPocketBase(orderId, order) {
         }
       }
 
-      if (localUpdateNeeded) {
-        const localOrders = getOrders();
-        const idx = localOrders.findIndex(o => o.orderId === orderId);
-        if (idx !== -1) {
-          localOrders[idx] = {
-            ...localOrders[idx],
-            photos: updatedPhotos,
-            signature: updatedSignature
-          };
-          saveOrdersLocalOnly(localOrders);
-        }
+      // Always save merged comments and audit logs, and any resolved URLs
+      const localOrders = getOrders();
+      const idx = localOrders.findIndex(o => o.orderId === orderId);
+      if (idx !== -1) {
+        localOrders[idx] = {
+          ...localOrders[idx],
+          comments: mergedComments,
+          auditLogs: mergedAuditLogs,
+          audit_logs: mergedAuditLogs,
+          photos: updatedPhotos,
+          signature: updatedSignature
+        };
+        saveOrdersLocalOnly(localOrders);
       }
     }
   } catch (err) {
@@ -2156,7 +2195,18 @@ setTimeout(() => {
   syncCarpentersFromPocketBase();
   (async () => {
     try {
-      const records = await pb.collection('orders').getFullList({ sort: '-created', expand: 'assigned_carpenter', $autoCancel: false });
+      // Fetch only active, unpaid, or recently created orders (within last 30 days) to keep boot times fast
+      const dateLimit = new Date();
+      dateLimit.setDate(dateLimit.getDate() - 30);
+      const dateStr = dateLimit.toISOString().replace('T', ' '); // PocketBase format: YYYY-MM-DD HH:MM:SS.FFF
+      const activeFilter = `created >= "${dateStr}" || status != "Completed" || payment_status != "Paid"`;
+
+      const records = await pb.collection('orders').getFullList({ 
+        sort: '-created', 
+        expand: 'assigned_carpenter', 
+        filter: activeFilter,
+        $autoCancel: false 
+      });
       window.fsa_db_sync_error = null;
       window.dispatchEvent(new Event('fsa_storage_update'));
       if (records.length > 0) {
