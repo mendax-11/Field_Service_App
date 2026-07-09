@@ -1999,23 +1999,31 @@ export async function authenticateUser(phone, password) {
     let authData = null;
     
     // Build possible login identity candidates (usernames or emails)
+    // Build possible login identity candidates (usernames, emails, or phone variations)
     const candidates = [];
     
     if (phone.includes('@')) {
       // If the user typed a direct email, prioritize it
       candidates.push(phone.trim().toLowerCase());
     } else {
-      // Otherwise build phone-based candidates
-      candidates.push(cleanPhoneDigits);
-      candidates.push(`${cleanPhoneDigits}@timberflow.in`);
+      // If it contains letters (like a username 'superadmin'), add it directly
+      if (/[a-zA-Z]/.test(phone)) {
+        candidates.push(phone.trim());
+      }
       
-      if (cleanPhoneDigits.length === 10) {
-        candidates.push('91' + cleanPhoneDigits);
-        candidates.push(`91${cleanPhoneDigits}@timberflow.in`);
-      } else if (cleanPhoneDigits.length > 10) {
-        const last10 = cleanPhoneDigits.slice(-10);
-        candidates.push(last10);
-        candidates.push(`${last10}@timberflow.in`);
+      // Build phone-based candidates if there are digits
+      if (cleanPhoneDigits.length > 0) {
+        candidates.push(cleanPhoneDigits);
+        candidates.push(`${cleanPhoneDigits}@timberflow.in`);
+        
+        if (cleanPhoneDigits.length === 10) {
+          candidates.push('91' + cleanPhoneDigits);
+          candidates.push(`91${cleanPhoneDigits}@timberflow.in`);
+        } else if (cleanPhoneDigits.length > 10) {
+          const last10 = cleanPhoneDigits.slice(-10);
+          candidates.push(last10);
+          candidates.push(`${last10}@timberflow.in`);
+        }
       }
     }
 
@@ -2055,21 +2063,24 @@ export async function authenticateUser(phone, password) {
     // PocketBase auth error or connection failure — fall through to local demo fallback
   }
 
-  // Demo / offline fallback — match against phone numbers
+  // Demo / offline fallback — match against phone numbers or emails
   const DEMO_ACCOUNTS = [
-    { phone: '+91-80000-00001', password: 'admin123', role: 'Super Admin',       name: 'Super Admin' },
-    { phone: '+91-80000-00002', password: 'admin123', role: 'Dispatcher',         name: 'Dispatcher Manager' },
-    { phone: '+91-80000-00003', password: 'admin123', role: 'Inventory Manager',  name: 'Logistics Supervisor' },
-    { phone: '+91-80000-00004', password: 'admin123', role: 'Customer Support',   name: 'Support Executive' },
+    { phone: '+91-80000-00001', email: 'superadmin@service.com', password: 'admin123', role: 'Super Admin',       name: 'Super Admin' },
+    { phone: '+91-80000-00002', email: 'dispatcher@service.com', password: 'admin123', role: 'Dispatcher',         name: 'Dispatcher Manager' },
+    { phone: '+91-80000-00003', email: 'inventory@service.com', password: 'admin123', role: 'Inventory Manager',  name: 'Logistics Supervisor' },
+    { phone: '+91-80000-00004', email: 'support@service.com', password: 'admin123', role: 'Customer Support',   name: 'Support Executive' },
   ];
 
-  const demoMatch = DEMO_ACCOUNTS.find(
-    a => normalizePhoneForComparison(a.phone) === cleanInputPhone && a.password === password
-  );
+  const demoMatch = DEMO_ACCOUNTS.find(a => {
+    if (phone.includes('@')) {
+      return a.email && a.email.toLowerCase() === phone.trim().toLowerCase() && a.password === password;
+    }
+    return normalizePhoneForComparison(a.phone) === cleanInputPhone && a.password === password;
+  });
   if (demoMatch) {
     return {
       success: true,
-      user: { role: demoMatch.role, name: demoMatch.name, phone: demoMatch.phone },
+      user: { role: demoMatch.role, name: demoMatch.name, phone: demoMatch.phone, email: demoMatch.email },
       source: 'demo'
     };
   }
