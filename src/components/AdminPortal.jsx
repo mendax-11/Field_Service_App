@@ -11,7 +11,7 @@ import {
   getNotifications, clearNotifications, autoAllocateOrders, 
   saveOrders, addNotification, updateOrder, addOrder, checkSlaBreaches,
   getN8nConfig, saveN8nConfig,
-  exportOrdersCSV, pb
+  exportOrdersCSV, pb, resetState
 } from '../utils/stateManager';
 
 import OrderGrid from './OrderGrid';
@@ -1342,6 +1342,22 @@ export default function AdminPortal() {
                       >
                         <Download size={14} style={{ marginRight: '6px' }} />
                         Export Orders
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={async () => {
+                          if (window.confirm("Are you sure you want to clear all local browser cache? This will clean up local sample data and load fresh, active records from the PocketBase server.")) {
+                            await resetState();
+                            triggerRefresh();
+                            alert("Local browser cache cleared! Fetching fresh data from the server...");
+                            window.location.reload();
+                          }
+                        }}
+                        className="import-submit-btn"
+                        title="Clears all local storage/IndexedDB mock files and pulls clean records from server"
+                        style={{ flex: 1, margin: 0, minWidth: '120px', backgroundColor: 'transparent', border: '1px solid var(--color-danger, #ef4444)', color: 'var(--color-danger, #ef4444)' }}
+                      >
+                        Clear Local Cache
                       </button>
                     </div>
                   </div>

@@ -37,8 +37,9 @@ const getRelativeDate = (offsetDays) => {
   date.setDate(date.getDate() + offsetDays);
   return date.toISOString();
 };
-
-const DEFAULT_ORDERS = [
+/* eslint-disable no-unused-vars */
+const DEFAULT_ORDERS = [];
+const OLD_UNUSED_ORDERS = [
   {
     order_id: 'AMZ-9023',
     customer_name: 'Robert Downey',
@@ -487,7 +488,7 @@ let memoryCarpenters = null;
 export const initializeStorage = async () => {
   // Sync initialization of localstorage fallbacks first
   if (!localStorage.getItem(STORAGE_KEYS.ORDERS)) {
-    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(DEFAULT_ORDERS.map(normalizeOrder)));
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([]));
   }
   if (!localStorage.getItem(STORAGE_KEYS.CARPENTERS)) {
     localStorage.setItem(STORAGE_KEYS.CARPENTERS, JSON.stringify([]));
@@ -550,7 +551,7 @@ export const getOrders = () => {
     memoryOrders = raw.map(normalizeOrder);
     return memoryOrders;
   } catch (e) {
-    memoryOrders = DEFAULT_ORDERS.map(normalizeOrder);
+    memoryOrders = [];
     return memoryOrders;
   }
 };
@@ -1222,6 +1223,17 @@ export const autoAllocateOrders = () => {
   return allocatedCount;
 };
 
+export function resetState() {
+  localStorage.removeItem(STORAGE_KEYS.ORDERS);
+  localStorage.removeItem(STORAGE_KEYS.CARPENTERS);
+  localStorage.removeItem(STORAGE_KEYS.USER_ROLE);
+  localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
+  idbSave(STORES.ORDERS, []);
+  idbSave(STORES.CARPENTERS, []);
+  initializeStorage();
+  return getOrders();
+}
+
 // Reconcile and export CarpenterPortal compatibility layer
 export const stateManager = {
   getJobs() {
@@ -1329,12 +1341,7 @@ export const stateManager = {
   },
 
   resetState() {
-    localStorage.removeItem(STORAGE_KEYS.ORDERS);
-    localStorage.removeItem(STORAGE_KEYS.CARPENTERS);
-    localStorage.removeItem(STORAGE_KEYS.USER_ROLE);
-    localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
-    initializeStorage();
-    return getOrders();
+    return resetState();
   },
 
   getCarpenters() {
