@@ -739,7 +739,7 @@ export default function AdminPortal() {
         outstandingPayout,
         totalCompletedPayout
       };
-    });
+    }).filter(carp => carp.completedJobs.length > 0);
   };
 
   const handleClearPayout = (orderId, carpenterName, amount) => {
@@ -1446,86 +1446,92 @@ export default function AdminPortal() {
                 </div>
 
                 <div className="carpenter-ledger-grid">
-                  {payoutLedgerData.map(carp => (
-                    <div key={carp.id} className="carp-ledger-card">
-                      <div className="ledger-card-header">
-                        <div>
-                          <h4>{carp.name}</h4>
-                          <span className="rank-badge">{carp.rank}</span>
-                        </div>
-                        <div className="outstanding-badge">
-                          <span className="val">₹{carp.outstandingPayout}</span>
-                          <span className="lbl">Outstanding</span>
-                        </div>
-                      </div>
-
-                      <div className="completed-jobs-sublist">
-                        <h5>Completed Jobs ({carp.completedJobs.length})</h5>
-                        {carp.completedJobs.length === 0 ? (
-                          <p className="no-jobs-payout">No completed installation jobs yet.</p>
-                        ) : (
-                          <div className="job-table-ledger">
-                            <table>
-                              <thead>
-                                <tr>
-                                  <th>Order ID</th>
-                                  <th>SKU / Product</th>
-                                  <th>Payout</th>
-                                  <th>Payment Status</th>
-                                  <th>Action</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {carp.completedJobs.map(job => (
-                                  <tr key={job.orderId}>
-                                    <td className="font-mono">{job.orderId}</td>
-                                    <td className="font-mono text-small">{job.sku.split('-').slice(1).join('-') || job.sku}</td>
-                                    <td className="text-bold">₹{job.payout}</td>
-                                    <td>
-                                      <span className={`payment-badge ${job.paymentStatus.toLowerCase()}`}>
-                                        {job.paymentStatus}
-                                      </span>
-                                    </td>
-                                    <td>
-                                      {job.paymentStatus === 'Unpaid' ? (
-                                        <button
-                                          onClick={() => handleClearPayout(job.orderId, carp.name, job.payout)}
-                                          className="clear-job-payout-btn"
-                                        >
-                                          Clear Payout
-                                        </button>
-                                      ) : (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                          <span className="cleared-indicator">Disbursed</span>
-                                          {!job.archived && (
-                                            <button
-                                              onClick={() => {
-                                                updateOrder(job.orderId, { archived: true });
-                                                alert(`Order ${job.orderId} archived.`);
-                                                triggerRefresh();
-                                              }}
-                                              className="clear-job-payout-btn"
-                                              style={{ backgroundColor: '#4b5563', padding: '3px 6px', fontSize: '9px', height: 'auto', minWidth: 'auto', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                                            >
-                                              Archive
-                                            </button>
-                                          )}
-                                        </div>
-                                      )}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="carp-ledger-summary-footer">
-                        <span>Total Earnings: ₹{carp.totalCompletedPayout}</span>
-                      </div>
+                  {payoutLedgerData.length === 0 ? (
+                    <div className="empty-ledger-state" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                      <p>No completed jobs found for any technician.</p>
                     </div>
-                  ))}
+                  ) : (
+                    payoutLedgerData.map(carp => (
+                      <div key={carp.id} className="carp-ledger-card">
+                        <div className="ledger-card-header">
+                          <div>
+                            <h4>{carp.name}</h4>
+                            <span className="rank-badge">{carp.rank}</span>
+                          </div>
+                          <div className="outstanding-badge">
+                            <span className="val">₹{carp.outstandingPayout}</span>
+                            <span className="lbl">Outstanding</span>
+                          </div>
+                        </div>
+
+                        <div className="completed-jobs-sublist">
+                          <h5>Completed Jobs ({carp.completedJobs.length})</h5>
+                          {carp.completedJobs.length === 0 ? (
+                            <p className="no-jobs-payout">No completed installation jobs yet.</p>
+                          ) : (
+                            <div className="job-table-ledger">
+                              <table>
+                                <thead>
+                                  <tr>
+                                    <th>Order ID</th>
+                                    <th>SKU / Product</th>
+                                    <th>Payout</th>
+                                    <th>Payment Status</th>
+                                    <th>Action</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {carp.completedJobs.map(job => (
+                                    <tr key={job.orderId}>
+                                      <td className="font-mono">{job.orderId}</td>
+                                      <td className="font-mono text-small">{job.sku.split('-').slice(1).join('-') || job.sku}</td>
+                                      <td className="text-bold">₹{job.payout}</td>
+                                      <td>
+                                        <span className={`payment-badge ${job.paymentStatus.toLowerCase()}`}>
+                                          {job.paymentStatus}
+                                        </span>
+                                      </td>
+                                      <td>
+                                        {job.paymentStatus === 'Unpaid' ? (
+                                          <button
+                                            onClick={() => handleClearPayout(job.orderId, carp.name, job.payout)}
+                                            className="clear-job-payout-btn"
+                                          >
+                                            Clear Payout
+                                          </button>
+                                        ) : (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span className="cleared-indicator">Disbursed</span>
+                                            {!job.archived && (
+                                              <button
+                                                onClick={() => {
+                                                  updateOrder(job.orderId, { archived: true });
+                                                  alert(`Order ${job.orderId} archived.`);
+                                                  triggerRefresh();
+                                                }}
+                                                className="clear-job-payout-btn"
+                                                style={{ backgroundColor: '#4b5563', padding: '3px 6px', fontSize: '9px', height: 'auto', minWidth: 'auto', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                              >
+                                                Archive
+                                              </button>
+                                            )}
+                                          </div>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="carp-ledger-summary-footer">
+                          <span>Total Earnings: ₹{carp.totalCompletedPayout}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
