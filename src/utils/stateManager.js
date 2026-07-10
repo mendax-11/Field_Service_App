@@ -2078,26 +2078,44 @@ export async function authenticateUser(phone, password) {
     // Try each login identity candidate until one succeeds
     for (const identity of candidates) {
       try {
+        // Try regular users collection first
         authData = await pb.collection('users').authWithPassword(identity, password);
         if (authData?.record) {
-          console.log('[Auth] PocketBase login succeeded with identity:', identity);
+          console.log('[Auth] PocketBase user login succeeded with identity:', identity);
           break;
         }
       } catch (err) {
-        console.warn('[Auth] Candidate failed:', identity, err?.message || err);
-        // try next candidate
+        // Fallback: try PocketBase v0.23+ superusers collection
+        try {
+          authData = await pb.collection('_superusers').authWithPassword(identity, password);
+          if (authData?.record) {
+            console.log('[Auth] PocketBase superuser login succeeded with identity:', identity);
+            break;
+          }
+        } catch (se) {
+          // Legacy PocketBase admin auth fallback
+          try {
+            authData = await pb.admins.authWithPassword(identity, password);
+            if (authData?.admin) {
+              console.log('[Auth] PocketBase legacy admin login succeeded with identity:', identity);
+              break;
+            }
+          } catch (ae) {
+            console.warn('[Auth] Candidate failed for all auth models:', identity);
+          }
+        }
       }
     }
 
-    if (authData?.record) {
-      const record = authData.record;
-      const role = record.role || 'Carpenter';
+    if (authData?.record || authData?.admin) {
+      const record = authData.record || authData.admin;
+      const role = record.role || 'Super Admin'; // Default to Super Admin for superusers/admins
       return {
         success: true,
         user: {
           role,
-          name: record.name || record.username,
-          username: record.username,
+          name: record.name || record.username || (record.email ? record.email.split('@')[0] : 'Admin'),
+          username: record.username || '',
           phone: record.phone || phone,
           email: record.email,
           id: record.id
