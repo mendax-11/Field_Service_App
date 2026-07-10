@@ -49,7 +49,7 @@ export const translations = {
     // Address & Customer
     assembly_address: 'Assembly Address',
     customer_phone: 'Customer Phone',
-    call_masked: 'Call (Masked)',
+    call_masked: 'Call',
     open_google_maps: 'Open in Google Maps Navigation',
     
     // Actions

@@ -1358,15 +1358,14 @@ Your review helps us serve you better. Thank you!`;
                       </p>
                     </div>
                     {(!isCompletedMoreThan24Hours(job) && job.status !== 'Completed') && (
-                      <button 
-                        type="button" 
-                        onClick={() => handleProxyCall(job)}
+                      <a 
+                        href={`tel:${(job.customerPhone || '+1-555-0199').replace(/[^0-9+]/g, '')}`}
                         className="btn btn-secondary"
-                        style={{ padding: '6px 12px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid var(--color-primary)', borderRadius: '6px', color: 'var(--text-light)' }}
+                        style={{ padding: '6px 12px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid var(--color-primary)', borderRadius: '6px', color: 'var(--text-light)', textDecoration: 'none' }}
                       >
                         <Smartphone size={12} />
-                        Call (Masked)
-                      </button>
+                        {t('call_masked')}
+                      </a>
                     )}
                   </div>
                 </div>
