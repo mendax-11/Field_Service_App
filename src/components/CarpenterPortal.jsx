@@ -26,6 +26,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { stateManager, triggerN8nWebhook } from '../utils/stateManager';
+import { getTranslation } from '../utils/translations';
 
 import SignatureCanvas from './SignatureCanvas';
 import './CarpenterPortal.css';
@@ -118,6 +119,14 @@ async function captureAndStampPhoto(file, orderId, { maxWidth = 800, maxHeight =
 }
 
 export default function CarpenterPortal({ carpenterName = 'John Carpenter', directJobId = null, isSimulator = false }) {
+  const [appLang, setAppLang] = useState(() => localStorage.getItem('fsa_carpenter_lang') || 'en');
+  const t = (key) => getTranslation(appLang, key);
+
+  const handleLanguageChange = (e) => {
+    const lang = e.target.value;
+    setAppLang(lang);
+    localStorage.setItem('fsa_carpenter_lang', lang);
+  };
 
   const [jobs, setJobs] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState(null);
@@ -811,10 +820,28 @@ Your review helps us serve you better. Thank you!`;
               type="button" 
               onClick={toggleTheme} 
               className="btn-icon" 
-              title="Toggle Light/Dark Theme"
+              title={t('toggle_theme')}
             >
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
+            <select 
+              value={appLang} 
+              onChange={handleLanguageChange}
+              style={{
+                background: 'transparent',
+                color: 'var(--text-light)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: '4px',
+                padding: '2px 4px',
+                fontSize: '11px',
+                marginLeft: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="en" style={{color: '#000'}}>EN</option>
+              <option value="hi" style={{color: '#000'}}>HI</option>
+              <option value="ta" style={{color: '#000'}}>TA</option>
+            </select>
             {!directJobId && (
               <>
                 <button 
@@ -1358,7 +1385,7 @@ Your review helps us serve you better. Thank you!`;
                     onClick={() => handleStartTransit(job.id)}
                   >
                     <Navigation size={20} />
-                    I'm On My Way
+                    {t('im_on_my_way')}
                   </button>
                 </div>
               )}
@@ -1863,7 +1890,7 @@ Your review helps us serve you better. Thank you!`;
                 <div className="completion-flow-card">
                   <h4 className="completion-step-title">
                     <Smartphone size={15} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} />
-                    Job Closure & Sign-Off
+                    {t('job_closure')}
                   </h4>
 
                   {/* Wallet Alert based on payment type */}
@@ -1930,7 +1957,7 @@ Your review helps us serve you better. Thank you!`;
                               className="btn btn-primary btn-massive"
                               onClick={() => handleVerifyOtp(job.id)}
                             >
-                              Confirm Customer Code
+                              {t('confirm_customer_code')}
                             </button>
                           </div>
                           {otpError && <span className="otp-error-msg">{otpError}</span>}
@@ -1999,7 +2026,7 @@ Your review helps us serve you better. Thank you!`;
               <div className="comments-panel-card">
                 <h4 className="detail-card-title">
                   <MessageCircle size={15} />
-                  <span>Message Dispatcher</span>
+                  <span>{t('message_dispatcher')}</span>
                 </h4>
                 
                 <div className="comments-stream-container">
