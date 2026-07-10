@@ -1353,12 +1353,12 @@ Your review helps us serve you better. Thank you!`;
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                   <button
                     type="button"
-                    className="btn btn-primary"
-                    style={{ width: '100%', padding: '12px', borderRadius: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
+                    className="btn btn-primary btn-massive"
+                    style={{ width: '100%', padding: '16px', borderRadius: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', fontSize: '1.1rem' }}
                     onClick={() => handleStartTransit(job.id)}
                   >
-                    <Navigation size={16} />
-                    Start Transit & Notify Client
+                    <Navigation size={20} />
+                    I'm On My Way
                   </button>
                 </div>
               )}
@@ -1443,7 +1443,9 @@ Your review helps us serve you better. Thank you!`;
               )}
 
               {/* Step-by-Step Interactive Assembly Checklist */}
-              <div className="detail-card">
+              {job.status === 'In Progress' && (
+                <>
+                  <div className="detail-card">
                 <div className="checklist-progress-container">
                   <h4 className="detail-card-title" style={{ margin: 0 }}>
                     <CheckSquare size={15} />
@@ -1853,9 +1855,11 @@ Your review helps us serve you better. Thank you!`;
                   </form>
                 )}
               </div>
+                </>
+              )}
 
               {/* Complete Job Sign-off Section */}
-              {job.status !== 'Completed' && (
+              {job.status === 'In Progress' && (
                 <div className="completion-flow-card">
                   <h4 className="completion-step-title">
                     <Smartphone size={15} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} />
@@ -1923,10 +1927,10 @@ Your review helps us serve you better. Thank you!`;
                             />
                             <button
                               type="button"
-                              className="btn btn-primary"
+                              className="btn btn-primary btn-massive"
                               onClick={() => handleVerifyOtp(job.id)}
                             >
-                              Verify
+                              Confirm Customer Code
                             </button>
                           </div>
                           {otpError && <span className="otp-error-msg">{otpError}</span>}
@@ -1995,7 +1999,7 @@ Your review helps us serve you better. Thank you!`;
               <div className="comments-panel-card">
                 <h4 className="detail-card-title">
                   <MessageCircle size={15} />
-                  <span>Dispatcher & Support Chat</span>
+                  <span>Message Dispatcher</span>
                 </h4>
                 
                 <div className="comments-stream-container">
