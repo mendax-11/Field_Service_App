@@ -672,8 +672,8 @@ Your review helps us serve you better. Thank you!`;
   const activeUser = stateManager.getActiveUser ? stateManager.getActiveUser() : null;
   const cleanCarpenterName = (carpenterName || '').trim().toLowerCase();
   
-  const carpenterJobs = directJobId 
-    ? jobs.filter(j => j.id === directJobId)
+  let carpenterJobs = directJobId 
+    ? jobs.filter(j => (j.id || j.orderId) === directJobId)
     : jobs.filter(j => {
         // 1. Compare PocketBase relation User ID
         const jobCarpId = j.assignedCarpenterId || j.assigned_carpenter_id || (j.assigned_carpenter && j.assigned_carpenter.length > 10 ? j.assigned_carpenter : '');
@@ -709,6 +709,9 @@ Your review helps us serve you better. Thank you!`;
 
         return false;
       });
+
+  // Ensure all jobs have an explicit 'id' property mapped from orderId
+  carpenterJobs = carpenterJobs.map(j => ({ ...j, id: j.id || j.orderId }));
 
   // Wallet stats summary calculation for this carpenter only
   const getCarpenterEarnings = () => {
