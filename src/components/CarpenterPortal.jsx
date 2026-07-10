@@ -842,33 +842,7 @@ Your review helps us serve you better. Thank you!`;
               <option value="hi" style={{color: '#000'}}>HI</option>
               <option value="ta" style={{color: '#000'}}>TA</option>
             </select>
-            {!directJobId && (
-              <>
-                <button 
-                  type="button" 
-                  onClick={handleResetDemo} 
-                  className="btn-reset-demo"
-                >
-                  Reset
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    localStorage.removeItem('fsa_logged_in_user');
-                    window.location.reload();
-                  }} 
-                  className="btn-reset-demo"
-                  style={{ 
-                    marginLeft: '6px', 
-                    background: 'rgba(239, 68, 68, 0.12)', 
-                    border: '1px solid rgba(239, 68, 68, 0.25)', 
-                    color: 'var(--color-danger)' 
-                  }}
-                >
-                  Logout
-                </button>
-              </>
-            )}
+
           </div>
         </header>
 
@@ -1259,6 +1233,39 @@ Your review helps us serve you better. Thank you!`;
                   ))
                 )}
               </div>
+              {/* App Settings / Reset Block */}
+              {!directJobId && (
+                <div style={{ marginTop: '24px', padding: '16px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: 'var(--text-primary)' }}>App Settings</h3>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button 
+                      type="button" 
+                      onClick={handleResetDemo} 
+                      className="btn-reset-demo"
+                      style={{ flex: 1, padding: '10px' }}
+                    >
+                      Reset App Data
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        localStorage.removeItem('fsa_logged_in_user');
+                        window.location.reload();
+                      }} 
+                      className="btn-reset-demo"
+                      style={{ 
+                        flex: 1,
+                        padding: '10px',
+                        background: 'rgba(239, 68, 68, 0.12)', 
+                        border: '1px solid rgba(239, 68, 68, 0.25)', 
+                        color: 'var(--color-danger)' 
+                      }}
+                    >
+                      {t('logout')}
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
