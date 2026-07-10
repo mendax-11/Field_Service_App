@@ -199,11 +199,8 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       return '[Redacted for PII Privacy]';
     }
     if (type === 'phone') {
-      const str = String(value);
-      if (str.length > 5) {
-        return str.substring(0, str.length - 7) + '•••-••' + str.substring(str.length - 2);
-      }
-      return '•••-••' + str.slice(-2);
+      // Small trusted rollout: do not mask phone numbers for active jobs
+      return value;
     }
     return value;
   };
@@ -299,8 +296,11 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     };
   }, [directJobId]);
 
-  // Find currently selected job
-  const job = jobs.find(j => (j.id || j.orderId) === selectedJobId) || null;
+  // Find currently selected job and ensure it has an explicit id property
+  let job = jobs.find(j => (j.id || j.orderId) === selectedJobId) || null;
+  if (job) {
+    job = { ...job, id: job.id || job.orderId };
+  }
   const commentsLength = job?.comments?.length || 0;
 
   // Sync scroll on new comments
