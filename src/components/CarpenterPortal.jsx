@@ -172,9 +172,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   // In-app mock SMS notification
   const [smsNotification, setSmsNotification] = useState(null);
 
-  // Calling States
-  const [callingJob, setCallingJob] = useState(null);
-  const [callStatus, setCallStatus] = useState('Dialing');
+
 
   // GPS Tracking States
   const gpsWatchRef = useRef(null);
@@ -210,27 +208,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     return value;
   };
 
-  const handleProxyCall = (targetJob) => {
-    setCallingJob(targetJob);
-    setCallStatus('Connecting via Secure Bridge...');
-    
-    const t1 = setTimeout(() => {
-      setCallStatus('Ringing... (Routing via virtual +91 120 4000 888)');
-    }, 1500);
-    
-    const t2 = setTimeout(() => {
-      setCallStatus('Connected! (Proxy Bridge Active • Calls are recorded)');
-    }, 3500);
 
-    window._callTimeouts = [t1, t2];
-  };
-
-  const handleEndCall = () => {
-    if (window._callTimeouts) {
-      window._callTimeouts.forEach(clearTimeout);
-    }
-    setCallingJob(null);
-  };
 
   const handleStartTransit = (jobId) => {
     const currentJob = jobs.find(j => (j.id || j.orderId) === jobId);
@@ -2133,34 +2111,7 @@ Your review helps us serve you better. Thank you!`;
 
         </main>
 
-        {/* Simulated Secure Proxy Call Screen */}
-        {callingJob && (
-          <div className="modal-overlay" style={{ zIndex: 2000, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(5, 7, 12, 0.95)' }}>
-            <div className="modal-content" style={{ maxWidth: '280px', backgroundColor: '#131b2e', color: '#fff', textAlign: 'center', padding: '24px 16px', borderRadius: '24px', margin: 'auto', border: '1px solid var(--admin-border-color)' }}>
-              <div style={{ margin: '15px auto', width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(59, 130, 246, 0.4)' }}>
-                <Smartphone size={24} style={{ color: '#fff' }} />
-              </div>
-              <h3 style={{ margin: '10px 0 5px 0', fontSize: '1rem' }}>{getMaskedValue(callingJob.customerName, 'name', callingJob)}</h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
-                Secure Proxy Bridge
-              </p>
-              
-              <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '12px', margin: '16px 0', fontSize: '0.7rem', border: '1px dashed rgba(255, 255, 255, 0.1)', color: 'var(--text-light)', lineHeight: '1.4' }}>
-                <span className="pulse-dot" style={{ display: 'inline-block', marginRight: '6px', backgroundColor: 'var(--color-success)', verticalAlign: 'middle' }}></span>
-                {callStatus}
-              </div>
 
-              <button 
-                type="button" 
-                onClick={handleEndCall}
-                className="btn btn-danger"
-                style={{ width: '100%', padding: '10px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: 'var(--color-danger)', border: 'none', color: '#fff' }}
-              >
-                End Call
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* BOTTOM TAB NAV BAR */}
         {!directJobId && (
