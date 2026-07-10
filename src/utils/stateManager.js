@@ -627,6 +627,11 @@ export const updateOrder = (orderId, updatedFields) => {
   if (index !== -1) {
     const oldStatus = orders[index].jobStatus || orders[index].status || 'Unassigned';
     const newStatus = updatedFields.jobStatus || updatedFields.status;
+    
+    if (newStatus) {
+      updatedFields.jobStatus = newStatus;
+      updatedFields.status = newStatus;
+    }
 
     orders[index] = { ...orders[index], ...updatedFields };
     saveOrders(orders);
