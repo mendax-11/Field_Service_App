@@ -233,7 +233,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   };
 
   const handleStartTransit = (jobId) => {
-    const currentJob = jobs.find(j => j.id === jobId);
+    const currentJob = jobs.find(j => (j.id || j.orderId) === jobId);
     if (!currentJob) return;
 
     stateManager.updateJob(jobId, {
@@ -322,7 +322,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   }, [directJobId]);
 
   // Find currently selected job
-  const job = jobs.find(j => j.id === selectedJobId) || null;
+  const job = jobs.find(j => (j.id || j.orderId) === selectedJobId) || null;
   const commentsLength = job?.comments?.length || 0;
 
   // Sync scroll on new comments
