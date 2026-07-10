@@ -312,15 +312,16 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     };
   }, [directJobId]);
 
+  // Find currently selected job
+  const job = jobs.find(j => j.id === selectedJobId) || null;
+  const commentsLength = job?.comments?.length || 0;
+
   // Sync scroll on new comments
   useEffect(() => {
     if (commentsEndRef.current) {
       commentsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [selectedJobId, jobs]);
-
-  // Find currently selected job
-  const job = jobs.find(j => j.id === selectedJobId) || null;
+  }, [selectedJobId, commentsLength]);
 
   // Theme toggle helper
   const toggleTheme = () => {
