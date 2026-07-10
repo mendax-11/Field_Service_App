@@ -1547,10 +1547,11 @@ Your review helps us serve you better. Thank you!`;
                         <span className="photo-label">Before Assembly</span>
                         <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>(Unopened boxes)</span>
                         <label className="photo-btn-label">
-                          Upload File
+                          Take Photo
                           <input 
                             type="file" 
                             accept="image/*" 
+                            capture="environment"
                             style={{ display: 'none' }}
                             onChange={(e) => handlePhotoChange(job.id, 'before', e)} 
                           />
@@ -1603,10 +1604,11 @@ Your review helps us serve you better. Thank you!`;
                         <span className="photo-label">After Assembly</span>
                         <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>(Finished Furniture)</span>
                         <label className="photo-btn-label">
-                          Upload File
+                          Take Photo
                           <input 
                             type="file" 
                             accept="image/*" 
+                            capture="environment"
                             style={{ display: 'none' }}
                             onChange={(e) => handlePhotoChange(job.id, 'after', e)} 
                           />
@@ -1686,10 +1688,11 @@ Your review helps us serve you better. Thank you!`;
                       <label>Photo Proof</label>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         <label className="photo-btn-label" style={{ flex: 1, textAlign: 'center', padding: '10px' }}>
-                          Choose Image File
+                          Take Photo
                           <input 
                             type="file" 
                             accept="image/*" 
+                            capture="environment"
                             style={{ display: 'none' }}
                             onChange={async (e) => {
                               const f = e.target.files?.[0];
@@ -1827,10 +1830,11 @@ Your review helps us serve you better. Thank you!`;
                       <label>Upload Receipt Photo (Optional)</label>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         <label className="photo-btn-label" style={{ flex: 1, textAlign: 'center', padding: '10px', cursor: 'pointer' }}>
-                          Capture Receipt
+                          Take Receipt Photo
                           <input 
                             type="file" 
                             accept="image/*" 
+                            capture="environment"
                             style={{ display: 'none' }}
                             onChange={async (e) => {
                               const f = e.target.files?.[0];
