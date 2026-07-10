@@ -639,6 +639,9 @@ export const updateOrder = (orderId, updatedFields) => {
 
     // Check status transition
     if (newStatus && newStatus !== oldStatus) {
+      // Diagnostic alert so we know it reached the transition check
+      addNotification(`n8n Debug: Transitioning from ${oldStatus} to ${newStatus}`, '', 'System');
+      
       if (newStatus === 'Completed') {
         triggerN8nWebhook('job_completed', {
           orderId: updated.orderId,
@@ -1814,22 +1817,69 @@ export function getN8nConfig() {
     const raw = localStorage.getItem('fsa_n8n_config');
     if (raw) return JSON.parse(raw);
   } catch (e) {}
+  
+  // Fallback to Environment Variable for massive multi-user deployments
+  const envUrl = import.meta.env?.VITE_N8N_WEBHOOK_URL;
+  if (envUrl) {
+    return { enabled: true, webhookUrl: envUrl };
+  }
+  
   return { enabled: false, webhookUrl: '' };
 }
 
-export function saveN8nConfig(config) {
+export async function saveN8nConfig(config) {
   try {
     localStorage.setItem('fsa_n8n_config', JSON.stringify(config));
     window.dispatchEvent(new Event('fsa_storage_update'));
+    
+    // Attempt to cloud-sync settings to PocketBase if available
+    if (pb && pb.authStore?.isValid) {
+      try {
+        const records = await pb.collection('app_settings').getFullList();
+        if (records.length > 0) {
+          await pb.collection('app_settings').update(records[0].id, {
+            n8n_webhook_url: config.webhookUrl,
+            n8n_enabled: config.enabled
+          });
+        } else {
+          await pb.collection('app_settings').create({
+            n8n_webhook_url: config.webhookUrl,
+            n8n_enabled: config.enabled
+          });
+        }
+      } catch (e) {
+        console.warn('[PocketBase] app_settings sync failed. Collection might not exist yet.');
+      }
+    }
     return true;
   } catch (e) {
     return false;
   }
 }
 
+export async function syncSettingsFromPocketBase() {
+  if (!pb) return;
+  try {
+    const records = await pb.collection('app_settings').getFullList();
+    if (records.length > 0) {
+      const remoteConfig = {
+        enabled: records[0].n8n_enabled,
+        webhookUrl: records[0].n8n_webhook_url
+      };
+      localStorage.setItem('fsa_n8n_config', JSON.stringify(remoteConfig));
+    }
+  } catch(e) {
+    // Collection doesn't exist or no permission, ignore silently
+  }
+}
+
 export async function triggerN8nWebhook(event, data) {
+  addNotification(`n8n Debug: Attempting to trigger ${event}`, '', 'System');
   const config = getN8nConfig();
-  if (!config.enabled || !config.webhookUrl) return;
+  if (!config.enabled || !config.webhookUrl) {
+    addNotification(`n8n Debug: Aborted. Enabled: ${config.enabled}, URL: ${config.webhookUrl}`, '', 'System');
+    return;
+  }
 
   const payload = {
     event,
@@ -1838,6 +1888,7 @@ export async function triggerN8nWebhook(event, data) {
   };
 
   try {
+    addNotification(`n8n Debug: Firing fetch to ${config.webhookUrl}`, '', 'System');
     const response = await fetch(config.webhookUrl, {
       method: 'POST',
       headers: {
@@ -2216,6 +2267,7 @@ async function selfHealMissingRelations(records) {
 
 setTimeout(() => {
   syncCarpentersFromPocketBase();
+  syncSettingsFromPocketBase();
   (async () => {
     try {
       // Fetch only active, unpaid, or recently created orders (within last 30 days) to keep boot times fast
