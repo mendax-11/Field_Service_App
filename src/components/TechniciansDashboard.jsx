@@ -262,7 +262,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
   const [showAddEditModal, setShowAddEditModal] = useState(false);
   const [editingCarpenter, setEditingCarpenter] = useState(null);
   const [carpenterForm, setCarpenterForm] = useState({
-    name: '', phone: '', rank: 'Expert', maxActiveJobs: 3, pincodes: ''
+    name: '', phone: '', rank: 'Expert', maxActiveJobs: 3, qualityScore: 100, pincodes: ''
   });
 
   const toggleSchedule = (carpId) => {
@@ -372,54 +372,40 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
         const generatedEmail = `${cleanPhone || Date.now()}@timberflow.in`;
 
         const existingIndex = currentCarpenters.findIndex(
-          c => c.id === phone || c.phone === phone || c.name.toLowerCase() === name.toLowerCase()
-        );
-
-        if (existingIndex !== -1) {
-          const existing = currentCarpenters[existingIndex];
-          const mergedPins = [...new Set([...(existing.pincodes || []), ...pincodes])];
-          currentCarpenters[existingIndex] = {
-            ...existing,
-            name: name || existing.name,
-            phone: phone || existing.phone,
-            email: generatedEmail,
-            rank:  rank  || existing.rank,
-            pincodes: mergedPins
-          };
-          updatedCount++;
+        const parts = lines[i].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+        // Expecting: Name, Phone, Email, Rank, MaxJobs, QualityScore, Pincodes
+        const [name, phone, email, rank, maxJobsStr, qualityStr, pinsStr] = parts;
+        if (!name || !phone) { skips++; continue; }
+        
+        let existing = existingCarps.find(c => c.phone === phone);
+        if (existing) {
+          updateCarpenter(existing.id, { 
+            name, email, rank: rank || 'Expert', 
+            maxActiveJobs: Number(maxJobsStr) || existing.maxActiveJobs || 3,
+            qualityScore: Number(qualityStr) || existing.qualityScore || 100
+          });
+          if (pinsStr) bulkAddCarpenterPincodes(existing.id, pinsStr.split(';'));
+          updates++;
         } else {
-          currentCarpenters.push({
-            id: phone, name, phone, email: generatedEmail, rank, activeJobs: 0, pincodes
+          addCarpenter({ 
+            name, phone, email, rank: rank || 'Expert', 
+            maxActiveJobs: Number(maxJobsStr) || 3,
+            qualityScore: Number(qualityStr) || 100,
+            pincodes: pinsStr ? pinsStr.split(';') : []
           });
           importedCount++;
         }
       }
 
-      if (importedCount > 0 || updatedCount > 0) {
-        saveCarpenters(currentCarpenters);
-        addNotification(
-          `Imported ${importedCount} new technicians, updated ${updatedCount} technicians.`,
-          '', 'Admin'
-        );
-        setCsvText('');
-        setShowImporter(false);
-        loadData();
-        if (onRefresh) onRefresh();
-        setImportStatus({
-          type: 'success',
-          msg: `✅ Done — ${importedCount} new, ${updatedCount} updated${skippedCount ? `, ${skippedCount} skipped` : ''}.`
-        });
-      } else {
-        setImportStatus({
-          type: 'error',
-          msg: skippedCount > 0
-            ? `No technicians imported. ${skippedCount} rows skipped (check format: Name,Phone,Rank,Pincodes).`
-            : 'No technicians were imported. Please check your CSV format.'
-        });
-      }
+      saveCarpenters(getCarpenters());
+      addNotification(`Imported ${importedCount} new, updated ${updates} technicians.`, '', 'Admin');
+      setCsvText('');
+      setShowImporter(false);
+      loadData();
+      if (onRefresh) onRefresh();
+      setImportStatus({ type: 'success', msg: `✅ Done — ${importedCount} new, ${updates} updated.` });
     } catch (err) {
-      setImportStatus({ type: 'error', msg: 'Error parsing CSV. Please check the file format.' });
-      console.error(err);
+      setImportStatus({ type: 'error', msg: 'Error parsing CSV.' });
     }
   };
 
@@ -432,14 +418,14 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
   // ── Add/Edit Modal ───────────────────────────────────────────────────────────
   const handleOpenAddModal = () => {
     setEditingCarpenter(null);
-    setCarpenterForm({ name: '', phone: '', rank: 'Expert', maxActiveJobs: 3, pincodes: '' });
+    setCarpenterForm({ name: '', phone: '', rank: 'Expert', maxActiveJobs: 3, qualityScore: 100, pincodes: '' });
     setShowAddEditModal(true);
   };
 
   const handleOpenEditModal = (carp) => {
     setEditingCarpenter(carp);
     setCarpenterForm({
-      name: carp.name, phone: carp.phone || carp.id, rank: carp.rank, maxActiveJobs: carp.maxActiveJobs || 3, pincodes: ''
+      name: carp.name, phone: carp.phone || carp.id, rank: carp.rank, maxActiveJobs: carp.maxActiveJobs || 3, qualityScore: carp.qualityScore || 100, pincodes: ''
     });
     setShowAddEditModal(true);
   };
@@ -457,7 +443,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    const { name, phone, rank, maxActiveJobs, pincodes } = carpenterForm;
+    const { name, phone, rank, maxActiveJobs, qualityScore, pincodes } = carpenterForm;
     if (!name.trim() || !phone.trim()) {
       alert('Please fill out all required fields.');
       return;
@@ -477,11 +463,11 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
     const generatedEmail = `${cleanPhone || Date.now()}@timberflow.in`;
 
     if (editingCarpenter) {
-      updateCarpenter(editingCarpenter.id, { name: name.trim(), phone: phoneTrimmed, email: generatedEmail, rank, maxActiveJobs: Number(maxActiveJobs) });
+      updateCarpenter(editingCarpenter.id, { name: name.trim(), phone: phoneTrimmed, email: generatedEmail, rank, maxActiveJobs: Number(maxActiveJobs), qualityScore: Number(qualityScore) });
+      if (pincodes.trim()) bulkAddCarpenterPincodes(editingCarpenter.id, pincodes.split(/[\n,;|]+/).map(p => p.trim()).filter(Boolean));
       addNotification(`Technician ${name} updated.`, '', 'Admin');
     } else {
-      const pins = pincodes.split(/[,;\n|]+/).map(p => p.trim()).filter(p => p && /^[a-zA-Z0-9-]+$/.test(p));
-      addCarpenter({ name: name.trim(), phone: phoneTrimmed, email: generatedEmail, rank, maxActiveJobs: Number(maxActiveJobs), pincodes: pins });
+      addCarpenter({ name: name.trim(), phone: phoneTrimmed, email: generatedEmail, rank, maxActiveJobs: Number(maxActiveJobs), qualityScore: Number(qualityScore), pincodes: pincodes.split(/[,;\n|]+/).map(p => p.trim()).filter(p => p && /^[a-zA-Z0-9-]+$/.test(p)) });
       addNotification(`New technician ${name} created.`, '', 'Admin');
     }
 
@@ -583,7 +569,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
             <textarea
               value={csvText}
               onChange={e => setCsvText(e.target.value)}
-              placeholder={"Name,Phone,Email,Rank,Pincodes\nJohn Doe,+91-98765-43210,john@service.com,Expert,110001;110002;110003"}
+              placeholder={"Name,Phone,Email,Rank,MaxJobs,QualityScore,Pincodes\nJohn Doe,+91-98765-43210,john@service.com,Expert,5,98,110001;110002;110003"}
               rows={6}
             />
           </div>
@@ -613,7 +599,17 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
                   <div className="avatar-placeholder"><UserCheck size={24} /></div>
                   <div className="tech-meta-details">
                     <h4 style={{ margin: '0 0 4px 0' }}>{carp.name}</h4>
-                    <span className="rank-badge">{carp.rank}</span>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <span className="rank-badge">{carp.rank}</span>
+                      <span className="quality-badge" style={{
+                        fontSize: '10px', padding: '2px 6px', borderRadius: '4px',
+                        background: carp.qualityScore >= 90 ? 'rgba(34, 197, 94, 0.1)' : carp.qualityScore >= 75 ? 'rgba(234, 179, 8, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                        color: carp.qualityScore >= 90 ? 'var(--color-success, #22c55e)' : carp.qualityScore >= 75 ? 'var(--color-warning, #eab308)' : 'var(--color-danger, #ef4444)',
+                        fontWeight: '600'
+                      }}>
+                        ★ {carp.qualityScore || 100} Score
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="tech-actions" style={{ display: 'flex', gap: '4px' }}>
@@ -729,7 +725,17 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
                   />
                 </div>
               ))}
-
+              
+              <div className="form-group" style={{ flex: 1, minWidth: '140px' }}>
+                <label>Quality Score (0-100)</label>
+                <input 
+                  type="number" min="0" max="100" required
+                  value={carpenterForm.qualityScore}
+                  onChange={(e) => setCarpenterForm({ ...carpenterForm, qualityScore: Number(e.target.value) })}
+                  className="modal-input"
+                />
+              </div>
+            
               <div className="form-group">
                 <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Rank / Level</label>
                 <select

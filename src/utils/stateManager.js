@@ -754,6 +754,7 @@ export const addCarpenter = (carpObj) => {
     rank: carpObj.rank || 'Expert',
     activeJobs: 0,
     maxActiveJobs: Number(carpObj.maxActiveJobs || carpObj.max_active_jobs || 3),
+    qualityScore: Number(carpObj.qualityScore || carpObj.quality_score || 100),
     pincodes: carpObj.pincodes || []
   };
   carpenters.push(newCarp);
@@ -773,6 +774,7 @@ export const addCarpenter = (carpObj) => {
         role: 'Carpenter',
         rank: carpObj.rank || 'Expert',
         max_active_jobs: Number(carpObj.maxActiveJobs || carpObj.max_active_jobs || 3),
+        quality_score: Number(carpObj.qualityScore || carpObj.quality_score || 100),
         pincodes: carpObj.pincodes || []
       };
       const created = await pb.collection('users').create(payload);
@@ -1192,13 +1194,35 @@ export const autoAllocateOrders = () => {
         return getActiveWorkload(c.name) < limit;
       });
 
-      // Sort by workload (ascending) within the under-capacity pool
-      const sortedCarpenters = [...underCapacityCarpenters].sort((a, b) => {
-        return getActiveWorkload(a.name) - getActiveWorkload(b.name);
+      // Map to weighted score
+      const scoredCarpenters = underCapacityCarpenters.map(c => {
+        const qs = Number(c.qualityScore || 100);
+        const limit = Number(c.maxActiveJobs || c.max_active_jobs || MAX_ACTIVE_JOBS);
+        const active = getActiveWorkload(c.name);
+        
+        const qualityPoints = qs / 2; // e.g. 100 score = 50 pts
+        const capacityPoints = (limit - active) * 10; // e.g. 5 spare slots = 50 pts
+        
+        let rankPoints = 0;
+        if (c.rank === 'Expert') rankPoints = 15;
+        if (c.rank === 'Intermediate') rankPoints = 10;
+        if (c.rank === 'Apprentice') rankPoints = 5;
+
+        const totalScore = qualityPoints + capacityPoints + rankPoints;
+
+        return {
+          carpenter: c,
+          totalScore,
+          breakdown: `Quality: ${qs} (+${qualityPoints}pts) | Capacity: ${limit - active} spare (+${capacityPoints}pts) | Rank: ${c.rank} (+${rankPoints}pts) | Total = ${totalScore}`
+        };
       });
 
-      const bestCarpenter = sortedCarpenters[0];
-      if (bestCarpenter) {
+      // Sort by total score (descending)
+      scoredCarpenters.sort((a, b) => b.totalScore - a.totalScore);
+
+      const winner = scoredCarpenters[0];
+      if (winner) {
+        const bestCarpenter = winner.carpenter;
         allocatedCount++;
         return {
           ...order,
@@ -1209,9 +1233,9 @@ export const autoAllocateOrders = () => {
             ...(order.auditLogs || []),
             {
               timestamp: todayStr,
-              action: 'Carpenter Assigned (Auto)',
+              action: 'Carpenter Assigned (Auto-Weighted)',
               user: 'Auto-Allocation Engine',
-              comments: `Automatically assigned to ${bestCarpenter.name} based on skill match (${bestCarpenter.rank} required for ₹${order.payout || 0} job), workload, and pincode match.`
+              comments: `Assigned to ${bestCarpenter.name} based on Industry Standard Weighted Score: [${winner.breakdown}]`
             }
           ]
         };
@@ -1712,6 +1736,7 @@ async function syncCarpentersFromPocketBase() {
             role: 'Carpenter',
             rank: carp.rank || 'Expert',
             max_active_jobs: Number(carp.maxActiveJobs || 3),
+            quality_score: Number(carp.qualityScore || 100),
             pincodes: carp.pincodes || []
           });
           console.log("[PocketBase Sync] Auto-uploaded pre-existing local carpenter:", created.name);
@@ -1736,6 +1761,7 @@ async function syncCarpentersFromPocketBase() {
         phone: r.phone || r.username || '',
         email: r.email || '',
         rank: r.rank || 'Expert',
+        qualityScore: Number(r.quality_score !== undefined ? r.quality_score : (match ? (match.qualityScore || 100) : 100)),
         activeJobs: match ? (match.activeJobs || 0) : 0,
         maxActiveJobs: Number(r.max_active_jobs || 3),
         pincodes: (match && match.pincodes !== undefined) ? match.pincodes : (r.pincodes || [])
@@ -1804,6 +1830,7 @@ function setupPocketBaseRealtime() {
           localCarps[index].pincodes = (localPincodes !== undefined) ? localPincodes : (record.pincodes || []);
           localCarps[index].name = record.name || record.username;
           localCarps[index].rank = record.rank || 'Expert';
+          localCarps[index].qualityScore = record.quality_score !== undefined ? Number(record.quality_score) : localCarps[index].qualityScore || 100;
           saveCarpentersLocalOnly(localCarps);
         }
       }
