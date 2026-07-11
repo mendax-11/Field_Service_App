@@ -639,9 +639,6 @@ export const updateOrder = (orderId, updatedFields) => {
 
     // Check status transition
     if (newStatus && newStatus !== oldStatus) {
-      // Diagnostic alert so we know it reached the transition check
-      addNotification(`n8n Debug: Transitioning from ${oldStatus} to ${newStatus}`, '', 'System');
-      
       if (newStatus === 'Completed') {
         triggerN8nWebhook('job_completed', {
           orderId: updated.orderId,
@@ -1874,10 +1871,8 @@ export async function syncSettingsFromPocketBase() {
 }
 
 export async function triggerN8nWebhook(event, data) {
-  addNotification(`n8n Debug: Attempting to trigger ${event}`, '', 'System');
   const config = getN8nConfig();
   if (!config.enabled || !config.webhookUrl) {
-    addNotification(`n8n Debug: Aborted. Enabled: ${config.enabled}, URL: ${config.webhookUrl}`, '', 'System');
     return;
   }
 
@@ -1888,7 +1883,6 @@ export async function triggerN8nWebhook(event, data) {
   };
 
   try {
-    addNotification(`n8n Debug: Firing fetch to ${config.webhookUrl}`, '', 'System');
     const response = await fetch(config.webhookUrl, {
       method: 'POST',
       headers: {
