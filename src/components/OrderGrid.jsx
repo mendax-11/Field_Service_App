@@ -4,7 +4,7 @@ import {
   Search, ArrowUpDown, ChevronLeft, ChevronRight, 
   Trash2, Eye, SlidersHorizontal 
 } from 'lucide-react';
-import { getOrders, deleteOrder, getUserRole, getCarpenters, updateOrder } from '../utils/stateManager';
+import { getOrders, deleteOrder, getUserRole, getCarpenters, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS } from '../utils/stateManager';
 import OrderDetailsModal from './OrderDetailsModal';
 
 export default function OrderGrid({ refreshTrigger, onRefresh }) {
@@ -60,6 +60,41 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
     setCarpenters(getCarpenters());
     setRole(getUserRole());
     setSelectedOrderIds([]); // Clear selection on full reload
+  };
+
+  const handleQuickAssign = (orderId, carpenterName) => {
+    const nextStatus = carpenterName ? 'Assigned' : 'Unassigned';
+    const updatedFields = {
+      assignedCarpenter: carpenterName || null,
+      jobStatus: nextStatus
+    };
+
+    const ordersList = getOrders();
+    const currentOrder = ordersList.find(o => o.orderId === orderId);
+    if (currentOrder) {
+      const changes = [];
+      if (currentOrder.assignedCarpenter !== updatedFields.assignedCarpenter) {
+        changes.push(`Carpenter: ${currentOrder.assignedCarpenter || 'None'} -> ${updatedFields.assignedCarpenter || 'None'}`);
+      }
+      if (currentOrder.jobStatus !== updatedFields.jobStatus) {
+        changes.push(`Job Status: ${currentOrder.jobStatus} -> ${updatedFields.jobStatus}`);
+      }
+      if (changes.length > 0) {
+        const timestamp = new Date().toISOString();
+        const newAuditLog = {
+          timestamp,
+          action: 'Quick Assigned',
+          user: role,
+          comments: changes.join(', ')
+        };
+        const existingLogs = currentOrder.auditLogs || [];
+        updatedFields.auditLogs = [...existingLogs, newAuditLog];
+      }
+    }
+
+    updateOrder(orderId, updatedFields);
+    loadData();
+    if (onRefresh) onRefresh();
   };
 
   useEffect(() => {
@@ -584,11 +619,53 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
                     </td>
                   )}
                   {visibleColumns.carpenter && (
-                    <td className="carpenter-cell">
-                      {order.assignedCarpenter ? (
-                        <span className="carpenter-assigned">{order.assignedCarpenter}</span>
+                    <td className="carpenter-cell" onClick={(e) => e.stopPropagation()}>
+                      {role !== 'Super Admin' && role !== 'Dispatcher' ? (
+                        order.assignedCarpenter ? (
+                          <span className="carpenter-assigned">{order.assignedCarpenter}</span>
+                        ) : (
+                          <span className="carpenter-unassigned">None</span>
+                        )
                       ) : (
-                        <span className="carpenter-unassigned">None</span>
+                        <select
+                          value={order.assignedCarpenter || ''}
+                          onChange={(e) => handleQuickAssign(order.orderId, e.target.value)}
+                          style={{
+                            background: 'var(--bg-input, #1a2333)',
+                            color: order.assignedCarpenter ? 'var(--text-main, #f3f4f6)' : 'var(--text-muted, #9ca3af)',
+                            border: '1px solid var(--border-color, #232e42)',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            fontSize: '0.78rem',
+                            outline: 'none',
+                            cursor: 'pointer',
+                            width: '100%',
+                            minWidth: '160px'
+                          }}
+                        >
+                          <option value="">None (Unassigned)</option>
+                          {carpenters
+                            .map(c => ({
+                              ...c,
+                              servesArea: c.pincodes && c.pincodes.includes(order.pincode),
+                              workload: getActiveWorkload(c.name)
+                            }))
+                            .sort((a, b) => {
+                              if (a.servesArea && !b.servesArea) return -1;
+                              if (!a.servesArea && b.servesArea) return 1;
+                              return a.workload - b.workload;
+                            })
+                            .map(c => {
+                              const limit = Number(c.maxActiveJobs || c.max_active_jobs || MAX_ACTIVE_JOBS);
+                              const isAtCapacity = c.workload >= limit;
+                              return (
+                                <option key={c.id} value={c.name} style={{ color: isAtCapacity ? '#9ca3af' : 'inherit' }}>
+                                  {c.name} {c.servesArea ? '✅' : '❌'} ({c.workload}/{limit}){isAtCapacity ? ' ⚠️ max' : ''}
+                                </option>
+                              );
+                            })
+                          }
+                        </select>
                       )}
                     </td>
                   )}

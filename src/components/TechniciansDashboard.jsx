@@ -6,8 +6,8 @@ import {
   Download, Search, RefreshCw, ChevronDown, ChevronUp, Replace, Calendar
 } from 'lucide-react';
 import {
-  getCarpenters, saveCarpenters, getOrders,
-  addCarpenterPincode, removeCarpenterPincode,
+  getCarpenters, getOrders,
+  addCarpenterPincode, addCarpenterPincodes, removeCarpenterPincode,
   replaceCarpenterPincodes, clearCarpenterPincodes,
   addNotification, addCarpenter, updateCarpenter, deleteCarpenter,
   exportCarpentersCSV, getActiveWorkload, MAX_ACTIVE_JOBS
@@ -371,39 +371,41 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
         const cleanPhone = phone.replace(/[^0-9]/g, '');
         const generatedEmail = `${cleanPhone || Date.now()}@timberflow.in`;
 
-        const existingIndex = currentCarpenters.findIndex(
-        const parts = lines[i].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
-        // Expecting: Name, Phone, Email, Rank, MaxJobs, QualityScore, Pincodes
-        const [name, phone, email, rank, maxJobsStr, qualityStr, pinsStr] = parts;
-        if (!name || !phone) { skips++; continue; }
-        
-        let existing = existingCarps.find(c => c.phone === phone);
+        const existing = currentCarpenters.find(c => {
+          const cPhone = (c.phone || '').replace(/[^0-9]/g, '');
+          const newPhone = phone.replace(/[^0-9]/g, '');
+          return cPhone === newPhone && newPhone !== '';
+        });
+
         if (existing) {
-          updateCarpenter(existing.id, { 
-            name, email, rank: rank || 'Expert', 
-            maxActiveJobs: Number(maxJobsStr) || existing.maxActiveJobs || 3,
-            qualityScore: Number(qualityStr) || existing.qualityScore || 100
+          const existingPins = existing.pincodes || [];
+          const mergedPincodes = Array.from(new Set([...existingPins, ...pincodes]));
+          
+          updateCarpenter(existing.id, {
+            name,
+            rank,
+            pincodes: mergedPincodes
           });
-          if (pinsStr) bulkAddCarpenterPincodes(existing.id, pinsStr.split(';'));
-          updates++;
+          updatedCount++;
         } else {
-          addCarpenter({ 
-            name, phone, email, rank: rank || 'Expert', 
-            maxActiveJobs: Number(maxJobsStr) || 3,
-            qualityScore: Number(qualityStr) || 100,
-            pincodes: pinsStr ? pinsStr.split(';') : []
+          addCarpenter({
+            name,
+            phone,
+            email: generatedEmail,
+            rank,
+            maxActiveJobs: 3,
+            pincodes
           });
           importedCount++;
         }
       }
 
-      saveCarpenters(getCarpenters());
-      addNotification(`Imported ${importedCount} new, updated ${updates} technicians.`, '', 'Admin');
+      addNotification(`Imported ${importedCount} new, updated ${updatedCount} technicians (skipped: ${skippedCount}).`, '', 'Admin');
       setCsvText('');
       setShowImporter(false);
       loadData();
       if (onRefresh) onRefresh();
-      setImportStatus({ type: 'success', msg: `✅ Done — ${importedCount} new, ${updates} updated.` });
+      setImportStatus({ type: 'success', msg: `✅ Done — ${importedCount} new, ${updatedCount} updated (skipped: ${skippedCount}).` });
     } catch (err) {
       setImportStatus({ type: 'error', msg: 'Error parsing CSV.' });
     }
@@ -464,7 +466,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
 
     if (editingCarpenter) {
       updateCarpenter(editingCarpenter.id, { name: name.trim(), phone: phoneTrimmed, email: generatedEmail, rank, maxActiveJobs: Number(maxActiveJobs), qualityScore: Number(qualityScore) });
-      if (pincodes.trim()) bulkAddCarpenterPincodes(editingCarpenter.id, pincodes.split(/[\n,;|]+/).map(p => p.trim()).filter(Boolean));
+      if (pincodes.trim()) addCarpenterPincodes(editingCarpenter.id, pincodes.split(/[\n,;|]+/).map(p => p.trim()).filter(Boolean));
       addNotification(`Technician ${name} updated.`, '', 'Admin');
     } else {
       addCarpenter({ name: name.trim(), phone: phoneTrimmed, email: generatedEmail, rank, maxActiveJobs: Number(maxActiveJobs), qualityScore: Number(qualityScore), pincodes: pincodes.split(/[,;\n|]+/).map(p => p.trim()).filter(p => p && /^[a-zA-Z0-9-]+$/.test(p)) });

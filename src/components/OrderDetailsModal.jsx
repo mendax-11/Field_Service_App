@@ -34,6 +34,19 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
     onUpdate();
   };
 
+  const handleCarpenterSelectChange = (val) => {
+    setAssignedCarpenter(val);
+    if (val) {
+      if (jobStatus === 'Unassigned') {
+        setJobStatus('Assigned');
+      }
+    } else {
+      if (jobStatus === 'Assigned') {
+        setJobStatus('Unassigned');
+      }
+    }
+  };
+
   const handleSaveFieldChanges = () => {
     const updatedFields = {
       assignedCarpenter: assignedCarpenter || null,
@@ -284,19 +297,30 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                       <label>Assigned Carpenter</label>
                       <select 
                         value={assignedCarpenter} 
-                        onChange={(e) => setAssignedCarpenter(e.target.value)}
+                        onChange={(e) => handleCarpenterSelectChange(e.target.value)}
                       >
                         <option value="">-- Select Carpenter --</option>
-                        {carpenters.map(c => {
-                          const servesArea = c.pincodes && c.pincodes.includes(order.pincode);
-                          const workload = getActiveWorkload(c.name);
-                          const isAtCapacity = workload >= MAX_ACTIVE_JOBS;
-                          return (
-                            <option key={c.id} value={c.name} style={{ color: isAtCapacity ? '#9ca3af' : 'inherit' }}>
-                              {c.name} ({c.rank}) — {servesArea ? '✅ Serves Area' : '❌ Out of Area'} ({workload}/{MAX_ACTIVE_JOBS} Jobs) {isAtCapacity ? '⚠️ AT CAPACITY' : ''}
-                            </option>
-                          );
-                        })}
+                        {carpenters
+                          .map(c => ({
+                            ...c,
+                            servesArea: c.pincodes && c.pincodes.includes(order.pincode),
+                            workload: getActiveWorkload(c.name)
+                          }))
+                          .sort((a, b) => {
+                            if (a.servesArea && !b.servesArea) return -1;
+                            if (!a.servesArea && b.servesArea) return 1;
+                            return a.workload - b.workload;
+                          })
+                          .map(c => {
+                            const limit = Number(c.maxActiveJobs || c.max_active_jobs || MAX_ACTIVE_JOBS);
+                            const isAtCapacity = c.workload >= limit;
+                            return (
+                              <option key={c.id} value={c.name} style={{ color: isAtCapacity ? '#9ca3af' : 'inherit' }}>
+                                {c.name} ({c.rank}) — {c.servesArea ? '✅ Serves Area' : '❌ Out of Area'} ({c.workload}/{limit} Jobs){isAtCapacity ? ' ⚠️ max' : ''}
+                              </option>
+                            );
+                          })
+                        }
                       </select>
 
                       {/* Pincode Matching Banners */}
