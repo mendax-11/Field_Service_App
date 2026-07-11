@@ -1777,6 +1777,13 @@ function setupPocketBaseRealtime() {
             updatedOrder.assigned_carpenter_name = existingOrder.assignedCarpenter;
             updatedOrder.assignedCarpenterId = updatedOrder.assignedCarpenterId || existingOrder.assignedCarpenterId;
           }
+          
+          // Preserve local-only UI states that PocketBase doesn't track
+          updatedOrder.otpSent = existingOrder.otpSent;
+          updatedOrder.otp_sent = existingOrder.otpSent;
+          updatedOrder.otpVerified = existingOrder.otpVerified;
+          updatedOrder.otp_verified = existingOrder.otpVerified;
+          
           orders[orderIndex] = updatedOrder;
         } else {
           orders.unshift(updatedOrder);
@@ -2282,14 +2289,20 @@ setTimeout(() => {
         const localOrders = getOrders(); // existing local orders before overwrite
         const mapped = records.map(r => {
           const order = mapRecordToOrder(r);
-          // Preserve local carpenter assignment if PB expand/name field is empty
-          if (!order.assignedCarpenter) {
-            const existingLocal = localOrders.find(o => o.orderId === order.orderId);
-            if (existingLocal && existingLocal.assignedCarpenter) {
+          const existingLocal = localOrders.find(o => o.orderId === order.orderId);
+          if (existingLocal) {
+            // Preserve local carpenter assignment if PB expand/name field is empty
+            if (!order.assignedCarpenter && existingLocal.assignedCarpenter) {
               order.assignedCarpenter = existingLocal.assignedCarpenter;
               order.assigned_carpenter_name = existingLocal.assignedCarpenter;
               order.assignedCarpenterId = order.assignedCarpenterId || existingLocal.assignedCarpenterId;
             }
+            
+            // Preserve local-only UI states
+            order.otpSent = existingLocal.otpSent;
+            order.otp_sent = existingLocal.otpSent;
+            order.otpVerified = existingLocal.otpVerified;
+            order.otp_verified = existingLocal.otpVerified;
           }
           return order;
         });
