@@ -219,7 +219,14 @@ const n8nBlueprintJSON = JSON.stringify({
 }, null, 2);
 
 export default function AdminPortal() {
-  const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, orders, inventory, support, technicians, payouts, settings
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hash = window.location.hash.replace('#/', '');
+      const validTabs = ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'payouts', 'settings'];
+      if (validTabs.includes(hash)) return hash;
+    }
+    return 'dashboard';
+  });
   const mapRef = useRef(null);
   const [role, setRole] = useState('Super Admin');
   const [notifications, setNotifications] = useState([]);
@@ -417,8 +424,55 @@ export default function AdminPortal() {
     // Redirect to default tab if current activeTab is not allowed
     if (!userAllowed.includes(activeTab)) {
       setActiveTab(userAllowed[0]);
+      if (typeof window !== 'undefined') {
+        window.location.hash = '#/' + userAllowed[0];
+      }
     }
   }, [role, activeTab]);
+
+  // Handle hash change for back/forward browser navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#/', '');
+      const validTabs = ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'payouts', 'settings'];
+      
+      const currentRole = getUserRole();
+      const allowedTabs = {
+        'Super Admin': ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'payouts', 'settings'],
+        'Dispatcher': ['dashboard', 'orders', 'technicians'],
+        'Inventory Manager': ['inventory', 'orders'],
+        'Customer Support': ['support', 'orders']
+      };
+      const userAllowed = allowedTabs[currentRole] || ['dashboard'];
+
+      if (validTabs.includes(hash)) {
+        if (userAllowed.includes(hash)) {
+          setActiveTab(hash);
+        } else {
+          // If trying to access an unauthorized hash, redirect to first allowed tab
+          setActiveTab(userAllowed[0]);
+          window.location.hash = '#/' + userAllowed[0];
+        }
+      }
+    };
+
+    // Run once on mount to synchronize hash if empty
+    if (typeof window !== 'undefined') {
+      if (!window.location.hash) {
+        window.location.hash = '#/' + activeTab;
+      } else {
+        // Handle case where user loads page with a hash directly
+        handleHashChange();
+      }
+      window.addEventListener('hashchange', handleHashChange);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('hashchange', handleHashChange);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Request browser notification permission on mount
   useEffect(() => {
@@ -849,7 +903,7 @@ export default function AdminPortal() {
         {(role === 'Super Admin' || role === 'Dispatcher') && (
           <button 
             className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('dashboard'); setShowNotifDropdown(false); }}
+            onClick={() => { window.location.hash = '#/dashboard'; setShowNotifDropdown(false); }}
           >
             <LayoutDashboard size={18} /> Overview Dashboard
           </button>
@@ -858,7 +912,7 @@ export default function AdminPortal() {
         {(role === 'Super Admin' || role === 'Dispatcher' || role === 'Inventory Manager' || role === 'Customer Support') && (
           <button 
             className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('orders'); setShowNotifDropdown(false); }}
+            onClick={() => { window.location.hash = '#/orders'; setShowNotifDropdown(false); }}
           >
             <Package size={18} /> Orders Dashboard
           </button>
@@ -867,7 +921,7 @@ export default function AdminPortal() {
         {(role === 'Super Admin' || role === 'Inventory Manager') && (
           <button 
             className={`tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('inventory'); setShowNotifDropdown(false); }}
+            onClick={() => { window.location.hash = '#/inventory'; setShowNotifDropdown(false); }}
           >
             <ClipboardList size={18} /> Logistics & Parts
           </button>
@@ -876,7 +930,7 @@ export default function AdminPortal() {
         {(role === 'Super Admin' || role === 'Customer Support') && (
           <button 
             className={`tab-btn ${activeTab === 'support' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('support'); setShowNotifDropdown(false); }}
+            onClick={() => { window.location.hash = '#/support'; setShowNotifDropdown(false); }}
           >
             <HelpCircle size={18} /> Support Portal
           </button>
@@ -885,7 +939,7 @@ export default function AdminPortal() {
         {(role === 'Super Admin' || role === 'Dispatcher') && (
           <button 
             className={`tab-btn ${activeTab === 'technicians' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('technicians'); setShowNotifDropdown(false); }}
+            onClick={() => { window.location.hash = '#/technicians'; setShowNotifDropdown(false); }}
           >
             <UserCheck size={18} /> Technicians
           </button>
@@ -894,7 +948,7 @@ export default function AdminPortal() {
         {role === 'Super Admin' && (
           <button 
             className={`tab-btn ${activeTab === 'payouts' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('payouts'); setShowNotifDropdown(false); }}
+            onClick={() => { window.location.hash = '#/payouts'; setShowNotifDropdown(false); }}
           >
             <Coins size={18} /> Payout Ledger
           </button>
@@ -903,7 +957,7 @@ export default function AdminPortal() {
         {role === 'Super Admin' && (
           <button 
             className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('settings'); setShowNotifDropdown(false); }}
+            onClick={() => { window.location.hash = '#/settings'; setShowNotifDropdown(false); }}
           >
             <Settings size={18} /> Integrations & API
           </button>
@@ -912,8 +966,11 @@ export default function AdminPortal() {
 
       {/* Main Workspace Body */}
       <main className="portal-body-content">
-        {activeTab === 'dashboard' && (
-          <div className="tab-panel dashboard-panel animate-fade-in">
+        {(role === 'Super Admin' || role === 'Dispatcher') && (
+          <div 
+            className="tab-panel dashboard-panel animate-fade-in"
+            style={{ display: activeTab === 'dashboard' ? 'block' : 'none' }}
+          >
             {/* Date-Range Filter Bar */}
             <div className="dashboard-filter-bar card-style">
               <div className="filter-preset-group">
@@ -1213,8 +1270,11 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {activeTab === 'orders' && (
-          <div className="tab-panel orders-panel animate-fade-in">
+        {(role === 'Super Admin' || role === 'Dispatcher' || role === 'Inventory Manager' || role === 'Customer Support') && (
+          <div 
+            className="tab-panel orders-panel animate-fade-in"
+            style={{ display: activeTab === 'orders' ? 'block' : 'none' }}
+          >
             {/* Tab Header Bar with Toggle & Action */}
             <div className="orders-tab-header" style={{
               display: 'flex',
@@ -1410,8 +1470,11 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {activeTab === 'inventory' && (
-          <div className="tab-panel inventory-panel animate-fade-in">
+        {(role === 'Super Admin' || role === 'Inventory Manager') && (
+          <div 
+            className="tab-panel inventory-panel animate-fade-in"
+            style={{ display: activeTab === 'inventory' ? 'block' : 'none' }}
+          >
             <InventoryDashboard 
               refreshTrigger={refreshTrigger}
               onRefresh={triggerRefresh}
@@ -1419,8 +1482,11 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {activeTab === 'support' && (
-          <div className="tab-panel support-panel animate-fade-in">
+        {(role === 'Super Admin' || role === 'Customer Support') && (
+          <div 
+            className="tab-panel support-panel animate-fade-in"
+            style={{ display: activeTab === 'support' ? 'block' : 'none' }}
+          >
             <SupportPortal 
               refreshTrigger={refreshTrigger}
               onRefresh={triggerRefresh}
@@ -1428,8 +1494,11 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {activeTab === 'technicians' && (
-          <div className="tab-panel technicians-panel animate-fade-in">
+        {(role === 'Super Admin' || role === 'Dispatcher') && (
+          <div 
+            className="tab-panel technicians-panel animate-fade-in"
+            style={{ display: activeTab === 'technicians' ? 'block' : 'none' }}
+          >
             <TechniciansDashboard 
               refreshTrigger={refreshTrigger}
               onRefresh={triggerRefresh}
@@ -1437,8 +1506,11 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {activeTab === 'payouts' && (
-          <div className="tab-panel payouts-panel animate-fade-in">
+        {role === 'Super Admin' && (
+          <div 
+            className="tab-panel payouts-panel animate-fade-in"
+            style={{ display: activeTab === 'payouts' ? 'block' : 'none' }}
+          >
             {role !== 'Super Admin' ? (
               <div className="restricted-panel-fallback">
                 <ShieldAlert size={60} className="restricted-shield" />
@@ -1554,8 +1626,11 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {activeTab === 'settings' && (
-          <div className="tab-panel settings-panel animate-fade-in">
+        {role === 'Super Admin' && (
+          <div 
+            className="tab-panel settings-panel animate-fade-in"
+            style={{ display: activeTab === 'settings' ? 'block' : 'none' }}
+          >
             <div className="card-style" style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
                 <Cpu size={22} className="theme-accent" />

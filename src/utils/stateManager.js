@@ -1246,6 +1246,22 @@ export const autoAllocateOrders = () => {
 
   if (allocatedCount > 0) {
     saveOrders(updatedOrders);
+    
+    // Trigger webhooks for the new assignments
+    updatedOrders.forEach(o => {
+      if (o.jobStatus === 'Assigned' && !orders.find(old => old.id === o.id && old.jobStatus === 'Assigned')) {
+        const assignedCarp = getCarpenters().find(c => c.name === o.assignedCarpenter);
+        triggerN8nWebhook('technician_job_assigned', {
+          technician_name: assignedCarp?.name || o.assignedCarpenter,
+          technician_phone: assignedCarp?.phone || '',
+          order_id: o.id,
+          order_ref: o.orderId,
+          customer_pincode: o.pincode,
+          payout: o.payout
+        });
+      }
+    });
+
     addNotification(`Auto-Allocation complete. Assigned ${allocatedCount} jobs to carpenters.`, 'admin@service.com', 'Admin');
   }
 

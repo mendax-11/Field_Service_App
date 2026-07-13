@@ -270,6 +270,9 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   });
   const [tutorialStep, setTutorialStep] = useState(0);
 
+  // Keyboard visibility state (to hide bottom nav bar on mobile focus)
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
 
 
   // GPS Tracking States
@@ -414,6 +417,87 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       mainContentRef.current.scrollTop = 0;
     }
   }, [activeTab, selectedJobId]);
+
+  // Listen for focus/blur globally to toggle keyboard visible state
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleFocus = (e) => {
+      const tagName = e.target.tagName;
+      const isInput = tagName === 'INPUT' || tagName === 'TEXTAREA';
+      const isTextOrNumber = e.target.type === 'text' || e.target.type === 'textarea' || e.target.type === 'number' || e.target.type === 'password' || e.target.type === 'tel';
+      if (isInput && isTextOrNumber) {
+        setIsKeyboardVisible(true);
+      }
+    };
+
+    const handleBlur = (e) => {
+      const tagName = e.target.tagName;
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA') {
+        setIsKeyboardVisible(false);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus, true);
+    window.addEventListener('blur', handleBlur, true);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus, true);
+      window.removeEventListener('blur', handleBlur, true);
+    };
+  }, []);
+
+  // HTML5 History API integration for PWA back-button navigation
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.history) return;
+    
+    // Initialize history state on first render
+    if (!window.history.state) {
+      window.history.replaceState({ type: 'tab', name: 'dashboard' }, '');
+    }
+  }, []);
+
+  // Sync state changes with history
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.history) return;
+    const currentState = window.history.state;
+    
+    if (selectedJobId) {
+      if (!currentState || currentState.type !== 'job' || currentState.id !== selectedJobId) {
+        window.history.pushState({ type: 'job', id: selectedJobId }, '');
+      }
+    } else {
+      if (!currentState || (currentState.type === 'tab' && currentState.name !== activeTab)) {
+        window.history.pushState({ type: 'tab', name: activeTab }, '');
+      } else if (currentState && currentState.type === 'job') {
+        window.history.pushState({ type: 'tab', name: activeTab }, '');
+      }
+    }
+  }, [selectedJobId, activeTab]);
+
+  // Listen for back/forward navigation
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const handlePopState = (event) => {
+      const state = event.state;
+      if (state) {
+        if (state.type === 'job') {
+          setSelectedJobId(state.id);
+          setActiveTab('jobs');
+        } else if (state.type === 'tab') {
+          setSelectedJobId(null);
+          setActiveTab(state.name);
+        }
+      } else {
+        setSelectedJobId(null);
+        setActiveTab('dashboard');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Theme toggle helper
   const toggleTheme = () => {
@@ -1376,7 +1460,7 @@ Your review helps us serve you better. Thank you!`;
                   <button 
                     type="button" 
                     onClick={() => {
-                      setSelectedJobId(null);
+                      window.history.back();
                       setEnteredOtp('');
                       setOtpError('');
                     }} 
@@ -2235,7 +2319,7 @@ Your review helps us serve you better. Thank you!`;
 
 
         {/* BOTTOM TAB NAV BAR */}
-        {!directJobId && (
+        {!directJobId && !isKeyboardVisible && (
           <nav className="app-bottom-nav">
             <button 
               type="button" 
