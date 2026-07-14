@@ -87,15 +87,14 @@
 .carpenter-app-container {
   width: 100%;
   max-width: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   background-color: var(--bg-app);
   color: var(--text-main);
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
+  overflow: hidden;
   transition: background-color 0.3s ease;
 }
 
@@ -197,7 +196,6 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior-y: contain;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -1025,7 +1023,8 @@
   background-color: var(--primary-hover);
 }
 
-.btn-primary:disabled {
+.btn-primary:disabled,
+.btn-secondary:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }

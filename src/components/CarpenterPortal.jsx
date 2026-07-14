@@ -255,6 +255,15 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   // OTP & Completing states
   const [enteredOtp, setEnteredOtp] = useState('');
   const [otpError, setOtpError] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown(prev => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
   
   // Comments state
   const [newCommentText, setNewCommentText] = useState('');
@@ -679,12 +688,16 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   const handleSendOtp = (jobId) => {
     const currentJob = stateManager.getJobById(jobId);
     stateManager.updateJob(jobId, { otpSent: true });
+    setResendCooldown(60);
     
     // Trigger in-app notification simulation
     setSmsNotification({
       customerName: currentJob.customerName,
       code: currentJob.otp,
-      text: `[SMS to Client] "${currentJob.customerName}, your CarpentryPro verification code is ${currentJob.otp}."`
+      text: `[SMS to Client] "${currentJob.customerName}, your CarpentryPro verification code is ${currentJob.otp}."`,
+      waPhone: (currentJob.customerPhone || '').replace(/[^0-9]/g, ''),
+      smsPhone: currentJob.customerPhone || '',
+      encodedMsg: encodeURIComponent(`Your CarpentryPro verification code is ${currentJob.otp}.`)
     });
 
     // Send real-time webhook to n8n for production WhatsApp/SMS OTP dispatch
@@ -2153,6 +2166,14 @@ Your review helps us serve you better. Thank you!`;
                             </button>
                           </div>
                           {otpError && <span className="otp-error-msg">{otpError}</span>}
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            disabled={resendCooldown > 0}
+                            onClick={() => handleSendOtp(job.id)}
+                          >
+                            {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP'}
+                          </button>
                           <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
                             (Hint: look at mock notification at the top of the screen)
                           </span>
