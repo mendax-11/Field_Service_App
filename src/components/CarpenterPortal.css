@@ -194,18 +194,14 @@
 /* Main Scrollable Content View */
 .app-main-content {
   flex: 1;
+  min-height: 0; /* Fix flexbox shrink constraint for scrolling */
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* Momentum scrolling in mobile WebViews */
   overflow-x: hidden;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  /* Smooth scrollbars */
-  scrollbar-width: none; /* Firefox */
-}
-
-.app-main-content::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
 }
 
 /* Bottom Tab Navigation Bar */
