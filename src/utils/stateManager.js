@@ -316,7 +316,10 @@ export function normalizeOrder(o) {
 
   const damageReport = o.damageReport || o.damage_report || o.replacement_request || null;
   const photos = o.photos || { before: null, after: null };
-  const otp = o.otp || '1234';
+  let otp = o.otp || o.otp_code;
+  if (!otp || otp === '1234') {
+    otp = String(Math.floor(1000 + Math.random() * 9000));
+  }
   const otpSent = o.otpSent !== undefined ? o.otpSent : (o.otp_sent !== undefined ? o.otp_sent : false);
   const otpVerified = o.otpVerified !== undefined ? o.otpVerified : (o.otp_verified !== undefined ? o.otp_verified : false);
   const signature = o.signature || o.customer_signature || null;
@@ -1534,6 +1537,9 @@ async function syncOrderToPocketBase(orderId, order) {
       signature: order.signature || null,
       archived: order.archived || false,
       is_archived: order.archived || false,
+      otp: order.otp || '1234',
+      otp_sent: order.otpSent || order.otp_sent || false,
+      otp_verified: order.otpVerified || order.otp_verified || false,
       sub_carpenter_name: order.subCarpenterName || '',
       sub_carpenter_phone: order.subCarpenterPhone || '',
       extra_charges: order.extraCharges || [],

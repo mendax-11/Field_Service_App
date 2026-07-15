@@ -816,6 +816,7 @@ Your review helps us serve you better. Thank you!`;
 
     // Refresh jobs
     setJobs(stateManager.getJobs());
+    setSelectedJobId(null);
     setEnteredOtp('');
     setOtpError('');
   };
