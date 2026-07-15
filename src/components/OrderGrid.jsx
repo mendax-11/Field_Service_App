@@ -4,7 +4,7 @@ import {
   Search, ArrowUpDown, ChevronLeft, ChevronRight, 
   Trash2, Eye, SlidersHorizontal 
 } from 'lucide-react';
-import { getOrders, deleteOrder, getUserRole, getCarpenters, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS } from '../utils/stateManager';
+import { getOrders, deleteOrder, getUserRole, getCarpenters, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission } from '../utils/stateManager';
 import OrderDetailsModal from './OrderDetailsModal';
 
 export default function OrderGrid({ refreshTrigger, onRefresh }) {
@@ -540,7 +540,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
               Export CSV
             </button>
 
-            {role === 'Super Admin' && (
+            {hasRole(role, 'Super Admin') && (
               <button onClick={handleBulkDelete} className="bulk-action-btn danger">
                 Delete
               </button>
@@ -620,7 +620,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
                   )}
                   {visibleColumns.carpenter && (
                     <td className="carpenter-cell" onClick={(e) => e.stopPropagation()}>
-                      {role !== 'Super Admin' && role !== 'Dispatcher' ? (
+                      {!hasPermission(role, ['Super Admin', 'Dispatcher']) ? (
                         order.assignedCarpenter ? (
                           <span className="carpenter-assigned">{order.assignedCarpenter}</span>
                         ) : (
@@ -693,7 +693,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
                         <Eye size={14} />
                       </button>
                       
-                      {role === 'Super Admin' ? (
+                      {hasRole(role, 'Super Admin') ? (
                         (order.paymentStatus === 'Paid' || order.jobStatus === 'Completed' || order.status === 'Completed') ? (
                           <button 
                             className="action-btn delete-btn disabled" 
@@ -784,7 +784,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
             setSelectedOrder(currentSelected || null);
             if (onRefresh) onRefresh();
           }}
-          readOnly={role !== 'Super Admin' && (role !== 'Dispatcher' || selectedOrder.paymentStatus === 'Paid' || selectedOrder.jobStatus === 'Completed' || selectedOrder.status === 'Completed')}
+          readOnly={!hasRole(role, 'Super Admin') && (!hasRole(role, 'Dispatcher') || selectedOrder.paymentStatus === 'Paid' || selectedOrder.jobStatus === 'Completed' || selectedOrder.status === 'Completed')}
         />
       )}
     </div>

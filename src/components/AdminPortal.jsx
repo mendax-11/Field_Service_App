@@ -7,7 +7,7 @@ import {
   Settings, Download
 } from 'lucide-react';
 import { 
-  getOrders, getCarpenters, getUserRole, setUserRole, 
+  getOrders, getCarpenters, getUserRole, setUserRole, hasRole, hasPermission,
   getNotifications, clearNotifications, autoAllocateOrders, 
   saveOrders, addNotification, updateOrder, addOrder, checkSlaBreaches,
   getN8nConfig, saveN8nConfig,
@@ -411,15 +411,27 @@ export default function AdminPortal() {
     const currentRole = getUserRole();
     setRole(currentRole);
 
-    // Define allowed tabs for each role
-    const allowedTabs = {
+    const allowedTabsMapping = {
       'Super Admin': ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'payouts', 'settings'],
       'Dispatcher': ['dashboard', 'orders', 'technicians'],
       'Inventory Manager': ['inventory', 'orders'],
       'Customer Support': ['support', 'orders']
     };
 
-    const userAllowed = allowedTabs[currentRole] || ['dashboard'];
+    const userRoles = currentRole.split(',').map(r => r.trim());
+    let userAllowed = [];
+    userRoles.forEach(r => {
+      const tabs = allowedTabsMapping[r] || [];
+      tabs.forEach(tab => {
+        if (!userAllowed.includes(tab)) {
+          userAllowed.push(tab);
+        }
+      });
+    });
+
+    if (userAllowed.length === 0) {
+      userAllowed = ['dashboard'];
+    }
     
     // Redirect to default tab if current activeTab is not allowed
     if (!userAllowed.includes(activeTab)) {
@@ -437,13 +449,27 @@ export default function AdminPortal() {
       const validTabs = ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'payouts', 'settings'];
       
       const currentRole = getUserRole();
-      const allowedTabs = {
+      const allowedTabsMapping = {
         'Super Admin': ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'payouts', 'settings'],
         'Dispatcher': ['dashboard', 'orders', 'technicians'],
         'Inventory Manager': ['inventory', 'orders'],
         'Customer Support': ['support', 'orders']
       };
-      const userAllowed = allowedTabs[currentRole] || ['dashboard'];
+
+      const userRoles = currentRole.split(',').map(r => r.trim());
+      let userAllowed = [];
+      userRoles.forEach(r => {
+        const tabs = allowedTabsMapping[r] || [];
+        tabs.forEach(tab => {
+          if (!userAllowed.includes(tab)) {
+            userAllowed.push(tab);
+          }
+        });
+      });
+
+      if (userAllowed.length === 0) {
+        userAllowed = ['dashboard'];
+      }
 
       if (validTabs.includes(hash)) {
         if (userAllowed.includes(hash)) {
@@ -892,6 +918,9 @@ export default function AdminPortal() {
                 <option value="Dispatcher">Dispatcher</option>
                 <option value="Inventory Manager">Inventory Manager</option>
                 <option value="Customer Support">Customer Support</option>
+                <option value="Dispatcher, Inventory Manager">Dispatcher + Inventory</option>
+                <option value="Dispatcher, Customer Support">Dispatcher + Support</option>
+                <option value="Inventory Manager, Customer Support">Inventory + Support</option>
               </select>
             </div>
           )}
@@ -900,7 +929,7 @@ export default function AdminPortal() {
 
       {/* Main Tab Navigation */}
       <nav className="portal-tabs">
-        {(role === 'Super Admin' || role === 'Dispatcher') && (
+        {hasPermission(role, ['Super Admin', 'Dispatcher']) && (
           <button 
             className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => { window.location.hash = '#/dashboard'; setShowNotifDropdown(false); }}
@@ -909,7 +938,7 @@ export default function AdminPortal() {
           </button>
         )}
         
-        {(role === 'Super Admin' || role === 'Dispatcher' || role === 'Inventory Manager' || role === 'Customer Support') && (
+        {hasPermission(role, ['Super Admin', 'Dispatcher', 'Inventory Manager', 'Customer Support']) && (
           <button 
             className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
             onClick={() => { window.location.hash = '#/orders'; setShowNotifDropdown(false); }}
@@ -918,7 +947,7 @@ export default function AdminPortal() {
           </button>
         )}
 
-        {(role === 'Super Admin' || role === 'Inventory Manager') && (
+        {hasPermission(role, ['Super Admin', 'Inventory Manager']) && (
           <button 
             className={`tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
             onClick={() => { window.location.hash = '#/inventory'; setShowNotifDropdown(false); }}
@@ -927,7 +956,7 @@ export default function AdminPortal() {
           </button>
         )}
 
-        {(role === 'Super Admin' || role === 'Customer Support') && (
+        {hasPermission(role, ['Super Admin', 'Customer Support']) && (
           <button 
             className={`tab-btn ${activeTab === 'support' ? 'active' : ''}`}
             onClick={() => { window.location.hash = '#/support'; setShowNotifDropdown(false); }}
@@ -936,7 +965,7 @@ export default function AdminPortal() {
           </button>
         )}
         
-        {(role === 'Super Admin' || role === 'Dispatcher') && (
+        {hasPermission(role, ['Super Admin', 'Dispatcher']) && (
           <button 
             className={`tab-btn ${activeTab === 'technicians' ? 'active' : ''}`}
             onClick={() => { window.location.hash = '#/technicians'; setShowNotifDropdown(false); }}
@@ -945,7 +974,7 @@ export default function AdminPortal() {
           </button>
         )}
         
-        {role === 'Super Admin' && (
+        {hasRole(role, 'Super Admin') && (
           <button 
             className={`tab-btn ${activeTab === 'payouts' ? 'active' : ''}`}
             onClick={() => { window.location.hash = '#/payouts'; setShowNotifDropdown(false); }}
@@ -954,7 +983,7 @@ export default function AdminPortal() {
           </button>
         )}
 
-        {role === 'Super Admin' && (
+        {hasRole(role, 'Super Admin') && (
           <button 
             className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => { window.location.hash = '#/settings'; setShowNotifDropdown(false); }}
@@ -966,7 +995,7 @@ export default function AdminPortal() {
 
       {/* Main Workspace Body */}
       <main className="portal-body-content">
-        {(role === 'Super Admin' || role === 'Dispatcher') && (
+        {hasPermission(role, ['Super Admin', 'Dispatcher']) && (
           <div 
             className="tab-panel dashboard-panel animate-fade-in"
             style={{ display: activeTab === 'dashboard' ? 'block' : 'none' }}
@@ -1270,7 +1299,7 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {(role === 'Super Admin' || role === 'Dispatcher' || role === 'Inventory Manager' || role === 'Customer Support') && (
+        {hasPermission(role, ['Super Admin', 'Dispatcher', 'Inventory Manager', 'Customer Support']) && (
           <div 
             className="tab-panel orders-panel animate-fade-in"
             style={{ display: activeTab === 'orders' ? 'block' : 'none' }}
@@ -1336,7 +1365,7 @@ export default function AdminPortal() {
 
             {/* Top Row: CSV Importer & Auto Allocation Engine (Collapsible) */}
             {showOpsTools && (
-              (role === 'Super Admin' || role === 'Dispatcher') ? (
+              hasPermission(role, ['Super Admin', 'Dispatcher']) ? (
                 <div className="orders-top-control-grid" style={{ marginBottom: '20px' }}>
                   {/* CSV Importer */}
                   <div className="importer-card card-style">
@@ -1470,7 +1499,7 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {(role === 'Super Admin' || role === 'Inventory Manager') && (
+        {hasPermission(role, ['Super Admin', 'Inventory Manager']) && (
           <div 
             className="tab-panel inventory-panel animate-fade-in"
             style={{ display: activeTab === 'inventory' ? 'block' : 'none' }}
@@ -1482,7 +1511,7 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {(role === 'Super Admin' || role === 'Customer Support') && (
+        {hasPermission(role, ['Super Admin', 'Customer Support']) && (
           <div 
             className="tab-panel support-panel animate-fade-in"
             style={{ display: activeTab === 'support' ? 'block' : 'none' }}
@@ -1494,7 +1523,7 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {(role === 'Super Admin' || role === 'Dispatcher') && (
+        {hasPermission(role, ['Super Admin', 'Dispatcher']) && (
           <div 
             className="tab-panel technicians-panel animate-fade-in"
             style={{ display: activeTab === 'technicians' ? 'block' : 'none' }}
@@ -1506,12 +1535,12 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {role === 'Super Admin' && (
+        {hasRole(role, 'Super Admin') && (
           <div 
             className="tab-panel payouts-panel animate-fade-in"
             style={{ display: activeTab === 'payouts' ? 'block' : 'none' }}
           >
-            {role !== 'Super Admin' ? (
+            {!hasRole(role, 'Super Admin') ? (
               <div className="restricted-panel-fallback">
                 <ShieldAlert size={60} className="restricted-shield" />
                 <h3>Access Denied</h3>
@@ -1626,7 +1655,7 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {role === 'Super Admin' && (
+        {hasRole(role, 'Super Admin') && (
           <div 
             className="tab-panel settings-panel animate-fade-in"
             style={{ display: activeTab === 'settings' ? 'block' : 'none' }}

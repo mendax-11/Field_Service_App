@@ -1059,6 +1059,19 @@ export const setUserRole = (role) => {
   window.dispatchEvent(new Event('fsa_storage_update'));
 };
 
+export const hasRole = (userRole, targetRole) => {
+  if (!userRole) return false;
+  const roles = userRole.split(',').map(r => r.trim());
+  return roles.includes('Super Admin') || roles.includes(targetRole);
+};
+
+export const hasPermission = (userRole, allowedRoles = []) => {
+  if (!userRole) return false;
+  const roles = userRole.split(',').map(r => r.trim());
+  if (roles.includes('Super Admin')) return true;
+  return allowedRoles.some(r => roles.includes(r));
+};
+
 // Active Session User (Auth Context)
 export const getActiveUser = () => {
   try {
