@@ -314,7 +314,39 @@ export function normalizeOrder(o) {
     { id: 5, label: 'Clean surfaces and request client sign-off', checked: false }
   ];
 
-  const damageReport = o.damageReport || o.damage_report || o.replacement_request || null;
+  let damageReport = o.damageReport || o.damage_report || o.replacement_request || null;
+  if (damageReport && typeof damageReport === 'string') {
+    try {
+      damageReport = JSON.parse(damageReport);
+    } catch (e) {
+      // Ignored
+    }
+  }
+
+  let damagePhoto = o.damagePhoto || '';
+  let partsList = o.partsList || '';
+  let carpenterComments = o.carpenterComments || '';
+
+  // If nested damageReport is present, extract flat values
+  if (damageReport && typeof damageReport === 'object') {
+    if (!damagePhoto) damagePhoto = damageReport.photo || damageReport.damagePhoto || '';
+    if (!partsList) partsList = damageReport.partName || damageReport.partsList || '';
+    if (!carpenterComments) carpenterComments = damageReport.notes || damageReport.carpenterComments || '';
+  }
+
+  // If flat values are present, build/update nested damageReport
+  if ((damagePhoto || partsList || carpenterComments) && !damageReport) {
+    damageReport = {
+      partName: partsList,
+      notes: carpenterComments,
+      photo: damagePhoto
+    };
+  } else if (damageReport && typeof damageReport === 'object') {
+    damageReport.photo = damagePhoto || damageReport.photo || '';
+    damageReport.partName = partsList || damageReport.partName || '';
+    damageReport.notes = carpenterComments || damageReport.notes || '';
+  }
+
   const photos = o.photos || { before: null, after: null };
   let otp = o.otp || o.otp_code;
   if (!otp || otp === '1234') {
@@ -411,7 +443,10 @@ export function normalizeOrder(o) {
     archived,
     is_archived: archived,
     extraCharges,
-    extra_charges: extraCharges
+    extra_charges: extraCharges,
+    damagePhoto,
+    partsList,
+    carpenterComments
   };
 }
 
@@ -1452,6 +1487,10 @@ function mapRecordToOrder(r) {
     comments: r.comments || [],
     auditLogs: r.audit_logs || [],
     damageReport: r.damage_report || null,
+    damagePhoto: r.damage_photo || r.damagePhoto || '',
+    partsList: r.parts_list || r.partsList || '',
+    carpenterComments: r.carpenter_comments || r.carpenterComments || '',
+    productImage: r.product_image || r.product_image_url || '',
     photos: r.photos || { before: null, after: null },
     signature: r.signature || null,
     archived: r.archived || r.is_archived || false,

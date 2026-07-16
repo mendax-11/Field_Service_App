@@ -19,6 +19,14 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
   const [carpenterComments, setCarpenterComments] = useState(order.carpenterComments || '');
   const [damagePhoto, setDamagePhoto] = useState(order.damagePhoto || '');
 
+  // Customer details states
+  const [customerName, setCustomerName] = useState(order.customerName || '');
+  const [customerPhone, setCustomerPhone] = useState(order.customerPhone || '');
+  const [customerAddress, setCustomerAddress] = useState(order.customerAddress || '');
+  const [pincode, setPincode] = useState(order.pincode || '');
+  const [city, setCity] = useState(order.city || '');
+  const [state, setState] = useState(order.state || '');
+
   const userRole = getUserRole();
 
   useEffect(() => {
@@ -52,7 +60,13 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
       assignedCarpenter: assignedCarpenter || null,
       jobStatus,
       deliveryStatus,
-      paymentStatus
+      paymentStatus,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      customerAddress: customerAddress.trim(),
+      pincode: pincode.trim(),
+      city: city.trim(),
+      state: state.trim()
     };
 
     // If status is On Hold - Parts Requested, add those details
@@ -75,6 +89,18 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
     }
     if (order.paymentStatus !== updatedFields.paymentStatus) {
       changes.push(`Payment Status: ${order.paymentStatus} -> ${updatedFields.paymentStatus}`);
+    }
+    if (order.customerName !== updatedFields.customerName) {
+      changes.push(`Customer Name: ${order.customerName || 'None'} -> ${updatedFields.customerName || 'None'}`);
+    }
+    if (order.customerPhone !== updatedFields.customerPhone) {
+      changes.push(`Customer Phone: ${order.customerPhone || 'None'} -> ${updatedFields.customerPhone || 'None'}`);
+    }
+    if (order.customerAddress !== updatedFields.customerAddress) {
+      changes.push(`Customer Address updated`);
+    }
+    if (order.pincode !== updatedFields.pincode) {
+      changes.push(`Pincode: ${order.pincode || 'None'} -> ${updatedFields.pincode || 'None'}`);
     }
 
     if (changes.length > 0) {
@@ -184,18 +210,98 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
             <div className="modal-col-info">
               <div className="info-card">
                 <h4><User size={16} /> Customer Information</h4>
-                <div className="info-row">
-                  <span className="label">Name:</span>
-                  <span className="value">{order.customerName}</span>
-                </div>
-                <div className="info-row">
-                  <span className="label">Phone:</span>
-                  <span className="value">{order.customerPhone}</span>
-                </div>
+                {readOnly ? (
+                  <>
+                    <div className="info-row">
+                      <span className="label">Name:</span>
+                      <span className="value">{order.customerName}</span>
+                    </div>
+                    <div className="info-row">
+                      <span className="label">Phone:</span>
+                      <span className="value">{order.customerPhone}</span>
+                    </div>
+                    <div className="info-row">
+                      <span className="label">Address:</span>
+                      <span className="value">{order.customerAddress || 'No address provided'}</span>
+                    </div>
+                    <div className="info-row">
+                      <span className="label">Location:</span>
+                      <span className="value">
+                        {[order.city, order.state, order.pincode].filter(Boolean).join(', ') || 'N/A'}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="customer-edit-fields" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '11px', marginBottom: '2px', color: 'var(--text-muted)' }}>Customer Name</label>
+                      <input 
+                        type="text" 
+                        value={customerName} 
+                        onChange={(e) => setCustomerName(e.target.value)} 
+                        className="form-input"
+                        style={{ padding: '6px 10px', fontSize: '12px' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '11px', marginBottom: '2px', color: 'var(--text-muted)' }}>Customer Phone</label>
+                      <input 
+                        type="text" 
+                        value={customerPhone} 
+                        onChange={(e) => setCustomerPhone(e.target.value)} 
+                        className="form-input"
+                        style={{ padding: '6px 10px', fontSize: '12px' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '11px', marginBottom: '2px', color: 'var(--text-muted)' }}>Address</label>
+                      <textarea 
+                        value={customerAddress} 
+                        onChange={(e) => setCustomerAddress(e.target.value)} 
+                        className="form-input"
+                        rows={2}
+                        style={{ padding: '6px 10px', fontSize: '12px', resize: 'vertical', fontFamily: 'inherit' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                        <label style={{ fontSize: '11px', marginBottom: '2px', color: 'var(--text-muted)' }}>City</label>
+                        <input 
+                          type="text" 
+                          value={city} 
+                          onChange={(e) => setCity(e.target.value)} 
+                          className="form-input"
+                          style={{ padding: '6px 10px', fontSize: '12px' }}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                        <label style={{ fontSize: '11px', marginBottom: '2px', color: 'var(--text-muted)' }}>State</label>
+                        <input 
+                          type="text" 
+                          value={state} 
+                          onChange={(e) => setState(e.target.value)} 
+                          className="form-input"
+                          style={{ padding: '6px 10px', fontSize: '12px' }}
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '11px', marginBottom: '2px', color: 'var(--text-muted)' }}>Pincode</label>
+                      <input 
+                        type="text" 
+                        value={pincode} 
+                        onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').substring(0, 6))} 
+                        placeholder="6-digit Pincode"
+                        className="form-input"
+                        style={{ padding: '6px 10px', fontSize: '12px' }}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                   <a
-                    href={`https://wa.me/${(order.customerPhone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                      `Hello ${order.customerName || 'Customer'}, you can track the status of your assembly job here: ${window.location.origin}${window.location.pathname}?track=${order.orderId || order.order_id}`
+                    href={`https://wa.me/${(customerPhone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                      `Hello ${customerName || 'Customer'}, you can track the status of your assembly job here: ${window.location.origin}${window.location.pathname}?track=${order.orderId || order.order_id}`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -219,8 +325,8 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                     WhatsApp
                   </a>
                   <a
-                    href={`sms:${order.customerPhone}?body=${encodeURIComponent(
-                      `Hello ${order.customerName || 'Customer'}, you can track the status of your assembly job here: ${window.location.origin}${window.location.pathname}?track=${order.orderId || order.order_id}`
+                    href={`sms:${customerPhone}?body=${encodeURIComponent(
+                      `Hello ${customerName || 'Customer'}, you can track the status of your assembly job here: ${window.location.origin}${window.location.pathname}?track=${order.orderId || order.order_id}`
                     )}`}
                     className="share-sms-btn"
                     style={{
@@ -303,7 +409,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                         {carpenters
                           .map(c => ({
                             ...c,
-                            servesArea: c.pincodes && c.pincodes.includes(order.pincode),
+                            servesArea: c.pincodes && c.pincodes.includes(pincode),
                             workload: getActiveWorkload(c.name)
                           }))
                           .sort((a, b) => {
@@ -326,7 +432,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                       {/* Pincode Matching Banners */}
                       {assignedCarpenter && (() => {
                         const selectedCarp = carpenters.find(c => c.name === assignedCarpenter);
-                        const servesPincode = selectedCarp && selectedCarp.pincodes && selectedCarp.pincodes.includes(order.pincode);
+                        const servesPincode = selectedCarp && selectedCarp.pincodes && selectedCarp.pincodes.includes(pincode);
                         const workload = getActiveWorkload(assignedCarpenter);
                         const isAtCapacity = workload >= MAX_ACTIVE_JOBS;
 
@@ -348,7 +454,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                               }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <CheckCircle size={16} />
-                                  <span>{assignedCarpenter} serves pincode {order.pincode}.</span>
+                                  <span>{assignedCarpenter} serves pincode {pincode}.</span>
                                 </div>
                                 <button
                                   type="button"
@@ -363,8 +469,8 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                                     padding: '2px 4px'
                                   }}
                                   onClick={() => {
-                                    if (confirm(`Remove pincode ${order.pincode} from ${assignedCarpenter}'s authorized areas?`)) {
-                                      removeCarpenterPincode(selectedCarp.id, order.pincode);
+                                    if (confirm(`Remove pincode ${pincode} from ${assignedCarpenter}'s authorized areas?`)) {
+                                      removeCarpenterPincode(selectedCarp.id, pincode);
                                       setCarpenters(getCarpenters());
                                     }
                                   }}
@@ -388,7 +494,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                               }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <AlertTriangle size={16} />
-                                  <span><strong>Warning:</strong> {assignedCarpenter} does not serve pincode {order.pincode}!</span>
+                                  <span><strong>Warning:</strong> {assignedCarpenter} does not serve pincode {pincode}!</span>
                                 </div>
                                 <button
                                   type="button"
@@ -403,7 +509,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                                     fontWeight: 'bold'
                                   }}
                                   onClick={() => {
-                                    addCarpenterPincode(selectedCarp.id, order.pincode);
+                                    addCarpenterPincode(selectedCarp.id, pincode);
                                     setCarpenters(getCarpenters());
                                   }}
                                 >
