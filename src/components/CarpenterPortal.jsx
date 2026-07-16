@@ -714,7 +714,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   // Verify OTP
   const handleVerifyOtp = (jobId) => {
     const currentJob = stateManager.getJobById(jobId);
-    if (enteredOtp === currentJob.otp) {
+    if (String(enteredOtp).trim() === String(currentJob.otp).trim()) {
       stateManager.updateJob(jobId, { otpVerified: true });
       setOtpError('');
       setSmsNotification(null); // Clear notification once verified
@@ -728,7 +728,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   const handleVerifyDirectPin = (e) => {
     e.preventDefault();
     const currentJob = stateManager.getJobById(directJobId);
-    if (currentJob && enteredPin === currentJob.otp) {
+    if (currentJob && String(enteredPin).trim() === String(currentJob.otp).trim()) {
       setPinVerified(true);
       setPinError('');
     } else {
