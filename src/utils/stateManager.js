@@ -1473,7 +1473,7 @@ function mapRecordToOrder(r) {
     city: r.city || '',
     state: r.state || '',
     pincode: r.pincode || '',
-    status: r.status || 'Unassigned',
+    status: r.assembly_status || r.status || 'Unassigned',
     paymentStatus: r.payment_status || 'Unpaid',
     paymentType: r.payment_type || 'Company Pay',
     assignedCarpenter: carpenterName,
