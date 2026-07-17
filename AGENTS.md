@@ -19,6 +19,13 @@ npm run build    # Production build check (compiles cleanly)
 npm run lint     # Lint check
 ```
 
+### PocketBase Backend
+
+Run PocketBase locally on port `8091` to avoid conflicting with other local apps:
+```bash
+./pocketbase.exe serve --http=127.0.0.1:8091
+```
+
 ## Architecture
 
 ### Stack
