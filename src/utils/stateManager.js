@@ -418,6 +418,8 @@ export function normalizeOrder(o) {
     seller_review_link: sellerReviewer,
     'promise date': promiseDate,
     assembly_status: jobStatus,
+    orderDate: o.orderDate || o.created || o.order_date || '',
+    created: o.orderDate || o.created || o.order_date || '',
     
     subCarpenterName: o.subCarpenterName || o.sub_carpenter_name || '',
     subCarpenterPhone: o.subCarpenterPhone || o.sub_carpenter_phone || '',
