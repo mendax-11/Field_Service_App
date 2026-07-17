@@ -1888,6 +1888,13 @@ function setupPocketBaseRealtime() {
           updatedOrder.otp_sent = existingOrder.otpSent;
           updatedOrder.otpVerified = existingOrder.otpVerified;
           updatedOrder.otp_verified = existingOrder.otpVerified;
+
+          // Protect completed status from being overwritten by a pending server status
+          if (existingOrder.jobStatus === 'Completed' && updatedOrder.jobStatus !== 'Completed') {
+            updatedOrder.jobStatus = 'Completed';
+            updatedOrder.status = 'Completed';
+            updatedOrder.assembly_status = 'Completed';
+          }
           
           orders[orderIndex] = updatedOrder;
         } else {
@@ -2404,6 +2411,13 @@ setTimeout(() => {
               order.assignedCarpenterId = order.assignedCarpenterId || existingLocal.assignedCarpenterId;
             }
             
+            // Protect completed status from being overwritten by a pending server status
+            if (existingLocal.jobStatus === 'Completed' && order.jobStatus !== 'Completed') {
+              order.jobStatus = 'Completed';
+              order.status = 'Completed';
+              order.assembly_status = 'Completed';
+            }
+
             // Preserve local-only UI states
             order.otpSent = existingLocal.otpSent;
             order.otp_sent = existingLocal.otpSent;
