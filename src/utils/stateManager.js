@@ -1620,8 +1620,7 @@ async function syncOrderToPocketBase(orderId, order) {
       product_image_url: order.productImage || order.product_image_url || '',
       product_review_link: order.productRefLink || order.product_review_link || '',
       seller_review_link: order.sellerReviewer || order.seller_review_link || '',
-      assembly_status: order.jobStatus || order.assembly_status || 'Unassigned',
-      status: order.jobStatus || order.status || 'Unassigned'
+      assembly_status: order.jobStatus || order.assembly_status || 'Unassigned'
     };
 
     if (order.assignedCarpenter) {
