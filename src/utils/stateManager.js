@@ -594,7 +594,7 @@ export const getOrders = () => {
   }
 };
 
-export const saveOrders = (orders) => {
+export const saveOrders = (orders, changedOrders = []) => {
   const normalized = orders.map(normalizeOrder);
   memoryOrders = normalized;
   
@@ -612,10 +612,16 @@ export const saveOrders = (orders) => {
 
   window.dispatchEvent(new Event('fsa_storage_update'));
   
-  // Background sync orders to PocketBase
-  normalized.forEach(o => {
-    syncOrderToPocketBase(o.orderId, o);
-  });
+  // Background sync ONLY changed orders to PocketBase
+  let toSync = changedOrders;
+  if (toSync && !Array.isArray(toSync)) {
+    toSync = [toSync];
+  }
+  if (toSync && toSync.length > 0) {
+    toSync.forEach(o => {
+      syncOrderToPocketBase(o.orderId, o);
+    });
+  }
 };
 
 export const rejectJob = (orderId, carpenterName, reason) => {
@@ -634,7 +640,7 @@ export const rejectJob = (orderId, carpenterName, reason) => {
       status: newStatus
     };
     
-    saveOrders(orders);
+    saveOrders(orders, orders[index]);
     
     // Add comment
     addComment(
@@ -654,7 +660,7 @@ export const rejectJob = (orderId, carpenterName, reason) => {
         action: 'Job Rejected',
         comments: `Carpenter ${carpenterName} skipped order: ${reason}`
       });
-      saveOrders(updatedOrders);
+      saveOrders(updatedOrders, updatedOrders[updatedIndex]);
     }
   }
 };
@@ -672,7 +678,7 @@ export const updateOrder = (orderId, updatedFields) => {
     }
 
     orders[index] = { ...orders[index], ...updatedFields };
-    saveOrders(orders);
+    saveOrders(orders, orders[index]);
     const updated = normalizeOrder(orders[index]);
 
     // Check status transition
@@ -775,7 +781,7 @@ export const addOrder = (orderObj) => {
   });
   
   orders.unshift(newOrder);
-  saveOrders(orders);
+  saveOrders(orders, newOrder);
   return newOrder;
 };
 
@@ -1179,7 +1185,7 @@ export const addComment = (orderId, commentText, author) => {
       comments: `New comment: "${commentText.substring(0, 30)}${commentText.length > 30 ? '...' : ''}"`
     });
 
-    saveOrders(orders);
+    saveOrders(orders, order);
     addNotification(`New comment added to order ${orderId} by ${author}.`, 'admin@service.com', 'Admin');
     return order;
   }
@@ -1198,7 +1204,7 @@ export const addAuditLog = (orderId, action, user, comments) => {
       user,
       comments
     });
-    saveOrders(orders);
+    saveOrders(orders, order);
     return order;
   }
   return null;
@@ -1296,7 +1302,11 @@ export const autoAllocateOrders = () => {
   });
 
   if (allocatedCount > 0) {
-    saveOrders(updatedOrders);
+    const newlyAllocated = updatedOrders.filter(o => {
+      const old = orders.find(oldOrder => oldOrder.orderId === o.orderId);
+      return old && old.jobStatus !== o.jobStatus;
+    });
+    saveOrders(updatedOrders, newlyAllocated);
     
     // Trigger webhooks for the new assignments
     updatedOrders.forEach(o => {
@@ -1357,7 +1367,7 @@ export const stateManager = {
         return item;
       });
       orders[orderIndex] = { ...order, checklist: updatedChecklist };
-      saveOrders(orders);
+      saveOrders(orders, orders[orderIndex]);
       return normalizeOrder(orders[orderIndex]);
     }
     return null;
@@ -1610,7 +1620,8 @@ async function syncOrderToPocketBase(orderId, order) {
       product_image_url: order.productImage || order.product_image_url || '',
       product_review_link: order.productRefLink || order.product_review_link || '',
       seller_review_link: order.sellerReviewer || order.seller_review_link || '',
-      assembly_status: order.jobStatus || order.assembly_status || 'Unassigned'
+      assembly_status: order.jobStatus || order.assembly_status || 'Unassigned',
+      status: order.jobStatus || order.status || 'Unassigned'
     };
 
     if (order.assignedCarpenter) {
@@ -2121,7 +2132,7 @@ export function checkSlaBreaches() {
       const idx = allOrders.findIndex(o => o.orderId === order.orderId);
       if (idx !== -1) {
         allOrders[idx] = updatedOrder;
-        saveOrders(allOrders);
+        saveOrders(allOrders, updatedOrder);
       }
       addNotification(
         `🚨 SLA BREACH: Order ${order.orderId} (${order.customerName}) missed its promise date. Escalated to Dispatcher.`,
@@ -2164,7 +2175,7 @@ export function checkSlaBreaches() {
               }
             ]
           };
-          saveOrders(allOrders);
+          saveOrders(allOrders, allOrders[idx]);
         }
         addNotification(
           `⚠️ SLA At-Risk: Order ${order.orderId} deadline in ${Math.round(hoursUntilBreach)}h. Assign carpenter immediately.`,
