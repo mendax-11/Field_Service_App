@@ -1494,6 +1494,9 @@ function mapRecordToOrder(r) {
     photos: r.photos || { before: null, after: null },
     signature: r.signature || null,
     archived: r.archived || r.is_archived || false,
+    otp: r.otp || '',
+    otpSent: r.otp_sent || r.otpSent || false,
+    otpVerified: r.otp_verified || r.otpVerified || false,
     subCarpenterName: r.sub_carpenter_name || '',
     subCarpenterPhone: r.sub_carpenter_phone || '',
     extraCharges: r.extra_charges || []
@@ -1879,6 +1882,7 @@ function setupPocketBaseRealtime() {
           }
           
           // Preserve local-only UI states that PocketBase doesn't track
+          updatedOrder.otp = existingOrder.otp || updatedOrder.otp;
           updatedOrder.otpSent = existingOrder.otpSent;
           updatedOrder.otp_sent = existingOrder.otpSent;
           updatedOrder.otpVerified = existingOrder.otpVerified;
