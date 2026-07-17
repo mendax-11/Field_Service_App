@@ -233,6 +233,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   const [damagePartName, setDamagePartName] = useState('');
   const [damageNotes, setDamageNotes] = useState('');
   const [damagePhoto, setDamagePhoto] = useState('');
+  const [compressingDamage, setCompressingDamage] = useState(false);
   const [showDamageForm, setShowDamageForm] = useState(false);
   
   // Extra charge request states
@@ -1892,21 +1893,25 @@ Your review helps us serve you better. Thank you!`;
                     <div className="form-group">
                       <label>Photo Proof</label>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        <label className="photo-btn-label" style={{ flex: 1, textAlign: 'center', padding: '10px' }}>
-                          Take Photo
+                        <label className="photo-btn-label" style={{ flex: 1, textAlign: 'center', padding: '10px', opacity: compressingDamage ? 0.6 : 1, pointerEvents: compressingDamage ? 'none' : 'auto' }}>
+                          {compressingDamage ? 'Processing...' : 'Take Photo'}
                           <input 
                             type="file" 
                             accept="image/*" 
                             capture="environment"
                             style={{ display: 'none' }}
+                            disabled={compressingDamage}
                             onChange={async (e) => {
                               const f = e.target.files?.[0];
                               if (f) {
+                                setCompressingDamage(true);
                                 try {
                                   const compressed = await captureAndStampPhoto(f, selectedJobId, { maxWidth: 800, maxHeight: 600 });
                                   setDamagePhoto(compressed);
                                 } catch (err) {
                                   console.error("Failed to compress damage photo:", err);
+                                } finally {
+                                  setCompressingDamage(false);
                                 }
                               }
                             }}
@@ -1914,6 +1919,7 @@ Your review helps us serve you better. Thank you!`;
                         </label>
                         <button 
                           type="button" 
+                          disabled={compressingDamage}
                           onClick={handleMockDamagePhoto} 
                           className="btn btn-secondary"
                           style={{ flex: 1 }}
@@ -1924,14 +1930,20 @@ Your review helps us serve you better. Thank you!`;
                       {damagePhoto && (
                         <div style={{ marginTop: '8px', position: 'relative' }}>
                           <img src={damagePhoto} alt="Damage Preview" style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px' }} />
-                          <button type="button" className="btn-clear-photo" onClick={() => setDamagePhoto('')}>✕</button>
+                          <button type="button" className="btn-clear-photo" disabled={compressingDamage} onClick={() => setDamagePhoto('')}>✕</button>
                         </div>
                       )}
                     </div>
 
-                    <button type="submit" className="btn btn-danger">
-                      <AlertTriangle size={15} />
-                      <span>Submit Claim & Put On Hold</span>
+                    <button type="submit" className="btn btn-danger" disabled={compressingDamage}>
+                      {compressingDamage ? (
+                        <span>Processing Photo...</span>
+                      ) : (
+                        <>
+                          <AlertTriangle size={15} />
+                          <span>Submit Claim & Put On Hold</span>
+                        </>
+                      )}
                     </button>
                   </form>
                 )}
