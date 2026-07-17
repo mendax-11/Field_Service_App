@@ -364,6 +364,12 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                   <span className="label">Payment Type:</span>
                   <span className="value">{order.paymentType}</span>
                 </div>
+                {order.otp && (
+                  <div className="info-row" style={{ backgroundColor: 'rgba(245, 158, 11, 0.05)', borderRadius: '4px', padding: '2px 4px' }}>
+                    <span className="label" style={{ color: 'var(--color-warning, #f59e0b)' }}>Verification OTP:</span>
+                    <span className="value code-text" style={{ color: 'var(--color-warning, #f59e0b)', fontWeight: 'bold' }}>{order.otp}</span>
+                  </div>
+                )}
                 <div className="info-row">
                   <span className="label">SLA Timeline:</span>
                   <span className={`value sla-badge ${sla.class}`}>{sla.text}</span>
