@@ -1451,7 +1451,7 @@ export const stateManager = {
 
 // PocketBase Synchronization Helpers
 
-function mapRecordToOrder(r) {
+export function mapRecordToOrder(r) {
   // Extract the PocketBase relation ID for assigned_carpenter
   // r.assigned_carpenter is the relation ID string (or null)
   // r.expand.assigned_carpenter is the full expanded user record

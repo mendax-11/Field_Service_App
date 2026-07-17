@@ -1,7 +1,7 @@
 // src/components/CustomerPortal.jsx
 import { useState, useEffect } from 'react';
 import './CustomerPortal.css';
-import { getOrders, updateOrder, triggerN8nWebhook } from '../utils/stateManager';
+import { getOrders, updateOrder, triggerN8nWebhook, pb, mapRecordToOrder } from '../utils/stateManager';
 
 import { ClipboardList, CheckCircle, Clock, Truck, AlertTriangle, Package, MapPin, Star, ExternalLink } from 'lucide-react';
 
@@ -43,24 +43,88 @@ export default function CustomerPortal({ orderId }) {
   const [rated, setRated] = useState(false);
 
   useEffect(() => {
-    const handleUpdate = () => {
+    let active = true;
+    let unsubscribeFn = null;
+
+    const fetchOrder = async () => {
+      // 1. Try local storage first to display instantly
       const orders = getOrders();
-      const found = orders.find(
+      const localFound = orders.find(
         o => o.orderId?.toLowerCase() === orderId?.toLowerCase() ||
              o.order_id?.toLowerCase() === orderId?.toLowerCase()
       );
-      if (found) {
-        setOrder(found);
-      } else {
-        setNotFound(true);
+      if (localFound && active) {
+        setOrder(localFound);
+        setNotFound(false);
+      }
+
+      // 2. Query PocketBase directly for the single order
+      try {
+        const record = await pb.collection('orders').getFirstListItem(`order_id="${orderId}"`, { 
+          expand: 'assigned_carpenter',
+          $autoCancel: false 
+        });
+        
+        if (record && active) {
+          const mapped = mapRecordToOrder(record);
+          setOrder(mapped);
+          setNotFound(false);
+
+          // 3. Subscribe to real-time updates for only this record ID
+          try {
+            unsubscribeFn = await pb.collection('orders').subscribe(record.id, async (e) => {
+              if (e.action === 'update' && active) {
+                // Fetch full record to get expanded carpenter fields
+                try {
+                  const fullRecord = await pb.collection('orders').getOne(record.id, { 
+                    expand: 'assigned_carpenter',
+                    $autoCancel: false 
+                  });
+                  if (active) {
+                    setOrder(mapRecordToOrder(fullRecord));
+                  }
+                } catch (err) {
+                  if (active) {
+                    setOrder(mapRecordToOrder(e.record));
+                  }
+                }
+              }
+            });
+          } catch (subErr) {
+            console.warn('[CustomerPortal] PocketBase subscription failed:', subErr);
+          }
+        }
+      } catch (err) {
+        console.warn('[CustomerPortal] PocketBase fetch failed:', err);
+        // If not found locally either, set notFound
+        if (!localFound && active) {
+          setNotFound(true);
+        }
       }
     };
 
-    handleUpdate();
+    fetchOrder();
 
-    window.addEventListener('fsa_storage_update', handleUpdate);
+    // Listen to local changes (e.g. if updated on same browser/tab session)
+    const handleStorageUpdate = () => {
+      const orders = getOrders();
+      const localFound = orders.find(
+        o => o.orderId?.toLowerCase() === orderId?.toLowerCase() ||
+             o.order_id?.toLowerCase() === orderId?.toLowerCase()
+      );
+      if (localFound && active) {
+        setOrder(localFound);
+        setNotFound(false);
+      }
+    };
+    window.addEventListener('fsa_storage_update', handleStorageUpdate);
+
     return () => {
-      window.removeEventListener('fsa_storage_update', handleUpdate);
+      active = false;
+      window.removeEventListener('fsa_storage_update', handleStorageUpdate);
+      if (unsubscribeFn) {
+        unsubscribeFn();
+      }
     };
   }, [orderId]);
 
