@@ -1465,6 +1465,7 @@ function mapRecordToOrder(r) {
 
   return normalizeOrder({
     orderId: r.order_id,
+    sku: r.product_sku || '',
     platform: r.platform || 'Amazon',
     customerName: r.customer_name || '',
     customerPhone: r.customer_phone || '',
