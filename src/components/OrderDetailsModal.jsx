@@ -697,6 +697,39 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                       </div>
                     )}
 
+                    {/* Completion Photos & Signature */}
+                    {(order.photos?.before || order.photos?.after || order.signature) && (
+                      <div className="admin-field-group" style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Completion Evidence</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                          {order.photos?.before && (
+                            <div>
+                              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Before Photo</span>
+                              <div style={{ width: '100%', height: '100px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--admin-border-color)' }}>
+                                <img src={order.photos.before} alt="Before" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              </div>
+                            </div>
+                          )}
+                          {order.photos?.after && (
+                            <div>
+                              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>After Photo</span>
+                              <div style={{ width: '100%', height: '100px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--admin-border-color)' }}>
+                                <img src={order.photos.after} alt="After" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        {order.signature && (
+                          <div style={{ marginTop: '12px' }}>
+                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Customer Signature</span>
+                            <div style={{ width: '100%', padding: '8px', borderRadius: '4px', backgroundColor: '#fff', border: '1px solid var(--admin-border-color)', display: 'flex', justifyContent: 'center' }}>
+                              <img src={order.signature} alt="Signature" style={{ maxHeight: '80px', maxWidth: '100%' }} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <button 
                       type="button" 
                       className="save-fields-btn" 
