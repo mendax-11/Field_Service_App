@@ -399,6 +399,15 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     if (directJobId) {
       setSelectedJobId(directJobId);
       setActiveTab('jobs');
+      
+      // If we are on a direct link, ensure we fetch the job in case it's not in localStorage
+      if (stateManager.fetchJobFromServer) {
+        stateManager.fetchJobFromServer(directJobId).then(fetchedJob => {
+          if (fetchedJob) {
+            setJobs(stateManager.getJobs());
+          }
+        });
+      }
     }
 
     window.addEventListener('fsa_storage_update', handleUpdate);

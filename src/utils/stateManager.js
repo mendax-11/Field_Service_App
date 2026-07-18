@@ -1461,6 +1461,32 @@ export const stateManager = {
 
   getActiveUser() {
     return getActiveUser();
+  },
+
+  async fetchJobFromServer(jobId) {
+    try {
+      if (!pb) return null;
+      // Fetch by semantic orderId instead of PocketBase row ID, since the link uses orderId
+      const record = await pb.collection('orders').getFirstListItem(`order_id="${jobId}" || id="${jobId}"`, { expand: 'assigned_carpenter' });
+      if (!record) return null;
+      
+      const order = mapRecordToOrder(record);
+      const orders = getOrders();
+      const existingIndex = orders.findIndex(o => o.orderId === order.orderId);
+      
+      if (existingIndex !== -1) {
+        orders[existingIndex] = { ...orders[existingIndex], ...order };
+      } else {
+        orders.push(order);
+      }
+      
+      saveOrdersLocalOnly(orders);
+      window.dispatchEvent(new Event('fsa_storage_update'));
+      return normalizeOrder(order);
+    } catch (e) {
+      console.warn("[PocketBase] Direct job fetch failed:", e.message);
+      return null;
+    }
   }
 };
 
