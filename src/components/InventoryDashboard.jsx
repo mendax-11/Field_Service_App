@@ -1,6 +1,6 @@
 // src/components/InventoryDashboard.jsx
 import { useState, useEffect } from 'react';
-import { Package, Check, ClipboardList, AlertOctagon, User, FileText, Image as ImageIcon } from 'lucide-react';
+import { Package, Check, ClipboardList, AlertOctagon, User, FileText, Image as ImageIcon, Search } from 'lucide-react';
 import { getOrders, updateOrder, addNotification, getUserRole } from '../utils/stateManager';
 import './InventoryDashboard.css';
 
@@ -8,6 +8,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
   const [onHoldOrders, setOnHoldOrders] = useState([]);
   const [historyOrders, setHistoryOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'history'
+  const [historySearchTerm, setHistorySearchTerm] = useState('');
   const [processingId, setProcessingId] = useState(null);
 
   const loadOrders = () => {
@@ -105,21 +106,50 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
           </div>
         ) : (
           <div className="history-table-container">
+            <div className="history-search-bar" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', background: 'var(--admin-bg-secondary)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--admin-border-color)' }}>
+              <Search size={18} style={{ color: 'var(--admin-text-secondary)', marginRight: '8px' }} />
+              <input 
+                type="text" 
+                placeholder="Search by Order ID, Carpenter, or Parts..."
+                value={historySearchTerm}
+                onChange={(e) => setHistorySearchTerm(e.target.value)}
+                style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--admin-text-primary)', width: '100%', fontSize: '14px' }}
+              />
+            </div>
             <table className="history-table">
               <thead>
                 <tr>
                   <th>Order ID</th>
                   <th>Customer</th>
                   <th>Carpenter</th>
+                  <th>Damage Photo</th>
                   <th>Parts Dispatched</th>
                 </tr>
               </thead>
               <tbody>
-                {historyOrders.map(order => (
+                {historyOrders
+                  .filter(order => {
+                    const searchLower = historySearchTerm.toLowerCase();
+                    return (
+                      order.orderId.toLowerCase().includes(searchLower) ||
+                      (order.assignedCarpenter || '').toLowerCase().includes(searchLower) ||
+                      (order.partsList || '').toLowerCase().includes(searchLower)
+                    );
+                  })
+                  .map(order => (
                   <tr key={order.orderId}>
                     <td className="font-bold">{order.orderId}</td>
                     <td>{order.customerName}</td>
                     <td>{order.assignedCarpenter}</td>
+                    <td>
+                      {order.damagePhoto ? (
+                        <div style={{ width: '48px', height: '48px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--admin-border-color)' }}>
+                          <img src={order.damagePhoto} alt="Damage" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--admin-text-secondary)', fontSize: '12px' }}>No Photo</span>
+                      )}
+                    </td>
                     <td>
                       <div className="parts-tags">
                         {order.partsList ? order.partsList.split(',').map((part, index) => (

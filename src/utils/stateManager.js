@@ -446,6 +446,9 @@ export function normalizeOrder(o) {
     is_archived: archived,
     extraCharges,
     extra_charges: extraCharges,
+    feedbackRequested: o.feedbackRequested || o.feedback_requested || false,
+    feedback_requested: o.feedbackRequested || o.feedback_requested || false,
+    gpsCoords: o.gpsCoords || o.gps_coords || null,
     damagePhoto,
     partsList,
     carpenterComments
