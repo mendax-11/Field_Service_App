@@ -2228,7 +2228,7 @@ Your review helps us serve you better. Thank you!`;
                         </div>
                       )}
 
-                      {/* Feedback Request Step */}
+                      {/* Feedback Request Step - Optional but Recommended */}
                       {job.otpVerified && !job.feedbackRequested && (
                         <div style={{ marginTop: '16px', padding: '16px', backgroundColor: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                           <p style={{ fontSize: '0.75rem', marginBottom: '12px', fontWeight: 'bold' }}>Step 2: Request Review before Signature</p>
@@ -2255,13 +2255,16 @@ Your review helps us serve you better. Thank you!`;
                       )}
 
                       {/* Signature canvas display */}
-                      {job.otpVerified && job.feedbackRequested && !job.signature && (
-                        <SignatureCanvas 
+                      {job.otpVerified && !job.signature && (
+                        <div style={{ marginTop: '16px' }}>
+                          <p style={{ fontSize: '0.75rem', marginBottom: '8px', fontWeight: 'bold' }}>Customer Signature</p>
+                          <SignatureCanvas 
                           onSave={handleSignatureSave} 
                           onCancel={() => {
                             // Can reset OTP verified to let them retry or keep it
                           }}
                         />
+                        </div>
                       )}
                     </div>
                   )}
