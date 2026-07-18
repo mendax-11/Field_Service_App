@@ -1895,7 +1895,7 @@ export default function AdminPortal() {
                 <div className="form-group">
                   <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Delivery Target Date (Optional)</label>
                   <input 
-                    type="datetime-local" 
+                    type="date" 
                     value={jobForm.deliveryDate} 
                     onChange={(e) => setJobForm({ ...jobForm, deliveryDate: e.target.value })}
                     style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
@@ -1907,7 +1907,7 @@ export default function AdminPortal() {
                 <div className="form-group">
                   <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Promise Date (SLA Target)</label>
                   <input 
-                    type="datetime-local" 
+                    type="date" 
                     value={jobForm.promiseDate} 
                     onChange={(e) => setJobForm({ ...jobForm, promiseDate: e.target.value })}
                     style={{ backgroundColor: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '8px', fontSize: '12px' }}
