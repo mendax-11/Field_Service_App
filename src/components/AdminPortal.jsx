@@ -232,6 +232,7 @@ export default function AdminPortal() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [showArchivedPayouts, setShowArchivedPayouts] = useState(false);
   
   // Date-range filter states
   const [dateFilterPreset, setDateFilterPreset] = useState('all'); // today, week, month, 30days, all, custom
@@ -803,7 +804,7 @@ export default function AdminPortal() {
     return carpenters.map(carp => {
       // Find completed jobs assigned to this carpenter
       const completedJobs = allOrders.filter(
-        o => o.assignedCarpenter === carp.name && o.jobStatus === 'Completed'
+        o => o.assignedCarpenter === carp.name && o.jobStatus === 'Completed' && (showArchivedPayouts || !o.archived)
       );
 
       // Sum payout of completed jobs that are still 'Unpaid'
@@ -1556,9 +1557,20 @@ export default function AdminPortal() {
                     <h3><Coins size={22} /> Carpenter Payout Ledger</h3>
                     <p className="subtitle">Audit completed cabinet and furniture installations. View totals and clear payouts upon disbursement.</p>
                   </div>
-                  <div className="ledger-total-box">
-                    <span className="label">Total Company Outstanding:</span>
-                    <span className="value font-mono">₹{totalCompanyOutstanding}</span>
+                  <div className="ledger-total-box" style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: 'var(--text-muted)' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={showArchivedPayouts} 
+                        onChange={(e) => setShowArchivedPayouts(e.target.checked)} 
+                        style={{ margin: 0 }}
+                      />
+                      Show Archived
+                    </label>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                      <span className="label">Total Company Outstanding:</span>
+                      <span className="value font-mono">₹{totalCompanyOutstanding}</span>
+                    </div>
                   </div>
                 </div>
 
