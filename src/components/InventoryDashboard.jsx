@@ -6,12 +6,21 @@ import './InventoryDashboard.css';
 
 export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
   const [onHoldOrders, setOnHoldOrders] = useState([]);
+  const [historyOrders, setHistoryOrders] = useState([]);
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'history'
   const [processingId, setProcessingId] = useState(null);
 
   const loadOrders = () => {
     const allOrders = getOrders();
     const onHold = allOrders.filter(o => o.jobStatus === 'On Hold - Parts Requested');
+    
+    // Lean history: find orders that have a 'Parts Dispatched' audit log
+    const history = allOrders.filter(o => 
+      o.auditLogs && o.auditLogs.some(log => log.action === 'Parts Dispatched')
+    );
+
     setOnHoldOrders(onHold);
+    setHistoryOrders(history);
   };
 
   useEffect(() => {
@@ -67,12 +76,67 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
           <h3><ClipboardList size={22} /> Logistics & Parts Dispatch</h3>
           <p className="subtitle">Manage part requests and inventory logistics for orders marked as On Hold by carpenters.</p>
         </div>
-        <span className="hold-count-badge">
-          {onHoldOrders.length} {onHoldOrders.length === 1 ? 'Job' : 'Jobs'} Pending Parts
-        </span>
+        <div className="logistics-controls">
+          <div className="logistics-tabs">
+            <button 
+              className={`logistics-tab ${activeTab === 'pending' ? 'active' : ''}`}
+              onClick={() => setActiveTab('pending')}
+            >
+              Pending ({onHoldOrders.length})
+            </button>
+            <button 
+              className={`logistics-tab ${activeTab === 'history' ? 'active' : ''}`}
+              onClick={() => setActiveTab('history')}
+            >
+              History ({historyOrders.length})
+            </button>
+          </div>
+        </div>
       </div>
 
-      {onHoldOrders.length === 0 ? (
+      {activeTab === 'history' ? (
+        historyOrders.length === 0 ? (
+          <div className="empty-inventory-state">
+            <div className="empty-icon-circle" style={{ color: '#9ca3af', borderColor: 'rgba(156, 163, 175, 0.25)', background: 'rgba(156, 163, 175, 0.1)' }}>
+              <ClipboardList size={40} />
+            </div>
+            <h4>No History</h4>
+            <p>No parts have been dispatched yet. Process pending requests to see them here.</p>
+          </div>
+        ) : (
+          <div className="history-table-container">
+            <table className="history-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Customer</th>
+                  <th>Carpenter</th>
+                  <th>Parts Dispatched</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyOrders.map(order => (
+                  <tr key={order.orderId}>
+                    <td className="font-bold">{order.orderId}</td>
+                    <td>{order.customerName}</td>
+                    <td>{order.assignedCarpenter}</td>
+                    <td>
+                      <div className="parts-tags">
+                        {order.partsList ? order.partsList.split(',').map((part, index) => (
+                          <span key={index} className="part-tag">{part.trim()}</span>
+                        )) : (
+                          <span className="no-parts-text">N/A</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : (
+        onHoldOrders.length === 0 ? (
         <div className="empty-inventory-state">
           <div className="empty-icon-circle">
             <Check size={40} />
@@ -176,6 +240,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
             </div>
           ))}
         </div>
+        )
       )}
     </div>
   );

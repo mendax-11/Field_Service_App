@@ -739,6 +739,37 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     return `https://wa.me/?text=${encodeURIComponent(text)}`;
   };
 
+  const handleSendPreClosureFeedback = (jobId, type) => {
+    const currentJob = stateManager.getJobById(jobId);
+    if (!currentJob) return;
+    
+    let phone = currentJob.customerPhone || currentJob.customer_phone || currentJob.customer_number || '';
+    phone = phone.replace(/[^\d]/g, '');
+    if (phone.length === 10) {
+      phone = '91' + phone;
+    }
+    
+    const prodLink = currentJob.productRefLink || currentJob.product_review_link || '';
+    const sellLink = currentJob.sellerReviewer || currentJob.seller_review_link || '';
+    
+    const link = type === 'product' ? prodLink : sellLink;
+    
+    const text = `Hi ${currentJob.customerName}, thank you for choosing TimberFlow for your furniture assembly! 😊
+
+Could you please take a moment to share your feedback on the ${type === 'product' ? 'product' : 'seller/service'}?
+
+Review Link: ${link || 'N/A'}
+
+Your review helps us serve you better. Thank you!`;
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+    
+    // Update state to allow signature
+    stateManager.updateJob(jobId, { feedbackRequested: true });
+    setJobs(stateManager.getJobs());
+  };
+
   const handleSendFeedbackWhatsApp = () => {
     if (!job) return;
     let phone = job.customerPhone || job.customer_phone || job.customer_number || '';
@@ -2188,8 +2219,34 @@ Your review helps us serve you better. Thank you!`;
                         </div>
                       )}
 
+                      {/* Feedback Request Step */}
+                      {job.otpVerified && !job.feedbackRequested && (
+                        <div style={{ marginTop: '16px', padding: '16px', backgroundColor: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                          <p style={{ fontSize: '0.75rem', marginBottom: '12px', fontWeight: 'bold' }}>Step 2: Request Review before Signature</p>
+                          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '12px' }}>Please send either a product or seller review request via WhatsApp.</p>
+                          <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                            <button 
+                              type="button" 
+                              className="btn btn-primary" 
+                              style={{ width: '100%', backgroundColor: '#25D366', borderColor: '#128C7E', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                              onClick={() => handleSendPreClosureFeedback(job.id, 'product')}
+                            >
+                              <MessageCircle size={15} /> Send Product Review Link
+                            </button>
+                            <button 
+                              type="button" 
+                              className="btn btn-secondary" 
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                              onClick={() => handleSendPreClosureFeedback(job.id, 'seller')}
+                            >
+                              <MessageCircle size={15} /> Send Seller Review Link
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Signature canvas display */}
-                      {job.otpVerified && !job.signature && (
+                      {job.otpVerified && job.feedbackRequested && !job.signature && (
                         <SignatureCanvas 
                           onSave={handleSignatureSave} 
                           onCancel={() => {
