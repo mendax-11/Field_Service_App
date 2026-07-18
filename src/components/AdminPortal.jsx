@@ -233,6 +233,7 @@ export default function AdminPortal() {
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showArchivedPayouts, setShowArchivedPayouts] = useState(false);
+  const [geocodeCache, setGeocodeCache] = useState({});
   
   // Date-range filter states
   const [dateFilterPreset, setDateFilterPreset] = useState('all'); // today, week, month, 30days, all, custom
@@ -501,6 +502,58 @@ export default function AdminPortal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Fetch true geographical coordinates for pincodes to plot on map
+  useEffect(() => {
+    if (activeTab !== 'dashboard') return;
+    
+    const activeOrders = getOrders().filter(o => o.jobStatus !== 'Completed');
+    const uniquePins = [...new Set(activeOrders.map(o => o.pincode).filter(Boolean))];
+    
+    let isSubscribed = true;
+    
+    const fetchGeocodes = async () => {
+      let updated = false;
+      const newCache = {};
+      
+      for (const pin of uniquePins) {
+        if (!geocodeCache[pin] && !geocodeCache[`failed_${pin}`]) {
+          try {
+            // Try Indian Pincode first
+            let res = await fetch(`https://api.zippopotam.us/in/${pin}`);
+            if (!res.ok) {
+               // Fallback for US zip codes (like the demo data NY zip codes)
+               res = await fetch(`https://api.zippopotam.us/us/${pin}`);
+            }
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.places && data.places.length > 0) {
+                newCache[pin] = [parseFloat(data.places[0].latitude), parseFloat(data.places[0].longitude)];
+                updated = true;
+              } else {
+                newCache[`failed_${pin}`] = true;
+                updated = true;
+              }
+            } else {
+              newCache[`failed_${pin}`] = true;
+              updated = true;
+            }
+          } catch (e) {
+            newCache[`failed_${pin}`] = true;
+            updated = true;
+          }
+        }
+      }
+      
+      if (isSubscribed && updated) {
+        setGeocodeCache(prev => ({ ...prev, ...newCache }));
+      }
+    };
+    
+    fetchGeocodes();
+    return () => { isSubscribed = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, refreshTrigger]);
+
   // Request browser notification permission on mount
   useEffect(() => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
@@ -588,9 +641,19 @@ export default function AdminPortal() {
       for (let i = 0; i < pinStr.length; i++) {
         hash = pinStr.charCodeAt(i) + ((hash << 5) - hash);
       }
-      const latOffset = ((hash & 0xFF) / 255 - 0.5) * 0.16;
-      const lngOffset = (((hash >> 8) & 0xFF) / 255 - 0.5) * 0.16;
-      const coords = [defaultCenter[0] + latOffset, defaultCenter[1] + lngOffset];
+      
+      let coords;
+      if (geocodeCache[pinStr] && Array.isArray(geocodeCache[pinStr])) {
+        // Small random scatter around the true coordinates so multiple jobs in same pincode don't perfectly overlap
+        const latOffset = ((hash & 0xFF) / 255 - 0.5) * 0.008;
+        const lngOffset = (((hash >> 8) & 0xFF) / 255 - 0.5) * 0.008;
+        coords = [geocodeCache[pinStr][0] + latOffset, geocodeCache[pinStr][1] + lngOffset];
+      } else {
+        // Fallback: Random offset from default center if geocoding fails or is loading
+        const latOffset = ((hash & 0xFF) / 255 - 0.5) * 0.16;
+        const lngOffset = (((hash >> 8) & 0xFF) / 255 - 0.5) * 0.16;
+        coords = [defaultCenter[0] + latOffset, defaultCenter[1] + lngOffset];
+      }
 
       const statusColor = o.jobStatus === 'In Progress' ? '#eab308' : o.jobStatus === 'Assigned' ? '#10b981' : o.jobStatus === 'On Hold' ? '#f97316' : '#ef4444';
 
@@ -628,7 +691,7 @@ export default function AdminPortal() {
         mapRef.current = null;
       }
     };
-  }, [activeTab, refreshTrigger]);
+  }, [activeTab, refreshTrigger, geocodeCache]);
 
 
   const triggerRefresh = () => {
