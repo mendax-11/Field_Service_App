@@ -697,6 +697,21 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                       </div>
                     )}
 
+                    {/* Damage Report Evidence */}
+                    {order.damagePhotos && order.damagePhotos.length > 0 && (
+                      <div className="admin-field-group" style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '600', color: '#ef4444', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Damage Evidence ({order.damagePhotos.length} Photos)</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px' }}>
+                          {order.damagePhotos.map((photo, idx) => (
+                            <div key={idx} style={{ position: 'relative', height: '100px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--admin-border-color)' }}>
+                              <img src={photo} alt={`Damage Evidence ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <span style={{ position: 'absolute', bottom: '2px', left: '2px', background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '9px', padding: '1px 4px', borderRadius: '2px' }}>Photo {idx + 1}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Completion Photos & Signature */}
                     {(order.photos?.before || order.photos?.after || order.signature) && (
                       <div className="admin-field-group" style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>

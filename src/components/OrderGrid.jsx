@@ -589,6 +589,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
                     <input 
                       type="checkbox" 
                       checked={isSelected}
+                      onClick={(e) => e.stopPropagation()}
                       onChange={(e) => handleSelectOrder(order.orderId, e)}
                       style={{ cursor: 'pointer', width: '15px', height: '15px' }}
                     />

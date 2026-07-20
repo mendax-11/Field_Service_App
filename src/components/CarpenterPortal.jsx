@@ -232,7 +232,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   // Form states
   const [damagePartName, setDamagePartName] = useState('');
   const [damageNotes, setDamageNotes] = useState('');
-  const [damagePhoto, setDamagePhoto] = useState('');
+  const [damagePhotos, setDamagePhotos] = useState([]);
   const [compressingDamage, setCompressingDamage] = useState(false);
   const [showDamageForm, setShowDamageForm] = useState(false);
   
@@ -593,19 +593,20 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     setJobs(stateManager.getJobs());
   };
 
-  // Submit Damage Report
   const handleDamageSubmit = (e) => {
     e.preventDefault();
     if (!damagePartName || !damageNotes) {
       alert("Please specify the damaged part name and details.");
       return;
     }
-    stateManager.submitDamageReport(job.id, damagePartName, damageNotes, damagePhoto);
+    
+    const photosPayload = damagePhotos.length > 0 ? JSON.stringify(damagePhotos) : '';
+    stateManager.submitDamageReport(job.id, damagePartName, damageNotes, photosPayload);
     
     // Clean inputs
     setDamagePartName('');
     setDamageNotes('');
-    setDamagePhoto('');
+    setDamagePhotos([]);
     setShowDamageForm(false);
     
     // Refresh jobs
@@ -684,9 +685,9 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     setActiveTab('jobs');
   };
 
-  // Handle Mock Damage Photo
   const handleMockDamagePhoto = () => {
-    setDamagePhoto('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="100%" height="100%" fill="%237f1d1d"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23f87171" font-size="13">Damaged Shelf Rail Joint (Mock)</text></svg>');
+    const mockPhoto = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="100%" height="100%" fill="%237f1d1d"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23f87171" font-size="13">Damaged Shelf Rail Joint (Mock ${damagePhotos.length + 1})</text></svg>`;
+    setDamagePhotos(prev => [...prev, mockPhoto]);
   };
 
   // Handle Mock Receipt Photo
@@ -1931,7 +1932,7 @@ Your review helps us serve you better. Thank you!`;
                     </div>
 
                     <div className="form-group">
-                      <label>Photo Proof</label>
+                      <label>Photo Proof ({damagePhotos.length} added)</label>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         <label className="photo-btn-label" style={{ flex: 1, textAlign: 'center', padding: '10px', opacity: compressingDamage ? 0.6 : 1, pointerEvents: compressingDamage ? 'none' : 'auto' }}>
                           {compressingDamage ? 'Processing...' : 'Take Photo'}
@@ -1947,7 +1948,7 @@ Your review helps us serve you better. Thank you!`;
                                 setCompressingDamage(true);
                                 try {
                                   const compressed = await captureAndStampPhoto(f, selectedJobId, { maxWidth: 800, maxHeight: 600 });
-                                  setDamagePhoto(compressed);
+                                  setDamagePhotos(prev => [...prev, compressed]);
                                 } catch (err) {
                                   console.error("Failed to compress damage photo:", err);
                                 } finally {
@@ -1967,10 +1968,22 @@ Your review helps us serve you better. Thank you!`;
                           Use Mock Damage Photo
                         </button>
                       </div>
-                      {damagePhoto && (
-                        <div style={{ marginTop: '8px', position: 'relative' }}>
-                          <img src={damagePhoto} alt="Damage Preview" style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px' }} />
-                          <button type="button" className="btn-clear-photo" disabled={compressingDamage} onClick={() => setDamagePhoto('')}>✕</button>
+                      {damagePhotos.length > 0 && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginTop: '12px' }}>
+                          {damagePhotos.map((photo, pIdx) => (
+                            <div key={pIdx} style={{ position: 'relative', height: '80px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-color, #232e42)' }}>
+                              <img src={photo} alt={`Damage Preview ${pIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <button 
+                                type="button" 
+                                className="btn-clear-photo" 
+                                style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '10px', padding: 0 }}
+                                disabled={compressingDamage} 
+                                onClick={() => setDamagePhotos(prev => prev.filter((_, idx) => idx !== pIdx))}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

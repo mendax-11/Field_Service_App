@@ -142,9 +142,16 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
                     <td>{order.customerName}</td>
                     <td>{order.assignedCarpenter}</td>
                     <td>
-                      {order.damagePhoto ? (
-                        <div style={{ width: '48px', height: '48px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--admin-border-color)' }}>
-                          <img src={order.damagePhoto} alt="Damage" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {order.damagePhotos && order.damagePhotos.length > 0 ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ width: '48px', height: '48px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--admin-border-color)', position: 'relative' }}>
+                            <img src={order.damagePhotos[0]} alt="Damage" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            {order.damagePhotos.length > 1 && (
+                              <div style={{ position: 'absolute', bottom: 0, right: 0, background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '9px', padding: '1px 3px', borderTopLeftRadius: '3px', fontWeight: 'bold' }}>
+                                +{order.damagePhotos.length - 1}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <span style={{ color: 'var(--admin-text-secondary)', fontSize: '12px' }}>No Photo</span>
@@ -193,23 +200,27 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
 
               <div className="card-main-layout">
                 {/* Damage Photo Section */}
-                <div className="damage-photo-panel">
-                  {order.damagePhoto ? (
-                    <div className="photo-wrapper">
-                      <img 
-                        src={order.damagePhoto} 
-                        alt={`Damage for ${order.orderId}`} 
-                        className="damage-photo-img"
-                        onError={(e) => {
-                          // Fallback if image fails to load
-                          e.target.src = 'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?q=80&w=400&auto=format&fit=crop';
-                        }}
-                      />
-                      <span className="photo-overlay-tag"><ImageIcon size={12} /> Damage Photo</span>
+                <div className="damage-photo-panel" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {order.damagePhotos && order.damagePhotos.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '8px', width: '100%' }}>
+                      {order.damagePhotos.map((photo, idx) => (
+                        <div key={idx} className="photo-wrapper" style={{ height: '90px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--admin-border-color)', position: 'relative' }}>
+                          <img 
+                            src={photo} 
+                            alt={`Damage for ${order.orderId} - Part ${idx + 1}`} 
+                            className="damage-photo-img"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => {
+                              e.target.src = 'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?q=80&w=400&auto=format&fit=crop';
+                            }}
+                          />
+                          <span className="photo-overlay-tag" style={{ fontSize: '9px', padding: '1px 4px' }}><ImageIcon size={10} /> Photo {idx + 1}</span>
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <div className="no-photo-placeholder">
-                      <AlertOctagon size={24} />
+                    <div className="no-photo-placeholder" style={{ height: '90px' }}>
+                      <AlertOctagon size={20} />
                       <span>No Photo Uploaded</span>
                     </div>
                   )}

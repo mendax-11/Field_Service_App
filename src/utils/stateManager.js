@@ -32,6 +32,8 @@ const STORAGE_KEYS = {
   SYNC_QUEUE: 'fsa_sync_queue'          // Offline operation retry queue
 };
 
+export const lastLocalUpdate = new Map();
+
 const getRelativeDate = (offsetDays) => {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
@@ -334,6 +336,22 @@ export function normalizeOrder(o) {
     if (!carpenterComments) carpenterComments = damageReport.notes || damageReport.carpenterComments || '';
   }
 
+  let damagePhotos = o.damagePhotos || o.damage_photos || [];
+  if (!Array.isArray(damagePhotos)) {
+    damagePhotos = [];
+  }
+  if (damagePhotos.length === 0 && damagePhoto) {
+    if (damagePhoto.startsWith('[')) {
+      try {
+        damagePhotos = JSON.parse(damagePhoto);
+      } catch (e) {
+        damagePhotos = [damagePhoto];
+      }
+    } else {
+      damagePhotos = [damagePhoto];
+    }
+  }
+
   // If flat values are present, build/update nested damageReport
   if ((damagePhoto || partsList || carpenterComments) && !damageReport) {
     damageReport = {
@@ -451,7 +469,9 @@ export function normalizeOrder(o) {
     gpsCoords: o.gpsCoords || o.gps_coords || null,
     damagePhoto,
     partsList,
-    carpenterComments
+    carpenterComments,
+    damagePhotos,
+    damage_photos: damagePhotos
   };
 }
 
@@ -671,6 +691,7 @@ export const rejectJob = (orderId, carpenterName, reason) => {
 };
 
 export const updateOrder = (orderId, updatedFields) => {
+  lastLocalUpdate.set(orderId, Date.now());
   const orders = getOrders();
   const index = orders.findIndex(o => o.orderId === orderId);
   if (index !== -1) {
@@ -1038,7 +1059,7 @@ const downloadCSV = (csvString, filename) => {
 };
 
 export const exportOrdersCSV = () => {
-  const orders = getOrders();
+  const orders = getOrders().filter(o => !o.archived);
   const headers = [
     'Order ID', 'Platform', 'Customer Name', 'Customer Phone', 'Customer Address',
     'City', 'State', 'Pincode', 'Product SKU', 'Assembly Payout (INR)',
@@ -1361,6 +1382,7 @@ export const stateManager = {
   },
 
   toggleChecklistItem(jobId, itemId) {
+    lastLocalUpdate.set(jobId, Date.now());
     const orders = getOrders();
     const orderIndex = orders.findIndex(o => o.orderId === jobId);
     if (orderIndex !== -1) {
@@ -1383,6 +1405,7 @@ export const stateManager = {
   },
 
   submitDamageReport(jobId, partName, notes, photoBase64, photoFile) {
+    lastLocalUpdate.set(jobId, Date.now());
     const orders = getOrders();
     const orderIndex = orders.findIndex(o => o.orderId === jobId);
     if (orderIndex !== -1) {
@@ -1929,6 +1952,30 @@ function setupPocketBaseRealtime() {
           updatedOrder.otp_sent = existingOrder.otpSent;
           updatedOrder.otpVerified = existingOrder.otpVerified;
           updatedOrder.otp_verified = existingOrder.otpVerified;
+
+          // Merge & preserve local fields to prevent race conditions on recent local updates
+          const lastLocalTime = lastLocalUpdate.get(record.order_id) || 0;
+          const isRecentlyUpdatedLocally = (Date.now() - lastLocalTime) < 5000;
+          if (isRecentlyUpdatedLocally) {
+            updatedOrder.checklist = existingOrder.checklist;
+            updatedOrder.status = existingOrder.status;
+            updatedOrder.jobStatus = existingOrder.jobStatus;
+            updatedOrder.assembly_status = existingOrder.assembly_status;
+            updatedOrder.photos = existingOrder.photos;
+            updatedOrder.signature = existingOrder.signature;
+            updatedOrder.damageReport = existingOrder.damageReport;
+            updatedOrder.damage_report = existingOrder.damage_report;
+            updatedOrder.damagePhoto = existingOrder.damagePhoto;
+            updatedOrder.partsList = existingOrder.partsList;
+            updatedOrder.carpenterComments = existingOrder.carpenterComments;
+            updatedOrder.paymentStatus = existingOrder.paymentStatus;
+            updatedOrder.payment_status = existingOrder.payment_status;
+            updatedOrder.secureSignatureUrl = existingOrder.secureSignatureUrl;
+            updatedOrder.securePhotoUrl = existingOrder.securePhotoUrl;
+            updatedOrder.gpsCoords = existingOrder.gpsCoords;
+            updatedOrder.auditLogs = existingOrder.auditLogs;
+            updatedOrder.audit_logs = existingOrder.audit_logs;
+          }
 
           // Protect completed status from being overwritten by a pending server status
           if (existingOrder.jobStatus === 'Completed' && updatedOrder.jobStatus !== 'Completed') {

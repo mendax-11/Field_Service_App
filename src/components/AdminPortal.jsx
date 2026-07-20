@@ -713,51 +713,143 @@ export default function AdminPortal() {
     }
 
     try {
-      const lines = csvText.split('\n');
+      const lines = csvText.split('\n').map(l => l.trim()).filter(Boolean);
       if (lines.length <= 1) {
         alert('Invalid CSV data. Ensure you have a header row and data rows.');
         return;
       }
 
-      // Check header row columns (we expect standard format)
-      // Order ID, Customer Name, Phone, SKU, Payout, Payment Type, Delivery Date
+      // Helper function to parse CSV lines correctly, including commas within quotes
+      const parseCSVLine = (line) => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim());
+        // Clean leading/trailing quotes and spacing
+        return result.map(val => val.replace(/^"|"$/g, '').trim());
+      };
+
+      const headerLine = lines[0];
+      const headers = parseCSVLine(headerLine).map(h => h.toLowerCase());
+
+      const requiredHeaders = ['order id', 'customer name', 'phone', 'sku', 'payout', 'payment type', 'delivery date'];
+      const missingHeaders = requiredHeaders.filter(rh => !headers.includes(rh));
+
+      if (missingHeaders.length > 0) {
+        alert(`Invalid CSV format. Missing required columns: ${missingHeaders.join(', ')}.\nExpected header columns: Order ID, Customer Name, Phone, SKU, Payout, Payment Type, Delivery Date`);
+        return;
+      }
+
+      const idxOrderId = headers.indexOf('order id');
+      const idxCustomerName = headers.indexOf('customer name');
+      const idxPhone = headers.indexOf('phone');
+      const idxSku = headers.indexOf('sku');
+      const idxPayout = headers.indexOf('payout');
+      const idxPaymentType = headers.indexOf('payment type');
+      const idxDeliveryDate = headers.indexOf('delivery date');
+
       const currentOrders = getOrders();
-      let importedCount = 0;
       let duplicateCount = 0;
+      const rowErrors = [];
+      const ordersToImport = [];
 
       // Extract platform from template selection or auto-detect
-      let detectedPlatform = 'Amazon';
+      let detectedPlatform = selectedTemplate || 'Amazon';
       if (csvText.includes('FLIP-')) detectedPlatform = 'Flipkart';
       if (csvText.includes('WOO-')) detectedPlatform = 'WooCommerce';
 
       for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
+        const line = lines[i];
+        const columns = parseCSVLine(line);
+        
+        // Skip empty lines
+        if (columns.length === 1 && !columns[0]) continue;
 
-        const columns = line.split(',');
-        if (columns.length < 7) continue;
+        if (columns.length < requiredHeaders.length) {
+          rowErrors.push(`Row ${i + 1}: Line has incomplete data (fewer than ${requiredHeaders.length} columns)`);
+          continue;
+        }
 
-        const [orderId, customerName, phone, sku, payoutStr, paymentType, deliveryDate] = columns.map(col => col.trim());
+        const orderId = columns[idxOrderId];
+        const customerName = columns[idxCustomerName];
+        const phone = columns[idxPhone];
+        const sku = columns[idxSku];
+        const payoutStr = columns[idxPayout];
+        const paymentType = columns[idxPaymentType];
+        const deliveryDateStr = columns[idxDeliveryDate];
 
-        // Check duplicates
+        const rowNum = i + 1;
+        const currentErrors = [];
+
+        if (!orderId) {
+          currentErrors.push('Missing Order ID');
+        }
+        if (!customerName) {
+          currentErrors.push('Missing Customer Name');
+        }
+        if (!phone) {
+          currentErrors.push('Missing Phone Number');
+        }
+        if (!sku) {
+          currentErrors.push('Missing SKU');
+        }
+
+        const payoutVal = Number(payoutStr);
+        if (payoutStr === '' || isNaN(payoutVal) || payoutVal < 0) {
+          currentErrors.push(`Invalid Payout: "${payoutStr}" must be a non-negative number`);
+        }
+
+        let parsedDeliveryDate = null;
+        if (deliveryDateStr) {
+          const timestamp = Date.parse(deliveryDateStr);
+          if (isNaN(timestamp)) {
+            currentErrors.push(`Invalid Delivery Date format: "${deliveryDateStr}"`);
+          } else {
+            parsedDeliveryDate = new Date(timestamp).toISOString();
+          }
+        }
+
+        if (currentErrors.length > 0) {
+          rowErrors.push(`Row ${rowNum}: ${currentErrors.join(', ')}`);
+          continue;
+        }
+
+        // Check duplicates in existing database
         if (currentOrders.some(o => o.orderId === orderId)) {
           duplicateCount++;
           continue;
         }
 
-        const newOrder = {
+        // Check duplicates in this CSV itself
+        if (ordersToImport.some(o => o.orderId === orderId)) {
+          duplicateCount++;
+          continue;
+        }
+
+        ordersToImport.push({
           orderId,
           platform: detectedPlatform,
           customerName,
           customerPhone: phone,
           sku,
-          payout: Number(payoutStr) || 100,
+          payout: payoutVal,
           deliveryStatus: 'Pending',
           jobStatus: 'Unassigned',
           assignedCarpenter: null,
           paymentStatus: 'Unpaid',
           paymentType: paymentType || 'Prepaid',
-          deliveryDate: deliveryDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
+          deliveryDate: parsedDeliveryDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
           orderDate: new Date().toISOString(),
           comments: [],
           auditLogs: [
@@ -768,18 +860,21 @@ export default function AdminPortal() {
               comments: `Imported via CSV (${detectedPlatform} format)`
             }
           ]
-        };
-
-        currentOrders.unshift(newOrder);
-        importedCount++;
+        });
       }
 
-      if (importedCount > 0) {
-        saveOrders(currentOrders);
-        addNotification(`Imported ${importedCount} new orders successfully. Platforms: ${detectedPlatform}.`);
+      if (rowErrors.length > 0) {
+        alert(`Failed to import CSV due to validation errors:\n\n${rowErrors.slice(0, 10).join('\n')}${rowErrors.length > 10 ? `\n...and ${rowErrors.length - 10} more errors.` : ''}\n\nPlease correct these rows and try again.`);
+        return;
+      }
+
+      if (ordersToImport.length > 0) {
+        const mergedOrders = [...ordersToImport, ...currentOrders];
+        saveOrders(mergedOrders);
+        addNotification(`Imported ${ordersToImport.length} new orders successfully. Platform: ${detectedPlatform}.`);
         setCsvText('');
         triggerRefresh();
-        alert(`CSV Import Complete!\n- Imported: ${importedCount} orders\n- Duplicates skipped: ${duplicateCount}`);
+        alert(`CSV Import Complete!\n- Imported: ${ordersToImport.length} orders\n- Duplicates skipped: ${duplicateCount}`);
       } else {
         alert(`No new orders imported. (Skipped ${duplicateCount} duplicates)`);
       }
