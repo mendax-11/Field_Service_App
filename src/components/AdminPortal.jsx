@@ -758,6 +758,11 @@ export default function AdminPortal() {
       const idxPayout = headers.indexOf('payout');
       const idxPaymentType = headers.indexOf('payment type');
       const idxDeliveryDate = headers.indexOf('delivery date');
+      
+      const idxAddress = headers.indexOf('customer address') !== -1 ? headers.indexOf('customer address') : headers.indexOf('address');
+      const idxCity = headers.indexOf('city');
+      const idxState = headers.indexOf('state');
+      const idxPincode = headers.indexOf('pincode');
 
       const currentOrders = getOrders();
       let duplicateCount = 0;
@@ -788,6 +793,11 @@ export default function AdminPortal() {
         const payoutStr = columns[idxPayout];
         const paymentType = columns[idxPaymentType];
         const deliveryDateStr = columns[idxDeliveryDate];
+        
+        const customerAddress = idxAddress !== -1 ? columns[idxAddress] : '';
+        const city = idxCity !== -1 ? columns[idxCity] : '';
+        const state = idxState !== -1 ? columns[idxState] : '';
+        const pincode = idxPincode !== -1 ? columns[idxPincode] : '';
 
         const rowNum = i + 1;
         const currentErrors = [];
@@ -842,6 +852,10 @@ export default function AdminPortal() {
           platform: detectedPlatform,
           customerName,
           customerPhone: phone,
+          customerAddress,
+          city,
+          state,
+          pincode,
           sku,
           payout: payoutVal,
           deliveryStatus: 'Pending',

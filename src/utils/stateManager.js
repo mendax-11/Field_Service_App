@@ -375,7 +375,8 @@ export function normalizeOrder(o) {
   const signature = o.signature || o.customer_signature || null;
   const comments = o.comments || [];
   const auditLogs = o.auditLogs || o.audit_logs || [];
-  const archived = o.archived !== undefined ? o.archived : (o.is_archived !== undefined ? o.is_archived : false);
+  const rawArchived = o.archived !== undefined ? o.archived : (o.is_archived !== undefined ? o.is_archived : false);
+  const archived = typeof rawArchived === 'string' ? rawArchived.toLowerCase() === 'true' : !!rawArchived;
   const extraCharges = o.extraCharges || o.extra_charges || [];
 
   return {
@@ -691,10 +692,14 @@ export const rejectJob = (orderId, carpenterName, reason) => {
 };
 
 export const updateOrder = (orderId, updatedFields) => {
-  lastLocalUpdate.set(orderId, Date.now());
   const orders = getOrders();
   const index = orders.findIndex(o => o.orderId === orderId);
   if (index !== -1) {
+    const o = orders[index];
+    lastLocalUpdate.set(orderId, Date.now());
+    if (o.orderId) lastLocalUpdate.set(o.orderId, Date.now());
+    if (o.id) lastLocalUpdate.set(o.id, Date.now());
+    if (o.order_id) lastLocalUpdate.set(o.order_id, Date.now());
     const oldStatus = orders[index].jobStatus || orders[index].status || 'Unassigned';
     const newStatus = updatedFields.jobStatus || updatedFields.status;
     
@@ -1404,23 +1409,34 @@ export const stateManager = {
     return addComment(jobId, text, sender);
   },
 
-  submitDamageReport(jobId, partName, notes, photoBase64, photoFile) {
+  submitDamageReport(jobId, partName, notes, damagePhotosPayload) {
     lastLocalUpdate.set(jobId, Date.now());
     const orders = getOrders();
     const orderIndex = orders.findIndex(o => o.orderId === jobId);
     if (orderIndex !== -1) {
       const order = orders[orderIndex];
+      let damagePhotos = [];
+      if (typeof damagePhotosPayload === 'string' && damagePhotosPayload.startsWith('[')) {
+        try {
+          damagePhotos = JSON.parse(damagePhotosPayload);
+        } catch(e) {}
+      } else if (Array.isArray(damagePhotosPayload)) {
+        damagePhotos = damagePhotosPayload;
+      }
+      
       const damageReport = {
         partName,
         notes,
-        photo: photoBase64 || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100%" height="100%" fill="%23c0392b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="10">Parts Damage</text></svg>'
+        photo: damagePhotos.length > 0 ? damagePhotos[0] : 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100%" height="100%" fill="%23c0392b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="10">Parts Damage</text></svg>'
       };
 
       const timestamp = new Date().toISOString();
       const updatedOrderObj = {
         ...order,
         damageReport,
-        damageReportFile: photoFile || null,
+        damagePhotos,
+        damage_photos: damagePhotos,
+        damageReportFile: null,
         jobStatus: 'On Hold - Parts Requested',
         status: 'On Hold - Parts Requested',
         auditLogs: [

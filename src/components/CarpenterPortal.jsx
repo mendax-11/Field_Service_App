@@ -1898,9 +1898,17 @@ Your review helps us serve you better. Thank you!`;
                     </p>
                     <p><strong>Part:</strong> {job.damageReport.partName}</p>
                     <p><strong>Description:</strong> {job.damageReport.notes}</p>
-                    {job.damageReport.photo && (
+                    {job.damagePhotos && job.damagePhotos.length > 0 ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginTop: '12px' }}>
+                        {job.damagePhotos.map((photo, pIdx) => (
+                          <div key={pIdx} style={{ position: 'relative', height: '80px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-color, #232e42)' }}>
+                            <img src={photo} alt={`Damage proof ${pIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          </div>
+                        ))}
+                      </div>
+                    ) : job.damageReport.photo ? (
                       <img src={job.damageReport.photo} className="damage-preview-img" alt="Damage proof" />
-                    )}
+                    ) : null}
                   </div>
                 )}
 
