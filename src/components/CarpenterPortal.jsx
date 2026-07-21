@@ -541,7 +541,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       setOtpError('');
       setDamagePartName('');
       setDamageNotes('');
-      setDamagePhoto('');
+      setDamagePhotos([]);
       setShowDamageForm(false);
     }
   };
