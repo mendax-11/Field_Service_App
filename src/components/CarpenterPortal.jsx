@@ -1890,11 +1890,10 @@ Your review helps us serve you better. Thank you!`;
                   </span>
                 </div>
 
-                {/* If damage exists already */}
                 {job.damageReport && (
                   <div className="submitted-damage-info" style={{ marginTop: '10px' }}>
                     <p style={{ fontWeight: 'bold', color: 'var(--danger)' }}>
-                      Damage Claim Active (On Hold - Parts Requested)
+                      Damage Claim Active
                     </p>
                     <p><strong>Part:</strong> {job.damageReport.partName}</p>
                     <p><strong>Description:</strong> {job.damageReport.notes}</p>
