@@ -304,7 +304,10 @@ export function normalizeOrder(o) {
   const productImage = o.productImage || o.product_image || o.product_image_url || 'https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&w=600&q=80';
   const productRefLink = o.productRefLink || o.product_ref_link || o.product_review_link || 'https://manuals.service.com/assembly-guide.pdf';
   const sellerReviewer = o.sellerReviewer || o.seller_reviewer || o.seller_review_link || 'System';
-  const deliveryStatus = o.deliveryStatus || o.delivery_status || 'Pending';
+  let deliveryStatus = o.deliveryStatus || o.delivery_status || 'Pending';
+  if (jobStatus === 'Completed' && deliveryStatus !== 'Delivered') {
+    deliveryStatus = 'Delivered';
+  }
   const deliveryDate = o.deliveryDate || o.delivery_date || '';
   const promiseDate = o.promiseDate || o.promise_date || o['promise date'] || '';
   
@@ -706,6 +709,9 @@ export const updateOrder = (orderId, updatedFields) => {
     if (newStatus) {
       updatedFields.jobStatus = newStatus;
       updatedFields.status = newStatus;
+      if (newStatus === 'Completed' && !updatedFields.deliveryStatus) {
+        updatedFields.deliveryStatus = 'Delivered';
+      }
     }
 
     orders[index] = { ...orders[index], ...updatedFields };
