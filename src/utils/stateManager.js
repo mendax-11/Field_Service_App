@@ -1766,6 +1766,34 @@ async function syncOrderToPocketBase(orderId, order) {
     }
 
     let updatedRecord = null;
+    
+    const attemptJsonSync = async (fields) => {
+      try {
+        if (record) {
+          return await pb.collection('orders').update(record.id, fields, { $autoCancel: false });
+        } else {
+          return await pb.collection('orders').create(fields, { $autoCancel: false });
+        }
+      } catch (err) {
+        console.warn('JSON sync failed. Retrying without base64 images to preserve status updates.', err);
+        const safeFields = { ...fields };
+        if (safeFields.signature && safeFields.signature.startsWith('data:image/')) safeFields.signature = '';
+        if (safeFields.photos) {
+          safeFields.photos = { ...safeFields.photos };
+          if (safeFields.photos.before && safeFields.photos.before.startsWith('data:image/')) safeFields.photos.before = '';
+          if (safeFields.photos.after && safeFields.photos.after.startsWith('data:image/')) safeFields.photos.after = '';
+        }
+        if (safeFields.damage_photos && Array.isArray(safeFields.damage_photos)) {
+          safeFields.damage_photos = safeFields.damage_photos.map(p => p.startsWith('data:image/') ? '' : p).filter(Boolean);
+        }
+        if (record) {
+          return await pb.collection('orders').update(record.id, safeFields, { $autoCancel: false });
+        } else {
+          return await pb.collection('orders').create(safeFields, { $autoCancel: false });
+        }
+      }
+    };
+
     if (hasFiles) {
       try {
         // Attempt upload with files
@@ -1775,21 +1803,11 @@ async function syncOrderToPocketBase(orderId, order) {
           updatedRecord = await pb.collection('orders').create(formData, { $autoCancel: false });
         }
       } catch (uploadError) {
-        console.warn('File upload to PocketBase failed (collection might lack file fields). Falling back to JSON/base64 sync:', uploadError);
-        // Fallback to JSON if file upload fails
-        if (record) {
-          updatedRecord = await pb.collection('orders').update(record.id, pbFields, { $autoCancel: false });
-        } else {
-          updatedRecord = await pb.collection('orders').create(pbFields, { $autoCancel: false });
-        }
+        console.warn('File upload to PocketBase failed. Falling back to JSON sync:', uploadError);
+        updatedRecord = await attemptJsonSync(pbFields);
       }
     } else {
-      // Normal JSON update/create
-      if (record) {
-        updatedRecord = await pb.collection('orders').update(record.id, pbFields, { $autoCancel: false });
-      } else {
-        updatedRecord = await pb.collection('orders').create(pbFields, { $autoCancel: false });
-      }
+      updatedRecord = await attemptJsonSync(pbFields);
     }
 
     // If upload succeeded and file paths exist, replace local base64 with public URL links
