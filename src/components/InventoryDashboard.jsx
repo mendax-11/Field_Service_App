@@ -47,7 +47,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
       if (order) {
         const timestamp = new Date().toISOString();
         const updatedFields = {
-          jobStatus: 'In Progress',
+          jobStatus: 'Assigned',
           // Append audit log
           auditLogs: [
             ...(order.auditLogs || []),
@@ -61,7 +61,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
         };
 
         updateOrder(orderId, updatedFields);
-        addNotification(`Logistics: Parts dispatched for order ${orderId}. Job status changed to In Progress.`);
+        addNotification(`Logistics: Parts dispatched for order ${orderId}. Job status changed to Assigned.`);
         
         setProcessingId(null);
         loadOrders();
