@@ -754,26 +754,36 @@ export default function AdminPortal() {
       const headerLine = lines[0];
       const headers = parseCSVLine(headerLine).map(h => h.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim());
 
-      const requiredHeaders = ['order id', 'customer name', 'phone', 'sku', 'payout', 'payment type', 'delivery date'];
-      const missingHeaders = requiredHeaders.filter(rh => !headers.includes(rh));
+      const getHeaderIdx = (aliases) => {
+        return headers.findIndex(h => aliases.some(alias => h.includes(alias)));
+      };
+
+      const idxOrderId = getHeaderIdx(['order id', 'orderid']);
+      const idxCustomerName = getHeaderIdx(['customer name', 'name']);
+      const idxPhone = getHeaderIdx(['phone', 'contact']);
+      const idxSku = getHeaderIdx(['sku', 'product']);
+      const idxPayout = getHeaderIdx(['payout', 'price', 'amount', 'fee']);
+      const idxPaymentType = getHeaderIdx(['payment type', 'payment']);
+      const idxDeliveryDate = getHeaderIdx(['delivery date', 'date']);
+      
+      const idxAddress = getHeaderIdx(['customer address', 'address']);
+      const idxCity = getHeaderIdx(['city']);
+      const idxState = getHeaderIdx(['state', 'province']);
+      const idxPincode = getHeaderIdx(['pincode', 'pin', 'zip', 'postal']);
+
+      const missingHeaders = [];
+      if (idxOrderId === -1) missingHeaders.push('order id');
+      if (idxCustomerName === -1) missingHeaders.push('customer name');
+      if (idxPhone === -1) missingHeaders.push('phone');
+      if (idxSku === -1) missingHeaders.push('sku');
+      if (idxPayout === -1) missingHeaders.push('payout');
+      if (idxPaymentType === -1) missingHeaders.push('payment type');
+      if (idxDeliveryDate === -1) missingHeaders.push('delivery date');
 
       if (missingHeaders.length > 0) {
         alert(`Invalid CSV format. Missing required columns: ${missingHeaders.join(', ')}.\nExpected header columns: Order ID, Customer Name, Phone, SKU, Payout, Payment Type, Delivery Date`);
         return;
       }
-
-      const idxOrderId = headers.indexOf('order id');
-      const idxCustomerName = headers.indexOf('customer name');
-      const idxPhone = headers.indexOf('phone');
-      const idxSku = headers.indexOf('sku');
-      const idxPayout = headers.indexOf('payout');
-      const idxPaymentType = headers.indexOf('payment type');
-      const idxDeliveryDate = headers.indexOf('delivery date');
-      
-      const idxAddress = headers.indexOf('customer address') !== -1 ? headers.indexOf('customer address') : headers.indexOf('address');
-      const idxCity = headers.indexOf('city');
-      const idxState = headers.indexOf('state');
-      const idxPincode = headers.indexOf('pincode');
 
       const currentOrders = getOrders();
       let duplicateCount = 0;
