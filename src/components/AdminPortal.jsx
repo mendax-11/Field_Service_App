@@ -705,7 +705,18 @@ export default function AdminPortal() {
     triggerRefresh();
   };
 
-  // CSV Importer Parsing
+  // Handle CSV Import
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setCsvText(event.target.result);
+      };
+      reader.readAsText(file);
+    }
+  };
+
   const handleImportCSV = () => {
     if (!csvText.trim()) {
       alert('Please enter or load some CSV data first.');
@@ -741,7 +752,7 @@ export default function AdminPortal() {
       };
 
       const headerLine = lines[0];
-      const headers = parseCSVLine(headerLine).map(h => h.toLowerCase());
+      const headers = parseCSVLine(headerLine).map(h => h.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim());
 
       const requiredHeaders = ['order id', 'customer name', 'phone', 'sku', 'payout', 'payment type', 'delivery date'];
       const missingHeaders = requiredHeaders.filter(rh => !headers.includes(rh));
@@ -1570,6 +1581,15 @@ export default function AdminPortal() {
                     </div>
 
                     <div className="csv-textarea-wrapper">
+                      <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Or upload CSV file:</span>
+                        <input 
+                          type="file" 
+                          accept=".csv" 
+                          onChange={handleFileUpload} 
+                          style={{ fontSize: '13px', color: 'var(--text-color)' }}
+                        />
+                      </div>
                       <textarea 
                         value={csvText}
                         onChange={(e) => setCsvText(e.target.value)}
