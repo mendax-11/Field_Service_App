@@ -1,7 +1,8 @@
 // src/components/CustomerPortal.jsx
 import { useState, useEffect } from 'react';
 import './CustomerPortal.css';
-import { getOrders, updateOrder, triggerN8nWebhook, pb, mapRecordToOrder } from '../utils/stateManager';
+import { updateOrder, triggerN8nWebhook, pb, mapRecordToOrder, fsaQueries, normalizeOrder } from '../utils/stateManager';
+import { useQuery } from '@tanstack/react-query';
 
 import { ClipboardList, CheckCircle, Clock, Truck, AlertTriangle, Package, MapPin, Star, ExternalLink } from 'lucide-react';
 
@@ -41,21 +42,24 @@ export default function CustomerPortal({ orderId }) {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [rated, setRated] = useState(false);
+  const { data: ordersData } = useQuery(fsaQueries.orders.all(1, 500));
 
   useEffect(() => {
     let active = true;
     let unsubscribeFn = null;
 
     const fetchOrder = async () => {
-      // 1. Try local storage first to display instantly
-      const orders = getOrders();
-      const localFound = orders.find(
-        o => o.orderId?.toLowerCase() === orderId?.toLowerCase() ||
-             o.order_id?.toLowerCase() === orderId?.toLowerCase()
-      );
-      if (localFound && active) {
-        setOrder(localFound);
-        setNotFound(false);
+      let localFound = null;
+      // 1. Try local cache first to display instantly
+      if (ordersData?.items) {
+        localFound = ordersData.items.map(normalizeOrder).find(
+          o => o.orderId?.toLowerCase() === orderId?.toLowerCase() ||
+               o.order_id?.toLowerCase() === orderId?.toLowerCase()
+        );
+        if (localFound && active) {
+          setOrder(localFound);
+          setNotFound(false);
+        }
       }
 
       // 2. Query PocketBase directly for the single order
@@ -107,14 +111,15 @@ export default function CustomerPortal({ orderId }) {
 
     // Listen to local changes (e.g. if updated on same browser/tab session)
     const handleStorageUpdate = () => {
-      const orders = getOrders();
-      const localFound = orders.find(
-        o => o.orderId?.toLowerCase() === orderId?.toLowerCase() ||
-             o.order_id?.toLowerCase() === orderId?.toLowerCase()
-      );
-      if (localFound && active) {
-        setOrder(localFound);
-        setNotFound(false);
+      if (ordersData?.items) {
+        const localFound = ordersData.items.map(normalizeOrder).find(
+          o => o.orderId?.toLowerCase() === orderId?.toLowerCase() ||
+               o.order_id?.toLowerCase() === orderId?.toLowerCase()
+        );
+        if (localFound && active) {
+          setOrder(localFound);
+          setNotFound(false);
+        }
       }
     };
     window.addEventListener('fsa_storage_update', handleStorageUpdate);

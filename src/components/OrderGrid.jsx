@@ -4,12 +4,17 @@ import {
   Search, ArrowUpDown, ChevronLeft, ChevronRight, 
   Trash2, Eye, SlidersHorizontal 
 } from 'lucide-react';
-import { getOrders, deleteOrder, getUserRole, getCarpenters, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission } from '../utils/stateManager';
+import { deleteOrder, getUserRole, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb } from '../utils/stateManager';
+import { useQuery } from '@tanstack/react-query';
 import OrderDetailsModal from './OrderDetailsModal';
 
 export default function OrderGrid({ refreshTrigger, onRefresh }) {
-  const [orders, setOrders] = useState([]);
-  const [carpenters, setCarpenters] = useState([]);
+  const { data: ordersData = { items: [] }, refetch: refetchOrders } = useQuery(fsaQueries.orders.all(1, 500));
+  const { data: carpentersData = { items: [] }, refetch: refetchCarpenters } = useQuery(fsaQueries.carpenters.all(1, 500));
+  
+  const orders = (ordersData.items || []).map(normalizeOrder);
+  const carpenters = carpentersData.items || [];
+  
   const [role, setRole] = useState('Super Admin');
   
   // Filters
@@ -56,10 +61,10 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
   }, [visibleColumns]);
 
   const loadData = () => {
-    setOrders(getOrders());
-    setCarpenters(getCarpenters());
-    setRole(getUserRole());
+    setRole(pb.authStore.model?.role || 'Super Admin');
     setSelectedOrderIds([]); // Clear selection on full reload
+    refetchOrders();
+    refetchCarpenters();
   };
 
   const handleQuickAssign = (orderId, carpenterName) => {
@@ -69,7 +74,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
       jobStatus: nextStatus
     };
 
-    const ordersList = getOrders();
+    const ordersList = orders;
     const currentOrder = ordersList.find(o => o.orderId === orderId);
     if (currentOrder) {
       const changes = [];
@@ -780,9 +785,13 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
           onUpdate={() => {
             loadData();
             // Re-sync selected order details to show updated logs/comments in real-time
-            const refreshedOrders = getOrders();
-            const currentSelected = refreshedOrders.find(o => o.orderId === selectedOrder.orderId);
-            setSelectedOrder(currentSelected || null);
+            refetchOrders().then(({ data }) => {
+              if (data) {
+                const refreshedOrders = (data.items || []).map(normalizeOrder);
+                const currentSelected = refreshedOrders.find(o => o.orderId === selectedOrder.orderId);
+                setSelectedOrder(currentSelected || null);
+              }
+            });
             if (onRefresh) onRefresh();
           }}
           readOnly={!hasRole(role, 'Super Admin') && (!hasRole(role, 'Dispatcher') || selectedOrder.paymentStatus === 'Paid' || selectedOrder.jobStatus === 'Completed' || selectedOrder.status === 'Completed')}

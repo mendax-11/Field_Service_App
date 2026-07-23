@@ -4,16 +4,17 @@ import {
   Search, MessageSquare, History, ArrowLeft, User, 
   Package, Clock, Plus, HelpCircle
 } from 'lucide-react';
-import { getOrders, addComment, getUserRole } from '../utils/stateManager';
+import { addComment, getUserRole, fsaQueries, normalizeOrder } from '../utils/stateManager';
+import { useQuery } from '@tanstack/react-query';
 
 export default function SupportPortal({ refreshTrigger, onRefresh }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
-  const [orders, setOrders] = useState([]);
   const [newComment, setNewComment] = useState('');
-
+  const { data: ordersData = { items: [] }, refetch: refetchOrders } = useQuery(fsaQueries.orders.all(1, 500));
+  const orders = (ordersData.items || []).map(normalizeOrder);
   const loadData = () => {
-    setOrders(getOrders());
+    refetchOrders();
   };
 
   useEffect(() => {
@@ -23,11 +24,11 @@ export default function SupportPortal({ refreshTrigger, onRefresh }) {
   // Sync state if localStorage changes
   useEffect(() => {
     const handleUpdate = () => {
-      loadData();
+      refetchOrders();
     };
     window.addEventListener('fsa_storage_update', handleUpdate);
     return () => window.removeEventListener('fsa_storage_update', handleUpdate);
-  }, []);
+  }, [refetchOrders]);
 
   const handleSearch = (e) => {
     e.preventDefault();

@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import AdminPortal from './components/AdminPortal';
 import CarpenterPortal from './components/CarpenterPortal';
 import CustomerPortal from './components/CustomerPortal';
-import { setActiveUser, setUserRole, getCarpenters, authenticateUser } from './utils/stateManager';
+import { setActiveUser, setUserRole, getCarpenters, authenticateUser, pb, fsaQueries } from './utils/stateManager';
+import { useQuery } from '@tanstack/react-query';
 
 import { LogOut, ClipboardList, Shield, Eye, EyeOff, Wifi, WifiOff, Lock, Smartphone, Monitor } from 'lucide-react';
 
@@ -15,7 +16,10 @@ export default function App() {
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [carpenters, setCarpenters] = useState([]);
+  
+  const { data: carpentersData = { items: [] } } = useQuery(fsaQueries.carpenters.all());
+  const carpenters = carpentersData.items || [];
+  
   const [showMobileFrame, setShowMobileFrame] = useState(() => {
     const saved = localStorage.getItem('fsa_show_mobile_frame');
     return saved === 'true'; // Defaults to false if not set
@@ -24,23 +28,35 @@ export default function App() {
   const [trackOrderId] = useState(() => new URLSearchParams(window.location.search).get('track'));
   const [directJobId] = useState(() => new URLSearchParams(window.location.search).get('job'));
 
-  // Load session from localStorage on mount
+  // Load session from pb on mount
   useEffect(() => {
     if (window.innerWidth < 768) {
       setShowMobileFrame(false);
     }
-    const cachedUser = localStorage.getItem('fsa_logged_in_user');
-    if (cachedUser) {
-      try {
-        const u = JSON.parse(cachedUser);
+    const checkAuth = () => {
+      if (pb.authStore.isValid && pb.authStore.model) {
+        const u = {
+          ...pb.authStore.model,
+          role: pb.authStore.model.role || 'Super Admin',
+          name: pb.authStore.model.name || pb.authStore.model.username || 'Admin',
+        };
         setUser(u);
         setUserRole(u.role);
-      } catch {
-        localStorage.removeItem('fsa_logged_in_user');
+      } else {
+        // Fallback to local storage for demo mode
+        const cachedUser = localStorage.getItem('fsa_logged_in_user');
+        if (cachedUser) {
+          try {
+            const u = JSON.parse(cachedUser);
+            setUser(u);
+            setUserRole(u.role);
+          } catch {
+            localStorage.removeItem('fsa_logged_in_user');
+          }
+        }
       }
-    }
-    // Load carpenters for the quick-select helper
-    setCarpenters(getCarpenters());
+    };
+    checkAuth();
 
     // Monitor online status
     const handleOnline = () => setIsOnline(true);
@@ -48,14 +64,9 @@ export default function App() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Refresh carpenter list when storage updates (e.g. new carpenter added)
-    const handleStorageUpdate = () => setCarpenters(getCarpenters());
-    window.addEventListener('fsa_storage_update', handleStorageUpdate);
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('fsa_storage_update', handleStorageUpdate);
     };
   }, []);
 

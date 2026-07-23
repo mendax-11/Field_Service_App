@@ -9,9 +9,10 @@ import {
   getCarpenters, getOrders,
   addCarpenterPincode, addCarpenterPincodes, removeCarpenterPincode,
   replaceCarpenterPincodes, clearCarpenterPincodes,
-  addNotification, addCarpenter, updateCarpenter, deleteCarpenter,
-  exportCarpentersCSV, getActiveWorkload, MAX_ACTIVE_JOBS
+  exportCarpentersCSV, getActiveWorkload, MAX_ACTIVE_JOBS,
+  fsaQueries, normalizeOrder
 } from '../utils/stateManager';
+import { useQuery } from '@tanstack/react-query';
 
 const CARPENTER_CSV_TEMPLATE = `Name,Phone,Rank,Pincodes
 David Miller,+91-95555-01234,Expert,90265;62704;11375
@@ -249,7 +250,11 @@ function PincodeManager({ carp, onRefresh }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
-  const [carpenters, setCarpenters]       = useState([]);
+  const { data: carpentersData = { items: [] }, refetch: refetchCarpenters } = useQuery(fsaQueries.carpenters.all(1, 500));
+  const { data: ordersData = { items: [] }, refetch: refetchOrders } = useQuery(fsaQueries.orders.all(1, 500));
+  
+  const carpenters = carpentersData.items || [];
+  const orders = (ordersData.items || []).map(normalizeOrder);
   const [showImporter, setShowImporter]   = useState(false);
   const [csvText, setCsvText]             = useState('');
   const [importStatus, setImportStatus]   = useState(null); // { type, msg }
@@ -282,7 +287,6 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
   };
 
   const getJobsForDay = (carpName, date) => {
-    const orders = getOrders();
     const dateString = date.toDateString();
     
     return orders.filter(o => {
@@ -296,11 +300,15 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
   };
 
   const loadData = useCallback(() => {
-    setCarpenters(getCarpenters());
-  }, []);
+    refetchCarpenters();
+    refetchOrders();
+  }, [refetchCarpenters, refetchOrders]);
 
-  useEffect(() => { loadData(); }, [refreshTrigger, loadData]);
+  useEffect(() => {
+    loadData();
+  }, [refreshTrigger, loadData]);
 
+  // Sync state if localStorage changes
   useEffect(() => {
     window.addEventListener('fsa_storage_update', loadData);
     return () => window.removeEventListener('fsa_storage_update', loadData);
@@ -341,7 +349,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
         return;
       }
 
-      const currentCarpenters = [...getCarpenters()];
+      const currentCarpenters = [...carpenters];
       let importedCount = 0;
       let updatedCount  = 0;
       let skippedCount  = 0;
@@ -456,7 +464,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
       return;
     }
 
-    const currentCarpenters = getCarpenters();
+    const currentCarpenters = carpenters;
     if (currentCarpenters.some(c => (c.phone === phoneTrimmed || c.id === phoneTrimmed) && (!editingCarpenter || c.id !== editingCarpenter.id))) {
       alert('A technician with this phone number already exists.'); return;
     }

@@ -26,7 +26,8 @@ import {
   AlertCircle,
   HelpCircle
 } from 'lucide-react';
-import { stateManager, triggerN8nWebhook } from '../utils/stateManager';
+import { stateManager, triggerN8nWebhook, fsaQueries } from '../utils/stateManager';
+import { useQuery } from '@tanstack/react-query';
 import { getTranslation } from '../utils/translations';
 
 import SignatureCanvas from './SignatureCanvas';
@@ -219,7 +220,10 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     localStorage.setItem('fsa_carpenter_lang', lang);
   };
 
-  const [jobs, setJobs] = useState([]);
+  const { data: carpentersData = { items: [] }, refetch: refetchCarpenters } = useQuery(fsaQueries.carpenters.all(1, 500));
+  const { data: jobsData = { items: [] }, refetch: refetchJobs } = useQuery(fsaQueries.orders.all(1, 500));
+  const allJobs = (jobsData.items || []).map(stateManager.normalizeOrder);
+  const jobs = allJobs.filter(j => j.assignedCarpenter === carpenterName || j.orderId === directJobId);
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'jobs' | 'wallet'
   const [theme, setTheme] = useState(() => {
@@ -374,7 +378,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       setGpsError('Geolocation not supported on this device.');
     }
     
-    setJobs(stateManager.getJobs());
+    refetchJobs();
   };
 
 
@@ -390,8 +394,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   // Load jobs initially and listen to storage updates for real-time sync
   useEffect(() => {
     const handleUpdate = () => {
-      const loadedJobs = stateManager.getJobs();
-      setJobs(loadedJobs);
+      refetchJobs();
     };
 
     handleUpdate();
@@ -404,7 +407,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       if (stateManager.fetchJobFromServer) {
         stateManager.fetchJobFromServer(directJobId).then(fetchedJob => {
           if (fetchedJob) {
-            setJobs(stateManager.getJobs());
+            refetchJobs();
           }
         });
       }
@@ -533,8 +536,8 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   // Reset Demo helper
   const handleResetDemo = () => {
     if (window.confirm("Are you sure you want to reset all job data to original mock values?")) {
-      const resetJobs = stateManager.resetState();
-      setJobs(resetJobs);
+      stateManager.resetState();
+      refetchJobs();
       setSelectedJobId(null);
       setSmsNotification(null);
       setEnteredOtp('');
@@ -550,7 +553,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   const handleChecklistToggle = (jobId, itemId) => {
     stateManager.toggleChecklistItem(jobId, itemId);
     // Refresh jobs
-    setJobs(stateManager.getJobs());
+    refetchJobs();
   };
 
   // Photo uploads (Before/After) — stamps GPS + timestamp watermark
@@ -564,7 +567,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       const currentJob = stateManager.getJobById(jobId);
       const updatedPhotos = { ...currentJob.photos, [type]: stampedDataUrl };
       stateManager.updateJob(jobId, { photos: updatedPhotos });
-      setJobs(stateManager.getJobs());
+      refetchJobs();
     } catch (err) {
       console.error('Failed to stamp and save photo:', err);
     } finally {
@@ -582,7 +585,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     const currentJob = stateManager.getJobById(jobId);
     const updatedPhotos = { ...currentJob.photos, [type]: mockImage };
     stateManager.updateJob(jobId, { photos: updatedPhotos });
-    setJobs(stateManager.getJobs());
+    refetchJobs();
   };
 
   // Clear photo
@@ -590,7 +593,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     const currentJob = stateManager.getJobById(jobId);
     const updatedPhotos = { ...currentJob.photos, [type]: null };
     stateManager.updateJob(jobId, { photos: updatedPhotos });
-    setJobs(stateManager.getJobs());
+    refetchJobs();
   };
 
   const handleDamageSubmit = (e) => {
@@ -610,7 +613,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     setShowDamageForm(false);
     
     // Refresh jobs
-    setJobs(stateManager.getJobs());
+    refetchJobs();
   };
 
   // Submit Extra Charge Request
@@ -661,7 +664,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     setChargeReceipt('');
     setShowExtraChargeForm(false);
 
-    setJobs(stateManager.getJobs());
+    refetchJobs();
     alert("Reimbursement request submitted successfully!");
   };
 
@@ -677,7 +680,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
 
     stateManager.rejectJob(selectedJobId, carpenterName, finalReason);
     
-    setJobs(stateManager.getJobs());
+    refetchJobs();
     setShowRejectForm(false);
     setRejectReason('');
     setCustomRejectReason('');
@@ -709,7 +712,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       otp: currentJob.otp
     });
 
-    setJobs(stateManager.getJobs());
+    refetchJobs();
   };
 
   // Verify OTP
@@ -722,7 +725,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     } else {
       setOtpError("Incorrect verification code. Please check details.");
     }
-    setJobs(stateManager.getJobs());
+    refetchJobs();
   };
 
   // Verify direct link PIN
@@ -777,7 +780,7 @@ Your review helps us serve you better. Thank you!`;
     
     // Update state to allow signature
     stateManager.updateJob(jobId, { feedbackRequested: true });
-    setJobs(stateManager.getJobs());
+    refetchJobs();
   };
 
   const handleSendFeedbackWhatsApp = () => {
@@ -847,7 +850,7 @@ Your review helps us serve you better. Thank you!`;
     );
 
     // Refresh jobs
-    setJobs(stateManager.getJobs());
+    refetchJobs();
     setSelectedJobId(null);
     setEnteredOtp('');
     setOtpError('');
@@ -862,7 +865,7 @@ Your review helps us serve you better. Thank you!`;
     stateManager.addComment(job.id, newCommentText, 'Carpenter');
     const typedText = newCommentText;
     setNewCommentText('');
-    setJobs(stateManager.getJobs());
+    refetchJobs();
 
     // Trigger standard Dispatcher reply mock in 1.5 seconds
     setTimeout(() => {
@@ -876,7 +879,7 @@ Your review helps us serve you better. Thank you!`;
           reply = "Perfect, thank you for checking in. We've notified the customer that you are on the way.";
         }
         stateManager.addComment(job.id, reply, 'Dispatcher');
-        setJobs(stateManager.getJobs());
+        refetchJobs();
       }
     }, 1500);
   };
@@ -910,7 +913,7 @@ Your review helps us serve you better. Thank you!`;
         }
 
         // 4. Fallback: Compare phone numbers from local carpenters master list
-        const localCarps = stateManager.getCarpenters ? stateManager.getCarpenters() : [];
+        const localCarps = carpentersData?.items || [];
         const match = localCarps.find(c => c.name?.toLowerCase() === orderCarp);
         if (match && activeUser) {
           const carpPhone = (match.phone || '').replace(/[^0-9]/g, '').slice(-10);
@@ -1691,7 +1694,7 @@ Your review helps us serve you better. Thank you!`;
                           `System: Job details link shared with field technician. Verification PIN: ${job.otp}`,
                           'System'
                         );
-                        setJobs(stateManager.getJobs());
+                        refetchJobs();
                       }}
                     >
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style={{ marginRight: '2px' }}>

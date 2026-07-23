@@ -41,228 +41,9 @@ const getRelativeDate = (offsetDays) => {
 };
 /* eslint-disable no-unused-vars */
 const DEFAULT_ORDERS = [];
-const OLD_UNUSED_ORDERS = [
-  {
-    order_id: 'AMZ-9023',
-    customer_name: 'Robert Downey',
-    product_sku: 'SKU-BED-QUEEN-01',
-    assembly_payout: 120,
-    customer_phone: '+1-555-0199',
-    customer_address: '123 Malibu Cliff Drive',
-    city: 'Malibu',
-    state: 'CA',
-    pincode: '90265',
-    status: 'Unassigned',
-    payment_status: 'Unpaid',
-    payment_type: 'Company Pay',
-    assigned_carpenter: '',
-    assigned_date: '',
-    product_image: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=600&q=80',
-    product_ref_link: 'https://pdf.lowes.com/useandcareguides/091238491023_use.pdf',
-    seller_reviewer: 'Amazon Quality Reviewer',
-    delivery_status: 'Delivered',
-    delivery_date: getRelativeDate(-1), // Delivered yesterday (SLA active!)
-    promise_date: getRelativeDate(1),
-    checklist: [
-      { id: 1, label: 'Unbox components & verify hardware inventory', checked: false },
-      { id: 2, label: 'Assemble main bed frame boundary', checked: false },
-      { id: 3, label: 'Install middle support beam and brackets', checked: false },
-      { id: 4, label: 'Lay down support slats and secure screw terminals', checked: false },
-      { id: 5, label: 'Inspect leg levelers & clean wood surfaces', checked: false }
-    ],
-    comments: [],
-    auditLogs: [
-      { timestamp: getRelativeDate(-2), action: 'Order Created', user: 'System', comments: 'Imported via Amazon CSV' },
-      { timestamp: getRelativeDate(-1), action: 'Delivered to Customer', user: 'Logistics', comments: 'Delivery status changed to Delivered. Carpenter SLA begins.' }
-    ]
-  },
-  {
-    order_id: 'FLP-4421',
-    customer_name: 'Scarlett Johansson',
-    product_sku: 'SKU-TABLE-STUDY-02',
-    assembly_payout: 85,
-    customer_phone: '+1-555-0148',
-    customer_address: '742 Evergreen Terrace',
-    city: 'Springfield',
-    state: 'IL',
-    pincode: '62704',
-    status: 'Assigned',
-    payment_status: 'Unpaid',
-    payment_type: 'Customer Pay', // Customer Pay: collected directly from customer
-    assigned_carpenter: 'John Carpenter',
-    assigned_date: getRelativeDate(0),
-    product_image: 'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&w=600&q=80',
-    product_ref_link: 'https://manuals.service.com/tables/study-desk-assembly.pdf',
-    seller_reviewer: 'Flipkart Auditor Team',
-    delivery_status: 'Delivered',
-    delivery_date: getRelativeDate(0), // Delivered today
-    promise_date: getRelativeDate(2),
-    checklist: [
-      { id: 1, label: 'Unbox components & lay parts out by size', checked: true },
-      { id: 2, label: 'Assemble outer structure and rear backboard panel', checked: true },
-      { id: 3, label: 'Install internal divider rails and drawer runners', checked: false },
-      { id: 4, label: 'Build drawer boxes and mount front wood facings', checked: false },
-      { id: 5, label: 'Adjust drawer alignment and anchor table', checked: false }
-    ],
-    comments: [
-      { timestamp: getRelativeDate(0), author: 'John Carpenter', text: 'Checked in at site. Initiating assembly of study table.' }
-    ],
-    auditLogs: [
-      { timestamp: getRelativeDate(-1), action: 'Order Created', user: 'System', comments: 'Imported via Flipkart CSV' },
-      { timestamp: getRelativeDate(0), action: 'Carpenter Assigned', user: 'Dispatcher', comments: 'Assigned to John Carpenter' }
-    ]
-  },
-  {
-    order_id: 'WEB-5523',
-    customer_name: 'Chris Evans',
-    product_sku: 'SKU-WARD-DOUBLE-03',
-    assembly_payout: 150,
-    customer_phone: '+1-555-0177',
-    customer_address: '569 Brooklyn Heights',
-    city: 'New York',
-    state: 'NY',
-    pincode: '11201',
-    status: 'In Progress',
-    payment_status: 'Unpaid',
-    payment_type: 'Company Pay',
-    assigned_carpenter: 'Mark Carpenter',
-    assigned_date: getRelativeDate(-1),
-    product_image: 'https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&w=600&q=80',
-    product_ref_link: 'https://manuals.service.com/wardrobes/double-wardrobe.pdf',
-    seller_reviewer: 'Webstore Logistics',
-    delivery_status: 'Delivered',
-    delivery_date: getRelativeDate(-1), // Delivered yesterday
-    promise_date: getRelativeDate(1),
-    checklist: [
-      { id: 1, label: 'Unbox components & verify shelves & hardware', checked: true },
-      { id: 2, label: 'Assemble upright side panels with stability braces', checked: true },
-      { id: 3, label: 'Mount drawer runners and slide tracks', checked: false },
-      { id: 4, label: 'Secure back panel and level cabinet feet', checked: false }
-    ],
-    comments: [
-      { timestamp: getRelativeDate(-1) + 'T15:20:00.000Z', author: 'Mark Carpenter', text: 'The wood panels are heavy, will require carefully placing mats on floor.' }
-    ],
-    auditLogs: [
-      { timestamp: getRelativeDate(-2), action: 'Order Created', user: 'System', comments: 'WooCommerce Sync' },
-      { timestamp: getRelativeDate(-1), action: 'Carpenter Assigned', user: 'System (Auto)', comments: 'Assigned to Mark Carpenter' },
-      { timestamp: getRelativeDate(-1), action: 'Status Changed to In Progress', user: 'Mark Carpenter', comments: 'Began assembly work' }
-    ]
-  },
-  {
-    order_id: 'AMZ-1049',
-    customer_name: 'Tom Holland',
-    product_sku: 'SKU-CHAIR-ERGO-04',
-    assembly_payout: 50,
-    customer_phone: '+1-555-0121',
-    customer_address: '20 Ingram Street',
-    city: 'Queens',
-    state: 'NY',
-    pincode: '11375',
-    status: 'On Hold - Parts Requested',
-    payment_status: 'Unpaid',
-    payment_type: 'Customer Pay',
-    assigned_carpenter: 'John Carpenter',
-    assigned_date: getRelativeDate(-2),
-    product_image: 'https://images.unsplash.com/photo-1580481072645-022f9a6dbf27?auto=format&fit=crop&w=600&q=80',
-    product_ref_link: 'https://manuals.service.com/chairs/ergo-chair.pdf',
-    seller_reviewer: 'Amazon Quality Reviewer',
-    delivery_status: 'Delivered',
-    delivery_date: getRelativeDate(-2),
-    promise_date: getRelativeDate(0),
-    checklist: [
-      { id: 1, label: 'Unbox parts and verify gas lift / wheel inventory', checked: true },
-      { id: 2, label: 'Fit wheels into base and set cylinder', checked: true },
-      { id: 3, label: 'Discover gas cylinder height adjuster split', checked: true }
-    ],
-    damageReport: {
-      partName: 'Gas Lift Cylinder M8',
-      notes: 'The hydraulic lift cylinder is completely leaking pressure and cracked on arrival.',
-      photo: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100%" height="100%" fill="%23c0392b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="10">Damaged Cylinder</text></svg>'
-    },
-    comments: [
-      { timestamp: getRelativeDate(-2), author: 'John Carpenter', text: 'Submitted replacement request. Table/Chair gas lift is busted.' },
-      { timestamp: getRelativeDate(-1), author: 'Dispatcher', text: 'Parts department notified. Shipping direct replacement part to client.' }
-    ],
-    auditLogs: [
-      { timestamp: getRelativeDate(-3), action: 'Order Created', user: 'System', comments: 'Imported via Amazon CSV' },
-      { timestamp: getRelativeDate(-2), action: 'Carpenter Assigned', user: 'Dispatcher', comments: 'Assigned to John Carpenter' },
-      { timestamp: getRelativeDate(-2), action: 'Status Changed to On Hold', user: 'John Carpenter', comments: 'Parts requested due to damage' }
-    ]
-  },
-  {
-    order_id: 'FLP-9022',
-    customer_name: 'Benedict Cumberbatch',
-    product_sku: 'SKU-SOFA-SEATER-05',
-    assembly_payout: 110,
-    customer_phone: '+1-555-0155',
-    customer_address: '221B Baker Street',
-    city: 'Cincinnati',
-    state: 'OH',
-    pincode: '45202',
-    status: 'Completed',
-    payment_status: 'Paid', // Super Admin processed this payout
-    payment_type: 'Company Pay',
-    assigned_carpenter: 'Mark Carpenter',
-    assigned_date: getRelativeDate(-3),
-    product_image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=600&q=80',
-    product_ref_link: 'https://manuals.service.com/sofas/seater-sofa.pdf',
-    seller_reviewer: 'Flipkart Auditor Team',
-    delivery_status: 'Delivered',
-    delivery_date: getRelativeDate(-3),
-    promise_date: getRelativeDate(-1),
-    checklist: [
-      { id: 1, label: 'Unpack frame & attach 4 wooden legs', checked: true },
-      { id: 2, label: 'Position back support cushions and align locks', checked: true }
-    ],
-    photos: {
-      before: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100%" height="100%" fill="%232c3e50"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="10">Before Photo</text></svg>',
-      after: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100%" height="100%" fill="%2327ae60"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="10">After Photo</text></svg>'
-    },
-    signature: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path d="M 10 80 Q 52.5 10, 95 80" fill="none" stroke="black" stroke-width="3"/></svg>',
-    comments: [],
-    auditLogs: [
-      { timestamp: getRelativeDate(-4), action: 'Order Created', user: 'System', comments: 'Flipkart Sync' },
-      { timestamp: getRelativeDate(-3), action: 'Carpenter Assigned', user: 'Dispatcher', comments: 'Assigned to Mark Carpenter' },
-      { timestamp: getRelativeDate(-3), action: 'Job Completed', user: 'Mark Carpenter', comments: 'Signature and proof photos uploaded.' },
-      { timestamp: getRelativeDate(-2), action: 'Payout Cleared', user: 'Super Admin', comments: 'Outstanding payout of ₹110 disbursed.' }
-    ]
-  },
-  {
-    order_id: 'WEB-3310',
-    customer_name: 'Elizabeth Olsen',
-    product_sku: 'SKU-SHELF-WOOD-06',
-    assembly_payout: 75,
-    customer_phone: '+1-555-0112',
-    customer_address: '2800 West Alameda Avenue',
-    city: 'Burbank',
-    state: 'CA',
-    pincode: '91505',
-    status: 'Unassigned',
-    payment_status: 'Unpaid',
-    payment_type: 'Company Pay',
-    assigned_carpenter: '',
-    assigned_date: '',
-    product_image: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&w=600&q=80',
-    product_ref_link: 'https://manuals.service.com/bookshelves/wooden-shelf.pdf',
-    seller_reviewer: 'Webstore Logistics',
-    delivery_status: 'Pending', // Awaiting delivery: SLA is inactive
-    delivery_date: '',
-    promise_date: getRelativeDate(3),
-    checklist: [
-      { id: 1, label: 'Unbox shelves and check side frames', checked: false },
-      { id: 2, label: 'Mount 4 structural supports and screw braces', checked: false }
-    ],
-    comments: [],
-    auditLogs: [
-      { timestamp: getRelativeDate(-1), action: 'Order Created', user: 'System', comments: 'Webstore Order Sync' }
-    ]
-  }
-];
+const OLD_UNUSED_ORDERS = [];
 
-const DEFAULT_NOTIFICATIONS = [
-  { id: 'n1', text: 'New order WEB-3310 is pending auto-allocation.', timestamp: getRelativeDate(0), read: false },
-  { id: 'n2', text: 'Parts requested for order AMZ-1049 by John Carpenter.', timestamp: getRelativeDate(-2), read: false }
-];
+const DEFAULT_NOTIFICATIONS = [];
 
 // Normalize an order object to present both snake_case and camelCase aliases 
 // to prevent breaking any component layouts that depend on either format.
@@ -553,47 +334,11 @@ let memoryCarpenters = null;
 
 // Initialize Storage (boots synchronously with localStorage fallback, then loads IndexedDB asynchronously)
 export const initializeStorage = async () => {
-  // Sync initialization of localstorage fallbacks first
-  if (!localStorage.getItem(STORAGE_KEYS.ORDERS)) {
-    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.CARPENTERS)) {
-    localStorage.setItem(STORAGE_KEYS.CARPENTERS, JSON.stringify([]));
-  }
   if (!localStorage.getItem(STORAGE_KEYS.USER_ROLE)) {
     localStorage.setItem(STORAGE_KEYS.USER_ROLE, 'Super Admin'); // Default role
   }
   if (!localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)) {
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(DEFAULT_NOTIFICATIONS));
-  }
-
-  // Load from IndexedDB
-  try {
-    const dbOrders = await idbGetAll(STORES.ORDERS);
-    const dbCarpenters = await idbGetAll(STORES.CARPENTERS);
-    
-    let needsUpdate = false;
-    if (dbOrders.length > 0) {
-      memoryOrders = dbOrders.map(normalizeOrder);
-      needsUpdate = true;
-    } else {
-      memoryOrders = JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDERS) || '[]').map(normalizeOrder);
-      await idbSave(STORES.ORDERS, memoryOrders);
-    }
-    
-    if (dbCarpenters.length > 0) {
-      memoryCarpenters = dbCarpenters;
-      needsUpdate = true;
-    } else {
-      memoryCarpenters = JSON.parse(localStorage.getItem(STORAGE_KEYS.CARPENTERS) || '[]');
-      await idbSave(STORES.CARPENTERS, memoryCarpenters);
-    }
-    
-    if (needsUpdate) {
-      window.dispatchEvent(new Event('fsa_storage_update'));
-    }
-  } catch (e) {
-    console.warn('Failed to bootstrap IndexedDB, falling back to localStorage:', e);
   }
 };
 
@@ -626,18 +371,6 @@ export const getOrders = () => {
 export const saveOrders = (orders, changedOrders = []) => {
   const normalized = orders.map(normalizeOrder);
   memoryOrders = normalized;
-  
-  // Asynchronously save to localStorage fallback to keep thread unblocked
-  setTimeout(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(normalized));
-    } catch (e) {
-      console.warn('[Storage] LocalStorage quota exceeded, caching in IndexedDB only.');
-    }
-  }, 0);
-
-  // Persist to IndexedDB
-  idbSave(STORES.ORDERS, normalized);
 
   window.dispatchEvent(new Event('fsa_storage_update'));
   
@@ -931,18 +664,6 @@ export const getCarpenters = () => {
 export const saveCarpenters = (carpenters) => {
   memoryCarpenters = carpenters;
 
-  // Asynchronously save to localStorage fallback to keep thread unblocked
-  setTimeout(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.CARPENTERS, JSON.stringify(carpenters));
-    } catch (e) {
-      console.warn('[Storage] LocalStorage quota exceeded, caching in IndexedDB only.');
-    }
-  }, 0);
-
-  // Persist to IndexedDB
-  idbSave(STORES.CARPENTERS, carpenters);
-
   window.dispatchEvent(new Event('fsa_storage_update'));
   
   // Background sync carpenters served pincodes to PocketBase
@@ -953,23 +674,11 @@ export const saveCarpenters = (carpenters) => {
 function saveOrdersLocalOnly(orders) {
   const normalized = orders.map(normalizeOrder);
   memoryOrders = normalized;
-  setTimeout(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(normalized));
-    } catch (e) {}
-  }, 0);
-  idbSave(STORES.ORDERS, normalized);
   window.dispatchEvent(new Event('fsa_storage_update'));
 }
 
 function saveCarpentersLocalOnly(carpenters) {
   memoryCarpenters = carpenters;
-  setTimeout(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.CARPENTERS, JSON.stringify(carpenters));
-    } catch (e) {}
-  }, 0);
-  idbSave(STORES.CARPENTERS, carpenters);
   window.dispatchEvent(new Event('fsa_storage_update'));
 }
 
@@ -2426,53 +2135,6 @@ export async function authenticateUser(phone, password) {
     // PocketBase auth error or connection failure — fall through to local demo fallback
   }
 
-  // Demo / offline fallback — match against phone numbers or emails
-  const DEMO_ACCOUNTS = [
-    { phone: '+91-80000-00001', email: 'superadmin@service.com', password: 'admin123', role: 'Super Admin',       name: 'Super Admin' },
-    { phone: '+91-80000-00002', email: 'dispatcher@service.com', password: 'admin123', role: 'Dispatcher',         name: 'Dispatcher Manager' },
-    { phone: '+91-80000-00003', email: 'inventory@service.com', password: 'admin123', role: 'Inventory Manager',  name: 'Logistics Supervisor' },
-    { phone: '+91-80000-00004', email: 'support@service.com', password: 'admin123', role: 'Customer Support',   name: 'Support Executive' },
-  ];
-
-  const demoMatch = DEMO_ACCOUNTS.find(a => {
-    const cleanInput = phone.trim().toLowerCase();
-    
-    // 1. Match by email
-    if (phone.includes('@')) {
-      return a.email && a.email.toLowerCase() === cleanInput && a.password === password;
-    }
-    
-    // 2. Match by name or role string (e.g. "superadmin", "dispatcher")
-    const cleanDemoName = a.name.replace(/\s+/g, '').toLowerCase();
-    const cleanDemoRole = a.role.replace(/\s+/g, '').toLowerCase();
-    if (cleanDemoName === cleanInput || cleanDemoRole === cleanInput) {
-      return a.password === password;
-    }
-    
-    // 3. Match by phone number
-    return normalizePhoneForComparison(a.phone) === cleanInputPhone && a.password === password;
-  });
-  if (demoMatch) {
-    return {
-      success: true,
-      user: { role: demoMatch.role, name: demoMatch.name, phone: demoMatch.phone, email: demoMatch.email },
-      source: 'demo'
-    };
-  }
-
-  // Check carpenter list by phone number
-  const carpenters = getCarpenters();
-  const matchedCarpenter = carpenters.find(
-    c => normalizePhoneForComparison(c.phone) === cleanInputPhone
-  );
-  if (matchedCarpenter && password === 'carpenter123') {
-    return {
-      success: true,
-      user: { role: 'Carpenter', name: matchedCarpenter.name, username: matchedCarpenter.name, phone: matchedCarpenter.phone, email: matchedCarpenter.email, id: matchedCarpenter.id },
-      source: 'demo'
-    };
-  }
-
   return { success: false, error: 'Invalid phone number or password.' };
 }
 
@@ -2570,3 +2232,36 @@ setTimeout(() => {
   setupSlaMonitor();
   processSyncQueue();
 }, 1000);
+
+// React Query Helper Exports
+export const fsaQueries = {
+  orders: {
+    all: (page = 1, perPage = 50, filter = '') => ({
+      queryKey: ['orders', page, perPage, filter],
+      queryFn: async () => {
+        return await pb.collection('orders').getList(page, perPage, { filter, sort: '-created', expand: 'assigned_carpenter' });
+      }
+    }),
+    detail: (id) => ({
+      queryKey: ['orders', id],
+      queryFn: async () => {
+        return await pb.collection('orders').getOne(id, { expand: 'assigned_carpenter' });
+      }
+    })
+  },
+  carpenters: {
+    all: (page = 1, perPage = 50, filter = '') => ({
+      queryKey: ['carpenters', page, perPage, filter],
+      queryFn: async () => {
+        const queryFilter = filter ? `(role="Carpenter" && ${filter})` : 'role="Carpenter"';
+        return await pb.collection('users').getList(page, perPage, { filter: queryFilter, sort: '-created' });
+      }
+    }),
+    detail: (id) => ({
+      queryKey: ['carpenters', id],
+      queryFn: async () => {
+        return await pb.collection('users').getOne(id);
+      }
+    })
+  }
+};

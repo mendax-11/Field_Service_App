@@ -1,7 +1,8 @@
 // src/components/InventoryDashboard.jsx
 import { useState, useEffect } from 'react';
 import { Package, Check, ClipboardList, AlertOctagon, User, FileText, Image as ImageIcon, Search } from 'lucide-react';
-import { getOrders, updateOrder, addNotification, getUserRole } from '../utils/stateManager';
+import { updateOrder, addNotification, getUserRole, fsaQueries, normalizeOrder } from '../utils/stateManager';
+import { useQuery } from '@tanstack/react-query';
 import './InventoryDashboard.css';
 
 export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
@@ -11,8 +12,10 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
   const [historySearchTerm, setHistorySearchTerm] = useState('');
   const [processingId, setProcessingId] = useState(null);
 
+  const { data: ordersData = { items: [] }, refetch: refetchOrders } = useQuery(fsaQueries.orders.all(1, 500));
+  const orders = (ordersData.items || []).map(normalizeOrder);
   const loadOrders = () => {
-    const allOrders = getOrders();
+    const allOrders = orders;
     const onHold = allOrders.filter(o => o.jobStatus === 'On Hold - Parts Requested');
     
     // Lean history: find orders that have a 'Parts Dispatched' audit log
@@ -26,23 +29,22 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
 
   useEffect(() => {
     loadOrders();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, ordersData]);
 
   // Listen to external storage updates
   useEffect(() => {
     const handleUpdate = () => {
-      loadOrders();
+      refetchOrders().then(loadOrders);
     };
     window.addEventListener('fsa_storage_update', handleUpdate);
     return () => window.removeEventListener('fsa_storage_update', handleUpdate);
-  }, []);
+  }, [ordersData, refetchOrders]);
 
   const handleApproveDispatch = (orderId, partsList) => {
     setProcessingId(orderId);
     
     // Simulate slight delay for premium feel
     setTimeout(() => {
-      const orders = getOrders();
       const order = orders.find(o => o.orderId === orderId);
       if (order) {
         const timestamp = new Date().toISOString();

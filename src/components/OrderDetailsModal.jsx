@@ -4,10 +4,12 @@ import {
   X, User, Package, Clock, 
   MessageSquare, History, Plus, AlertTriangle, CheckCircle, Send, IndianRupee
 } from 'lucide-react';
-import { getCarpenters, updateOrder, addComment, getUserRole, getActiveWorkload, MAX_ACTIVE_JOBS, addCarpenterPincode, removeCarpenterPincode } from '../utils/stateManager';
+import { updateOrder, addComment, getUserRole, getActiveWorkload, MAX_ACTIVE_JOBS, addCarpenterPincode, removeCarpenterPincode, fsaQueries } from '../utils/stateManager';
+import { useQuery } from '@tanstack/react-query';
 
 export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly = false }) {
-  const [carpenters, setCarpenters] = useState([]);
+  const { data: carpentersData = { items: [] }, refetch: refetchCarpenters } = useQuery(fsaQueries.carpenters.all(1, 500));
+  const carpenters = carpentersData.items || [];
   const [newComment, setNewComment] = useState('');
   const [assignedCarpenter, setAssignedCarpenter] = useState(order.assignedCarpenter || '');
   const [jobStatus, setJobStatus] = useState(order.jobStatus || 'Unassigned');
@@ -30,8 +32,8 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
   const userRole = getUserRole();
 
   useEffect(() => {
-    setCarpenters(getCarpenters());
-  }, []);
+    refetchCarpenters();
+  }, [refetchCarpenters]);
 
   const handleAddComment = (e) => {
     e.preventDefault();
@@ -477,7 +479,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                                   onClick={() => {
                                     if (confirm(`Remove pincode ${pincode} from ${assignedCarpenter}'s authorized areas?`)) {
                                       removeCarpenterPincode(selectedCarp.id, pincode);
-                                      setCarpenters(getCarpenters());
+                                      refetchCarpenters();
                                     }
                                   }}
                                 >
@@ -516,7 +518,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                                   }}
                                   onClick={() => {
                                     addCarpenterPincode(selectedCarp.id, pincode);
-                                    setCarpenters(getCarpenters());
+                                    refetchCarpenters();
                                   }}
                                 >
                                   + Authorize Area

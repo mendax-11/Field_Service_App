@@ -11,8 +11,9 @@ import {
   getNotifications, clearNotifications, autoAllocateOrders, 
   saveOrders, addNotification, updateOrder, addOrder, checkSlaBreaches,
   getN8nConfig, saveN8nConfig,
-  exportOrdersCSV, pb, resetState
+  exportOrdersCSV, pb, resetState, fsaQueries, normalizeOrder
 } from '../utils/stateManager';
+import { useQuery } from '@tanstack/react-query';
 
 import OrderGrid from './OrderGrid';
 import InventoryDashboard from './InventoryDashboard';
@@ -234,6 +235,12 @@ export default function AdminPortal() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showArchivedPayouts, setShowArchivedPayouts] = useState(false);
   const [geocodeCache, setGeocodeCache] = useState({});
+
+  const { data: ordersData = { items: [] }, refetch: refetchOrders } = useQuery(fsaQueries.orders.all(1, 500));
+  const { data: carpentersData = { items: [] }, refetch: refetchCarpenters } = useQuery(fsaQueries.carpenters.all(1, 500));
+
+  const orders = (ordersData.items || []).map(normalizeOrder);
+  const carpenters = carpentersData.items || [];
   
   // Date-range filter states
   const [dateFilterPreset, setDateFilterPreset] = useState('all'); // today, week, month, 30days, all, custom
@@ -506,7 +513,7 @@ export default function AdminPortal() {
   useEffect(() => {
     if (activeTab !== 'dashboard') return;
     
-    const activeOrders = getOrders().filter(o => o.jobStatus !== 'Completed');
+    const activeOrders = orders.filter(o => o.jobStatus !== 'Completed');
     const uniquePins = [...new Set(activeOrders.map(o => o.pincode).filter(Boolean))];
     
     let isSubscribed = true;
@@ -596,7 +603,7 @@ export default function AdminPortal() {
     const markersGroup = window.L.featureGroup().addTo(map);
 
     // 1. Plot Technicians
-    const technicians = getCarpenters();
+    const technicians = carpenters;
     technicians.forEach(t => {
       let coords;
       if (t.gpsCoords && t.gpsCoords.lat && t.gpsCoords.lng) {
@@ -609,7 +616,7 @@ export default function AdminPortal() {
         coords = [defaultCenter[0] + latOffset, defaultCenter[1] + lngOffset];
       }
 
-      const activeJobsCount = getOrders().filter(o => o.assignedCarpenter === t.name && o.jobStatus !== 'Completed').length;
+      const activeJobsCount = orders.filter(o => o.assignedCarpenter === t.name && o.jobStatus !== 'Completed').length;
 
       const techIcon = window.L.divIcon({
         className: 'custom-leaflet-tech-icon',
@@ -633,7 +640,7 @@ export default function AdminPortal() {
     });
 
     // 2. Plot Active Orders
-    const activeOrders = getOrders().filter(o => o.jobStatus !== 'Completed');
+    const activeOrders = orders.filter(o => o.jobStatus !== 'Completed');
     activeOrders.forEach(o => {
       // Deterministic offset based on pincode for clean grid grouping
       const pinStr = o.pincode || '';
@@ -785,7 +792,7 @@ export default function AdminPortal() {
         return;
       }
 
-      const currentOrders = getOrders();
+      const currentOrders = orders;
       let duplicateCount = 0;
       const rowErrors = [];
       const ordersToImport = [];
@@ -949,7 +956,7 @@ export default function AdminPortal() {
 
   // Get orders filtered by selected dashboard date range
   const getFilteredOrdersList = () => {
-    const allOrders = getOrders();
+    const allOrders = orders;
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -994,7 +1001,7 @@ export default function AdminPortal() {
   // Payout Ledger Calculations (Super Admin Only)
   const getPayoutData = () => {
     const allOrders = getFilteredOrdersList();
-    const carpenters = getCarpenters();
+    const allCarpenters = carpenters;
     return carpenters.map(carp => {
       // Find completed jobs assigned to this carpenter
       const completedJobs = allOrders.filter(
@@ -1018,7 +1025,7 @@ export default function AdminPortal() {
   };
 
   const handleClearPayout = (orderId, carpenterName, amount) => {
-    const orders = getOrders();
+    const allOrdersForExport = orders;
     const order = orders.find(o => o.orderId === orderId);
     if (order) {
       const timestamp = new Date().toISOString();
@@ -1264,7 +1271,7 @@ export default function AdminPortal() {
                   <span className="kpi-title">Active Technicians</span>
                   <UserCheck size={20} className="kpi-icon color-warning" />
                 </div>
-                <div className="kpi-value">{getCarpenters().length}</div>
+                <div className="kpi-value">{carpenters.length}</div>
                 <div className="kpi-subtext">Online & dispatched</div>
               </div>
 
@@ -1352,8 +1359,8 @@ export default function AdminPortal() {
                 <h4>Technician Workloads</h4>
                 <p className="card-desc">Current queue size and dispatch activity per active technician.</p>
                 <div className="tech-workloads-list">
-                  {getCarpenters().map(c => {
-                    const activeJobsCount = getOrders().filter(
+                  {carpenters.map(c => {
+                    const activeJobsCount = orders.filter(
                       o => o.assignedCarpenter === c.name && o.jobStatus !== 'Completed'
                     ).length;
 
@@ -1668,12 +1675,12 @@ export default function AdminPortal() {
                     <div className="allocation-engine-status">
                       <div className="engine-stat">
                         <span className="stat-num">
-                          {getOrders().filter(o => o.jobStatus === 'Unassigned').length}
+                          {orders.filter(o => o.jobStatus === 'Unassigned').length}
                         </span>
                         <span className="stat-label">Unassigned Jobs</span>
                       </div>
                       <div className="engine-stat">
-                        <span className="stat-num">{getCarpenters().length}</span>
+                        <span className="stat-num">{carpenters.length}</span>
                         <span className="stat-label">Carpenters Online</span>
                       </div>
                     </div>
