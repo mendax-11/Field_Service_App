@@ -7,10 +7,9 @@ import {
   Settings, Download
 } from 'lucide-react';
 import { 
-  getOrders, getCarpenters, getUserRole, setUserRole, hasRole, hasPermission,
-  getNotifications, clearNotifications, autoAllocateOrders, 
+  getUserRole, setUserRole, hasRole, hasPermission,
   saveOrders, addNotification, updateOrder, addOrder, checkSlaBreaches,
-  getN8nConfig, saveN8nConfig,
+  getN8nConfig, saveN8nConfig, getNotifications, autoAllocateOrders, clearNotifications,
   exportOrdersCSV, pb, resetState, fsaQueries, normalizeOrder
 } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
@@ -236,8 +235,8 @@ export default function AdminPortal() {
   const [showArchivedPayouts, setShowArchivedPayouts] = useState(false);
   const [geocodeCache, setGeocodeCache] = useState({});
 
-  const { data: ordersData = { items: [] }, refetch: refetchOrders } = useQuery(fsaQueries.orders.all(1, 500));
-  const { data: carpentersData = { items: [] }, refetch: refetchCarpenters } = useQuery(fsaQueries.carpenters.all(1, 500));
+  const { data: ordersData = { items: [] } } = useQuery(fsaQueries.orders.all(1, 500));
+  const { data: carpentersData = { items: [] } } = useQuery(fsaQueries.carpenters.all(1, 500));
 
   const orders = (ordersData.items || []).map(normalizeOrder);
   const carpenters = carpentersData.items || [];
@@ -1001,7 +1000,6 @@ export default function AdminPortal() {
   // Payout Ledger Calculations (Super Admin Only)
   const getPayoutData = () => {
     const allOrders = getFilteredOrdersList();
-    const allCarpenters = carpenters;
     return carpenters.map(carp => {
       // Find completed jobs assigned to this carpenter
       const completedJobs = allOrders.filter(
@@ -1025,7 +1023,6 @@ export default function AdminPortal() {
   };
 
   const handleClearPayout = (orderId, carpenterName, amount) => {
-    const allOrdersForExport = orders;
     const order = orders.find(o => o.orderId === orderId);
     if (order) {
       const timestamp = new Date().toISOString();

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import AdminPortal from './components/AdminPortal';
 import CarpenterPortal from './components/CarpenterPortal';
 import CustomerPortal from './components/CustomerPortal';
-import { setActiveUser, setUserRole, getCarpenters, authenticateUser, pb, fsaQueries } from './utils/stateManager';
+import { setActiveUser, setUserRole, authenticateUser, pb, fsaQueries } from './utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
 
 import { LogOut, ClipboardList, Shield, Eye, EyeOff, Wifi, WifiOff, Lock, Smartphone, Monitor } from 'lucide-react';

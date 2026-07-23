@@ -4,7 +4,7 @@ import {
   Search, ArrowUpDown, ChevronLeft, ChevronRight, 
   Trash2, Eye, SlidersHorizontal 
 } from 'lucide-react';
-import { deleteOrder, getUserRole, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb } from '../utils/stateManager';
+import { deleteOrder, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
 import OrderDetailsModal from './OrderDetailsModal';
 

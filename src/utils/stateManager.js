@@ -34,11 +34,6 @@ const STORAGE_KEYS = {
 
 export const lastLocalUpdate = new Map();
 
-const getRelativeDate = (offsetDays) => {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  return date.toISOString();
-};
 /* eslint-disable no-unused-vars */
 const DEFAULT_ORDERS = [];
 const OLD_UNUSED_ORDERS = [];
@@ -2265,3 +2260,6 @@ export const fsaQueries = {
     })
   }
 };
+
+// --- STUBS FOR MISSING FUNCTIONS (Production Readiness Cleanup) ---
+

@@ -220,7 +220,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     localStorage.setItem('fsa_carpenter_lang', lang);
   };
 
-  const { data: carpentersData = { items: [] }, refetch: refetchCarpenters } = useQuery(fsaQueries.carpenters.all(1, 500));
+  const { data: carpentersData = { items: [] } } = useQuery(fsaQueries.carpenters.all(1, 500));
   const { data: jobsData = { items: [] }, refetch: refetchJobs } = useQuery(fsaQueries.orders.all(1, 500));
   const allJobs = (jobsData.items || []).map(stateManager.normalizeOrder);
   const jobs = allJobs.filter(j => j.assignedCarpenter === carpenterName || j.orderId === directJobId);

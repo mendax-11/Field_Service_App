@@ -6,11 +6,11 @@ import {
   Download, Search, RefreshCw, ChevronDown, ChevronUp, Replace, Calendar
 } from 'lucide-react';
 import {
-  getCarpenters, getOrders,
   addCarpenterPincode, addCarpenterPincodes, removeCarpenterPincode,
   replaceCarpenterPincodes, clearCarpenterPincodes,
   exportCarpentersCSV, getActiveWorkload, MAX_ACTIVE_JOBS,
-  fsaQueries, normalizeOrder
+  fsaQueries, normalizeOrder,
+  addCarpenter, updateCarpenter, deleteCarpenter, addNotification
 } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
 
