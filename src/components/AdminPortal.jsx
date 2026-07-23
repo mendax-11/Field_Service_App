@@ -802,8 +802,9 @@ export default function AdminPortal() {
         // Skip empty lines
         if (columns.length === 1 && !columns[0]) continue;
 
-        if (columns.length < requiredHeaders.length) {
-          rowErrors.push(`Row ${i + 1}: Line has incomplete data (fewer than ${requiredHeaders.length} columns)`);
+        const expectedMinCols = 7; // Required headers count
+        if (columns.length < expectedMinCols) {
+          rowErrors.push(`Row ${i + 1}: Line has incomplete data (fewer than ${expectedMinCols} columns)`);
           continue;
         }
 
