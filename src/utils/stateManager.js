@@ -87,13 +87,19 @@ export function normalizeOrder(o) {
   const deliveryDate = o.deliveryDate || o.delivery_date || '';
   const promiseDate = o.promiseDate || o.promise_date || o['promise date'] || '';
   
-  const checklist = o.checklist || [
-    { id: 1, label: 'Unbox components & verify hardware inventory', checked: false },
-    { id: 2, label: 'Assemble main frame structure', checked: false },
-    { id: 3, label: 'Install internal shelves/drawers', checked: false },
-    { id: 4, label: 'Inspect leg alignment and secure joints', checked: false },
-    { id: 5, label: 'Clean surfaces and request client sign-off', checked: false }
-  ];
+  let checklist = o.checklist;
+  if (typeof checklist === 'string') {
+    try { checklist = JSON.parse(checklist); } catch (e) { checklist = null; }
+  }
+  if (!Array.isArray(checklist)) {
+    checklist = [
+      { id: 1, label: 'Unbox components & verify hardware inventory', checked: false },
+      { id: 2, label: 'Assemble main frame structure', checked: false },
+      { id: 3, label: 'Install internal shelves/drawers', checked: false },
+      { id: 4, label: 'Inspect leg alignment and secure joints', checked: false },
+      { id: 5, label: 'Clean surfaces and request client sign-off', checked: false }
+    ];
+  }
 
   let damageReport = o.damageReport || o.damage_report || o.replacement_request || null;
   if (damageReport && typeof damageReport === 'string') {
@@ -116,6 +122,9 @@ export function normalizeOrder(o) {
   }
 
   let damagePhotos = o.damagePhotos || o.damage_photos || [];
+  if (typeof damagePhotos === 'string') {
+    try { damagePhotos = JSON.parse(damagePhotos); } catch (e) { damagePhotos = []; }
+  }
   if (!Array.isArray(damagePhotos)) {
     damagePhotos = [];
   }
@@ -152,11 +161,11 @@ export function normalizeOrder(o) {
   const otpSent = o.otpSent !== undefined ? o.otpSent : (o.otp_sent !== undefined ? o.otp_sent : false);
   const otpVerified = o.otpVerified !== undefined ? o.otpVerified : (o.otp_verified !== undefined ? o.otp_verified : false);
   const signature = o.signature || o.customer_signature || null;
-  const comments = o.comments || [];
-  const auditLogs = o.auditLogs || o.audit_logs || [];
+  const comments = Array.isArray(o.comments) ? o.comments : (o.comments ? [o.comments] : []);
+  const auditLogs = Array.isArray(o.auditLogs) ? o.auditLogs : (Array.isArray(o.audit_logs) ? o.audit_logs : []);
   const rawArchived = o.archived !== undefined ? o.archived : (o.is_archived !== undefined ? o.is_archived : false);
   const archived = typeof rawArchived === 'string' ? rawArchived.toLowerCase() === 'true' : !!rawArchived;
-  const extraCharges = o.extraCharges || o.extra_charges || [];
+  const extraCharges = Array.isArray(o.extraCharges) ? o.extraCharges : (Array.isArray(o.extra_charges) ? o.extra_charges : []);
 
   return {
     // Database schema snake_case fields
