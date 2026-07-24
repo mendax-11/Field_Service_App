@@ -11,7 +11,7 @@ import {
   Send,
   AlertTriangle
 } from 'lucide-react';
-import { stateManager, triggerN8nWebhook, fsaQueries } from '../utils/stateManager';
+import { stateManager, triggerN8nWebhook, fsaQueries, normalizeOrder } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
 import { getTranslation } from '../utils/translations';
 import { captureAndStampPhoto } from '../utils/photoStamper';
@@ -35,7 +35,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
 
   const { data: carpentersData = { items: [] } } = useQuery(fsaQueries.carpenters.all(1, 500));
   const { data: jobsData = { items: [] }, refetch: refetchJobs } = useQuery(fsaQueries.orders.all(1, 500));
-  const allJobs = (jobsData.items || []).map(stateManager.normalizeOrder);
+  const allJobs = (jobsData.items || []).map(normalizeOrder);
   const jobs = allJobs.filter(j => j.assignedCarpenter === carpenterName || j.orderId === directJobId);
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'jobs' | 'wallet'
