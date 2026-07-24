@@ -98,7 +98,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 20px;
+  padding: calc(18px + env(safe-area-inset-top, 0px)) 20px 18px;
   background-color: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
   z-index: 10;
@@ -179,7 +179,7 @@
   display: flex;
   justify-content: space-around;
   align-items: center;
-  padding: 12px 10px 24px; /* extra bottom padding for phone notch styling */
+  padding: 12px 10px calc(12px + env(safe-area-inset-bottom, 0px));
   background-color: var(--bg-card);
   border-top: 1px solid var(--border-color);
   box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.1);
