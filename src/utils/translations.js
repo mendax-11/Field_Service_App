@@ -331,3 +331,94 @@ export function getTranslation(lang, key) {
   const dictionary = translations[lang] || translations['en'];
   return dictionary[key] || translations['en'][key] || key;
 }
+
+export const TUTORIAL_TRANSLATIONS = {
+  en: {
+    title: "How to Use CarpentryPro",
+    skip: "Skip",
+    next: "Next",
+    start: "Start Tutorial",
+    finish: "Got It!",
+    steps: [
+      {
+        title: "1. Accept & Navigate",
+        desc: "Tap \"I'm On My Way\" when starting your journey. Use the Google Maps button to find the customer's address.",
+        icon: "📍"
+      },
+      {
+        title: "2. Build & Check",
+        desc: "Tap \"View Assembly PDF Guide\" to see instruction manuals. Complete all items in the Assembly Checklist.",
+        icon: "📋"
+      },
+      {
+        title: "3. Take Photos",
+        desc: "Upload photos of unopened boxes (\"Before\") and finished furniture (\"After\"). Photos are auto-stamped with GPS location and time.",
+        icon: "📸"
+      },
+      {
+        title: "4. Get OTP & Sign",
+        desc: "Collect cash/UPI payment if needed, send the verification OTP to the customer's phone, enter it, and ask the customer to sign on the screen to finish.",
+        icon: "✍️"
+      }
+    ]
+  },
+  hi: {
+    title: "कारपेंट्रीप्रो का उपयोग कैसे करें",
+    skip: "छोड़ें",
+    next: "आगे बढ़ें",
+    start: "ट्यूटोरियल शुरू करें",
+    finish: "समझ गया!",
+    steps: [
+      {
+        title: "1. स्वीकार करें और नेविगेट करें",
+        desc: "यात्रा शुरू करते समय \"मैं रास्ते में हूँ\" पर टैप करें। ग्राहक का पता खोजने के लिए गूगल मैप्स बटन का उपयोग करें।",
+        icon: "📍"
+      },
+      {
+        title: "2. असेम्बल करें और जांचें",
+        desc: "निर्देश पुस्तिका देखने के लिए \"असेम्बली पीडीएफ गाइड देखें\" पर टैप करें। असेम्बली चेकलिस्ट में सभी चीजें पूरी करें।",
+        icon: "📋"
+      },
+      {
+        title: "3. तस्वीरें लें",
+        desc: "बिना खुले बक्से (\"पहले\") और तैयार फर्नीचर (\"बाद में\") की तस्वीरें अपलोड करें। तस्वीरों पर जीपीएस और समय स्वतः अंकित हो जाएगा।",
+        icon: "📸"
+      },
+      {
+        title: "4. ओटीपी और हस्ताक्षर लें",
+        desc: "यदि आवश्यक हो तो नकद/UPI भुगतान लें, ग्राहक के फोन पर सत्यापन ओटीपी भेजें, इसे दर्ज करें, और पूरा करने के लिए ग्राहक से स्क्रीन पर हस्ताक्षर करने को कहें।",
+        icon: "✍️"
+      }
+    ]
+  },
+  ta: {
+    title: "கார்பென்ட்ரிப்ரோவை எவ்வாறு பயன்படுத்துவது",
+    skip: "தவிர்",
+    next: "அடுத்து",
+    start: "பயிற்சி தொடங்கவும்",
+    finish: "புரிந்தது!",
+    steps: [
+      {
+        title: "1. ஏற்றுக்கொண்டு வழிசெலுத்துக",
+        desc: "பயணத்தைத் தொடங்கும்போது \"நான் கிளம்பிவிட்டேன்\" என்பதைத் தட்டவும். வாடிக்கையாளர் முகவரியைக் கண்டறிய கூகுள் மேப்ஸ் பொத்தானைப் பயன்படுத்தவும்.",
+        icon: "📍"
+      },
+      {
+        title: "2. உருவாக்கி சரிபார்க்கவும்",
+        desc: "அறிவுறுத்தல் கையேடுகளைப் பார்க்க \"அசெம்பிளி பிடிஎஃப் வழிகாட்டியைப் பார்\" என்பதைத் தட்டவும். அசெம்பிளி சரிபார்ப்புப் பட்டியலில் உள்ள அனைத்துப் பணிகளையும் முடிக்கவும்.",
+        icon: "📋"
+      },
+      {
+        title: "3. புகைப்படங்கள் எடுக்கவும்",
+        desc: "திறக்கப்படாத பெட்டிகள் (\"முன்பு\") மற்றும் முடிக்கப்பட்ட தளவாடங்கள் (\"பின்பு\") புகைப்படங்களைப் பதிவேற்றவும். புகைப்படங்களில் ஜிபிஎஸ் மற்றும் நேரம் தானாகவே பதியப்படும்.",
+        icon: "📸"
+      },
+      {
+        title: "4. ஓடிபி மற்றும் கையெழுத்து பெறவும்",
+        desc: "தேவைப்பட்டால் பணம்/UPI கட்டணத்தைச் சேகரித்து, வாடிக்கையாளரின் தொலைபேசிக்கு சரிபார்ப்பு ஓடிபியை அனுப்பி, அதை உள்ளிட்டு, முடிக்க வாடிக்கையாரைத் திரையில் கையெழுத்திடச் சொல்லவும்.",
+        icon: "✍️"
+      }
+    ]
+  }
+};
+
