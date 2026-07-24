@@ -23,8 +23,12 @@ export default function CarpenterJobDetail({
   handleSendComment, commentsEndRef
 }) {
   const isChecklistFinished = job.checklist.every((i) => i.checked);
-  const isBeforeUploaded = Array.isArray(job.photos?.before) ? job.photos.before.length > 0 : !!job.photos?.before;
-  const isAfterUploaded = Array.isArray(job.photos?.after) ? job.photos.after.length > 0 : !!job.photos?.after;
+  
+  const beforePhotos = (job.photos && Array.isArray(job.photos.before)) ? job.photos.before : (job.photos && job.photos.before ? [job.photos.before] : []);
+  const afterPhotos = (job.photos && Array.isArray(job.photos.after)) ? job.photos.after : (job.photos && job.photos.after ? [job.photos.after] : []);
+
+  const isBeforeUploaded = beforePhotos.length > 0;
+  const isAfterUploaded = afterPhotos.length > 0;
 
   return (
     <>
@@ -286,7 +290,7 @@ export default function CarpenterJobDetail({
         <div className="photo-selectors-grid">
           
           {/* Before Assembly Photo */}
-          <div className={`photo-uploader-box ${(Array.isArray(job.photos?.before) ? job.photos.before : []).length > 0 ? 'has-image' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className={`photo-uploader-box ${beforePhotos.length > 0 ? 'has-image' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <span className="photo-label">Before Assembly</span>
@@ -295,9 +299,9 @@ export default function CarpenterJobDetail({
               </div>
             </div>
             
-            {((Array.isArray(job.photos?.before) ? job.photos.before : (job.photos?.before ? [job.photos.before] : []))).length > 0 && (
+            {beforePhotos.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '8px' }}>
-                {((Array.isArray(job.photos?.before) ? job.photos.before : (job.photos?.before ? [job.photos.before] : []))).map((photo, idx) => (
+                {beforePhotos.map((photo, idx) => (
                   <div key={idx} style={{ position: 'relative', height: '80px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                     <img src={photo} className="uploaded-thumb" alt={`Before Assembly ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     <button 
@@ -321,7 +325,7 @@ export default function CarpenterJobDetail({
             ) : (
               <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                 <label className="photo-btn-label" style={{ flex: 1, textAlign: 'center', padding: '8px', cursor: 'pointer' }}>
-                  {((Array.isArray(job.photos?.before) ? job.photos.before : [])).length > 0 ? 'Add Another' : 'Take Photo'}
+                  {beforePhotos.length > 0 ? 'Add Another' : 'Take Photo'}
                   <input 
                     type="file" 
                     accept="image/*" 
@@ -343,7 +347,7 @@ export default function CarpenterJobDetail({
           </div>
 
           {/* After Assembly Photo */}
-          <div className={`photo-uploader-box ${(Array.isArray(job.photos?.after) ? job.photos.after : []).length > 0 ? 'has-image' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className={`photo-uploader-box ${afterPhotos.length > 0 ? 'has-image' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <span className="photo-label">After Assembly</span>
@@ -352,9 +356,9 @@ export default function CarpenterJobDetail({
               </div>
             </div>
             
-            {((Array.isArray(job.photos?.after) ? job.photos.after : (job.photos?.after ? [job.photos.after] : []))).length > 0 && (
+            {afterPhotos.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '8px' }}>
-                {((Array.isArray(job.photos?.after) ? job.photos.after : (job.photos?.after ? [job.photos.after] : []))).map((photo, idx) => (
+                {afterPhotos.map((photo, idx) => (
                   <div key={idx} style={{ position: 'relative', height: '80px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                     <img src={photo} className="uploaded-thumb" alt={`After Assembly ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     <button 
@@ -378,7 +382,7 @@ export default function CarpenterJobDetail({
             ) : (
               <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                 <label className="photo-btn-label" style={{ flex: 1, textAlign: 'center', padding: '8px', cursor: 'pointer' }}>
-                  {((Array.isArray(job.photos?.after) ? job.photos.after : [])).length > 0 ? 'Add Another' : 'Take Photo'}
+                  {afterPhotos.length > 0 ? 'Add Another' : 'Take Photo'}
                   <input 
                     type="file" 
                     accept="image/*" 

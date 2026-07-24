@@ -378,7 +378,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     try {
       const stampedDataUrl = await captureAndStampPhoto(file, jobId);
       const currentJob = stateManager.getJobById(jobId);
-      const currentPhotos = currentJob.photos?.[type] || [];
+      const currentPhotos = (currentJob && currentJob.photos && currentJob.photos[type]) || [];
       const photosArray = Array.isArray(currentPhotos) ? currentPhotos : (currentPhotos ? [currentPhotos] : []);
       const updatedPhotos = { ...currentJob.photos, [type]: [...photosArray, stampedDataUrl] };
       stateManager.updateJob(jobId, { photos: updatedPhotos });
@@ -398,7 +398,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       : 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="100%" height="100%" fill="%231e3a8a"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23ffffff" font-size="14">Assembled Walnut Cabinet (Mock)</text></svg>';
     
     const currentJob = stateManager.getJobById(jobId);
-    const currentPhotos = currentJob.photos?.[type] || [];
+    const currentPhotos = (currentJob && currentJob.photos && currentJob.photos[type]) || [];
     const photosArray = Array.isArray(currentPhotos) ? currentPhotos : (currentPhotos ? [currentPhotos] : []);
     const updatedPhotos = { ...currentJob.photos, [type]: [...photosArray, mockImage] };
     stateManager.updateJob(jobId, { photos: updatedPhotos });
@@ -408,7 +408,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   // Clear photo
   const handleClearPhoto = (jobId, type, index) => {
     const currentJob = stateManager.getJobById(jobId);
-    let currentPhotos = currentJob.photos?.[type] || [];
+    let currentPhotos = (currentJob && currentJob.photos && currentJob.photos[type]) || [];
     let photosArray = Array.isArray(currentPhotos) ? [...currentPhotos] : (currentPhotos ? [currentPhotos] : []);
     
     if (index !== undefined) {
