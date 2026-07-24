@@ -34,9 +34,14 @@ export default function App() {
 
   // Load session from pb on mount
   useEffect(() => {
-    if (window.innerWidth < 768) {
-      setShowMobileFrame(false);
-    }
+    const handleResize = () => {
+      if (window.innerWidth <= 1024) {
+        setShowMobileFrame(false);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
     const checkAuth = () => {
       if (pb.authStore.isValid && pb.authStore.model) {
         const u = {
