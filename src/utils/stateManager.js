@@ -355,7 +355,7 @@ export const getOrders = () => {
   }
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDERS)) || [];
-    memoryOrders = raw.map(normalizeOrder);
+    memoryOrders = raw.map(normalizeOrder).filter(Boolean);
     return memoryOrders;
   } catch (e) {
     memoryOrders = [];
@@ -364,7 +364,7 @@ export const getOrders = () => {
 };
 
 export const hydrateOrders = (serverOrders) => {
-  const normalized = serverOrders.map(normalizeOrder);
+  const normalized = serverOrders.map(normalizeOrder).filter(Boolean);
   // Only update if memoryOrders is empty or missing items, to prevent overwriting recent optimistic updates
   if (!memoryOrders || memoryOrders.length === 0) {
     memoryOrders = normalized;
@@ -379,7 +379,7 @@ export const hydrateOrders = (serverOrders) => {
 };
 
 export const saveOrders = (orders, changedOrders = []) => {
-  const normalized = orders.map(normalizeOrder);
+  const normalized = orders.map(normalizeOrder).filter(Boolean);
   memoryOrders = normalized;
 
   window.dispatchEvent(new Event('fsa_storage_update'));

@@ -50,8 +50,8 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     return () => window.removeEventListener('fsa_storage_update', triggerRender);
   }, []);
 
-  const allJobs = (jobsData.items || []).map(normalizeOrder).map(job => {
-    const localMemory = stateManager.getOrders().find(o => o.id === job.id || o.orderId === job.id || o.order_id === job.id);
+  const allJobs = (jobsData.items || []).map(normalizeOrder).filter(Boolean).map(job => {
+    const localMemory = stateManager.getOrders().find(o => o?.id === job?.id || o?.orderId === job?.id || o?.order_id === job?.id);
     return localMemory ? { ...job, ...localMemory } : job;
   });
   

@@ -238,7 +238,7 @@ export default function AdminPortal() {
   const { data: ordersData = { items: [] } } = useQuery(fsaQueries.orders.all(1, 500));
   const { data: carpentersData = { items: [] } } = useQuery(fsaQueries.carpenters.all(1, 500));
 
-  const orders = (ordersData.items || []).map(normalizeOrder);
+  const orders = (ordersData.items || []).map(normalizeOrder).filter(Boolean);
   const carpenters = carpentersData.items || [];
   
   // Date-range filter states
