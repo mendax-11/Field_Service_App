@@ -368,9 +368,6 @@ export const hydrateOrders = (serverOrders) => {
   // Only update if memoryOrders is empty or missing items, to prevent overwriting recent optimistic updates
   if (!memoryOrders || memoryOrders.length === 0) {
     memoryOrders = normalized;
-    try {
-      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(normalized));
-    } catch(e) {}
   } else {
     // Merge new server items that don't exist in memory
     const existingIds = new Set(memoryOrders.map(o => o.id));
