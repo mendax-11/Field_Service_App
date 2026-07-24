@@ -21,8 +21,12 @@ export default function App() {
   const carpenters = carpentersData.items || [];
   
   const [showMobileFrame, setShowMobileFrame] = useState(() => {
-    const saved = localStorage.getItem('fsa_show_mobile_frame');
-    return saved === 'true'; // Defaults to false if not set
+    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    if (isTouchDevice) return false;
+    
+    const stored = localStorage.getItem('fsa_show_mobile_frame');
+    if (stored !== null) return stored === 'true';
+    return window.innerWidth > 768;
   });
 
   const [trackOrderId] = useState(() => new URLSearchParams(window.location.search).get('track'));
