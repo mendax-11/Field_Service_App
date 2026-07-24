@@ -697,6 +697,7 @@ export default function AdminPortal() {
         mapRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, refreshTrigger, geocodeCache]);
 
 

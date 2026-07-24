@@ -23,7 +23,7 @@ import CarpenterDashboard from './carpenter/CarpenterDashboard';
 import CarpenterJobList from './carpenter/CarpenterJobList';
 import CarpenterWallet from './carpenter/CarpenterWallet';
 import CarpenterJobDetail from './carpenter/CarpenterJobDetail';
-export default function CarpenterPortal({ carpenterName = 'John Carpenter', directJobId = null, isSimulator = false }) {
+export default function CarpenterPortal({ carpenterName = 'John Carpenter', directJobId = null }) {
   const [appLang, setAppLang] = useState(() => localStorage.getItem('fsa_carpenter_lang') || 'en');
   const t = (key) => getTranslation(appLang, key);
 
@@ -230,6 +230,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     return () => {
       window.removeEventListener('fsa_storage_update', handleUpdate);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [directJobId]);
 
   // Find currently selected job and ensure it has an explicit id property

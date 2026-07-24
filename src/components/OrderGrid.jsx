@@ -104,6 +104,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTrigger]);
 
   // Handle external storage changes
@@ -113,6 +114,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
     };
     window.addEventListener('fsa_storage_update', handleUpdate);
     return () => window.removeEventListener('fsa_storage_update', handleUpdate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDelete = (e, orderId) => {

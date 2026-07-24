@@ -29,6 +29,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
 
   useEffect(() => {
     loadOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTrigger, ordersData]);
 
   // Listen to external storage updates
@@ -38,6 +39,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
     };
     window.addEventListener('fsa_storage_update', handleUpdate);
     return () => window.removeEventListener('fsa_storage_update', handleUpdate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ordersData, refetchOrders]);
 
   const handleApproveDispatch = (orderId, partsList) => {

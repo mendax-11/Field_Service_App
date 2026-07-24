@@ -19,6 +19,7 @@ export default function SupportPortal({ refreshTrigger, onRefresh }) {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTrigger]);
 
   // Sync state if localStorage changes
