@@ -36,7 +36,19 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
 
   const { data: carpentersData = { items: [] } } = useQuery(fsaQueries.carpenters.all(1, 500));
   const { data: jobsData = { items: [] }, refetch: refetchJobs } = useQuery(fsaQueries.orders.all(1, 500));
-  const allJobs = (jobsData.items || []).map(normalizeOrder);
+  
+  const [localUpdateCounter, setLocalUpdateCounter] = useState(0);
+  useEffect(() => {
+    const triggerRender = () => setLocalUpdateCounter(c => c + 1);
+    window.addEventListener('fsa_storage_update', triggerRender);
+    return () => window.removeEventListener('fsa_storage_update', triggerRender);
+  }, []);
+
+  const allJobs = (jobsData.items || []).map(normalizeOrder).map(job => {
+    const localMemory = stateManager.getOrders().find(o => o.id === job.id || o.orderId === job.id || o.order_id === job.id);
+    return localMemory ? { ...job, ...localMemory } : job;
+  });
+  
   const jobs = allJobs.filter(j => j.assignedCarpenter === carpenterName || j.orderId === directJobId);
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'jobs' | 'wallet'
