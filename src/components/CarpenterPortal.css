@@ -72,23 +72,18 @@
   display: flex;
   justify-content: center;
   align-items: stretch;
-  min-height: 100vh;
-  background-color: var(--slate-950, #020617);
+  height: 100%;
+  width: 100%;
+  background-color: transparent;
   font-family: var(--font-sans);
   padding: 0;
   box-sizing: border-box;
 }
 
-.carpenter-app-simulator.is-simulator {
-  align-items: center;
-  padding: 20px;
-}
-
 .carpenter-app-container {
   width: 100%;
   max-width: 100%;
-  height: 100vh;
-  height: 100dvh;
+  height: 100%;
   background-color: var(--bg-app);
   color: var(--text-main);
   display: flex;
@@ -96,31 +91,6 @@
   position: relative;
   overflow: hidden;
   transition: background-color 0.3s ease;
-}
-
-.carpenter-app-container.is-simulator {
-  max-width: 480px;
-  height: 880px;
-  min-height: auto;
-  max-height: 95vh;
-  border-radius: 36px;
-  border: 8px solid #1f2937; /* Mock Phone frame */
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
-  overflow: hidden;
-}
-
-/* On mobile, remove the phone-simulator border and fit the viewport */
-@media (max-width: 500px) {
-  .carpenter-app-simulator.is-simulator {
-    padding: 0;
-    background-color: var(--bg-app);
-  }
-  .carpenter-app-container.is-simulator {
-    max-height: 100dvh;
-    height: 100dvh;
-    border-radius: 0;
-    border: none;
-  }
 }
 
 /* Header styling */

@@ -426,6 +426,27 @@ body {
   flex-direction: column;
 }
 
+@media (max-width: 767px) {
+  .mobile-simulator-layout {
+    padding: 0 !important;
+  }
+  .mobile-phone-frame {
+    width: 100% !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+  .mobile-phone-frame::before {
+    display: none !important;
+  }
+  .mobile-screen-content {
+    border-radius: 0 !important;
+  }
+}
+
 /* Custom scrollbars inside grid */
 ::-webkit-scrollbar {
   width: 6px;
