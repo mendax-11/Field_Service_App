@@ -46,16 +46,16 @@ export function normalizeOrder(o) {
   if (!o) return null;
 
   const orderId = String(o.orderId || o.order_id || o.id || '');
-  const sku = o.sku || o.product_sku || '';
-  const productName = o.productName || o.product_name || o.product_sku || '';
+  const sku = String(o.sku || o.product_sku || '');
+  const productName = String(o.productName || o.product_name || o.product_sku || '');
   const payout = Number(o.payout || o.assembly_payout || o.payoutAmount || o.assembly_amount || 0);
-  const customerName = o.customerName || o.customer_name || '';
-  const customerPhone = o.customerPhone || o.customer_phone || o.customer_number || o.customer_phone_number || '';
-  const customerAddress = o.customerAddress || o.customer_address || o.address || '';
-  const jobStatus = o.jobStatus || o.status || o.assembly_status || o.assemblyStatus || 'Unassigned';
-  const paymentStatus = o.paymentStatus || o.payment_status || 'Unpaid';
+  const customerName = String(o.customerName || o.customer_name || '');
+  const customerPhone = String(o.customerPhone || o.customer_phone || o.customer_number || o.customer_phone_number || '');
+  const customerAddress = String(o.customerAddress || o.customer_address || o.address || '');
+  const jobStatus = String(o.jobStatus || o.status || o.assembly_status || o.assemblyStatus || 'Unassigned');
+  const paymentStatus = String(o.paymentStatus || o.payment_status || 'Unpaid');
   
-  let platform = o.platform;
+  let platform = String(o.platform || '');
   if (!platform) {
     if (orderId.startsWith('AMZ')) platform = 'Amazon';
     else if (orderId.startsWith('FLP')) platform = 'Flipkart';
