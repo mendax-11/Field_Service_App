@@ -1,7 +1,7 @@
 import PocketBase from 'pocketbase';
 
 // Connect to local or remote PocketBase instance.
-let POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090';
+let POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'https://assembly.vikifurniture.com:8090';
 
 // Dynamic runtime override for remote clients (avoids hardcoded localhost from .env during Vite build)
 if (typeof window !== 'undefined' && window.location) {
