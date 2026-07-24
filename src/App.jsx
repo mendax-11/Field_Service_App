@@ -8,6 +8,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { LogOut, ClipboardList, Shield, Eye, EyeOff, Wifi, WifiOff, Lock, Smartphone, Monitor } from 'lucide-react';
 
+import { ErrorBoundary } from './components/ErrorBoundary';
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [loginPhone, setLoginPhone] = useState('');

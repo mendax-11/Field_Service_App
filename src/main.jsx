@@ -9,10 +9,14 @@ registerSW({ immediate: true })
 
 const queryClient = new QueryClient()
 
+import { ErrorBoundary } from './components/ErrorBoundary.jsx'
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </QueryClientProvider>
   </StrictMode>,
 )
