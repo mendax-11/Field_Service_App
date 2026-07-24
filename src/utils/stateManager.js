@@ -383,7 +383,7 @@ export const saveOrders = (orders, changedOrders = []) => {
 
 export const rejectJob = (orderId, carpenterName, reason) => {
   const orders = getOrders();
-  const index = orders.findIndex(o => o.orderId === orderId);
+  const index = orders.findIndex(o => o.id === orderId || o.orderId === orderId || o.order_id === orderId);
   if (index !== -1) {
     const order = orders[index];
     const newStatus = 'Unassigned';
@@ -408,7 +408,7 @@ export const rejectJob = (orderId, carpenterName, reason) => {
     
     // Add audit log manually since we updated the order already
     const updatedOrders = getOrders();
-    const updatedIndex = updatedOrders.findIndex(o => o.orderId === orderId);
+    const updatedIndex = updatedOrders.findIndex(o => o.id === orderId || o.orderId === orderId || o.order_id === orderId);
     if (updatedIndex !== -1) {
       if (!updatedOrders[updatedIndex].auditLogs) updatedOrders[updatedIndex].auditLogs = [];
       updatedOrders[updatedIndex].auditLogs.push({
@@ -424,7 +424,7 @@ export const rejectJob = (orderId, carpenterName, reason) => {
 
 export const updateOrder = (orderId, updatedFields) => {
   const orders = getOrders();
-  const index = orders.findIndex(o => o.orderId === orderId);
+  const index = orders.findIndex(o => o.id === orderId || o.orderId === orderId || o.order_id === orderId);
   if (index !== -1) {
     const o = orders[index];
     lastLocalUpdate.set(orderId, Date.now());
@@ -1099,7 +1099,7 @@ export const stateManager = {
   toggleChecklistItem(jobId, itemId) {
     lastLocalUpdate.set(jobId, Date.now());
     const orders = getOrders();
-    const orderIndex = orders.findIndex(o => o.orderId === jobId);
+    const orderIndex = orders.findIndex(o => o.id === jobId || o.orderId === jobId);
     if (orderIndex !== -1) {
       const order = orders[orderIndex];
       const updatedChecklist = order.checklist.map(item => {
@@ -1122,7 +1122,7 @@ export const stateManager = {
   submitDamageReport(jobId, partName, notes, damagePhotosPayload) {
     lastLocalUpdate.set(jobId, Date.now());
     const orders = getOrders();
-    const orderIndex = orders.findIndex(o => o.orderId === jobId);
+    const orderIndex = orders.findIndex(o => o.id === jobId || o.orderId === jobId || o.order_id === jobId);
     if (orderIndex !== -1) {
       const order = orders[orderIndex];
       let damagePhotos = [];
@@ -1544,7 +1544,7 @@ async function syncOrderToPocketBase(orderId, order) {
 
       // Always save merged comments and audit logs, and any resolved URLs
       const localOrders = getOrders();
-      const idx = localOrders.findIndex(o => o.orderId === orderId);
+      const idx = localOrders.findIndex(o => o.id === orderId || o.orderId === orderId || o.order_id === orderId);
       if (idx !== -1) {
         localOrders[idx] = {
           ...localOrders[idx],
