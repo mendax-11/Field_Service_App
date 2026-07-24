@@ -427,6 +427,10 @@ body {
 }
 
 @media (max-width: 1024px) {
+  html {
+    font-size: 20px; /* Base 20px scales all rem values up by 25% on mobile */
+  }
+
   .mobile-simulator-layout {
     padding: 0 !important;
     background: transparent !important;
@@ -454,6 +458,12 @@ body {
     width: 100% !important;
     height: 100% !important;
     flex: 1 1 auto !important;
+  }
+  
+  /* Force Lucide icons to scale with the new larger text on mobile */
+  .mobile-screen-content svg.lucide {
+    width: 1.35em !important;
+    height: 1.35em !important;
   }
 }
 
