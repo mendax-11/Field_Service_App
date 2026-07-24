@@ -37,12 +37,12 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   const { data: carpentersData = { items: [] } } = useQuery(fsaQueries.carpenters.all(1, 500));
   const { data: jobsData = { items: [] }, refetch: refetchJobs } = useQuery(fsaQueries.orders.all(1, 500));
   
-  const [localUpdateCounter, setLocalUpdateCounter] = useState(0);
+  const [, setLocalUpdateCounter] = useState(0);
   useEffect(() => {
     if (jobsData && jobsData.items) {
       stateManager.hydrateOrders(jobsData.items);
     }
-  }, [jobsData.items]);
+  }, [jobsData]);
 
   useEffect(() => {
     const triggerRender = () => setLocalUpdateCounter(c => c + 1);
