@@ -67,6 +67,8 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+  build: {
+    target: 'es2015' // Ensures optional chaining (?.) and other modern JS features are transpiled for older mobile WebViews
+  }
 })
-
