@@ -45,7 +45,7 @@ const DEFAULT_NOTIFICATIONS = [];
 export function normalizeOrder(o) {
   if (!o) return null;
 
-  const orderId = o.orderId || o.order_id || o.id || '';
+  const orderId = String(o.orderId || o.order_id || o.id || '');
   const sku = o.sku || o.product_sku || '';
   const productName = o.productName || o.product_name || o.product_sku || '';
   const payout = Number(o.payout || o.assembly_payout || o.payoutAmount || o.assembly_amount || 0);
@@ -120,7 +120,7 @@ export function normalizeOrder(o) {
     damagePhotos = [];
   }
   if (damagePhotos.length === 0 && damagePhoto) {
-    if (damagePhoto.startsWith('[')) {
+    if (typeof damagePhoto === 'string' && damagePhoto.startsWith('[')) {
       try {
         damagePhotos = JSON.parse(damagePhoto);
       } catch (e) {
