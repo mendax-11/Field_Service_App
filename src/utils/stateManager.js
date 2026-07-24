@@ -363,6 +363,24 @@ export const getOrders = () => {
   }
 };
 
+export const hydrateOrders = (serverOrders) => {
+  const normalized = serverOrders.map(normalizeOrder);
+  // Only update if memoryOrders is empty or missing items, to prevent overwriting recent optimistic updates
+  if (!memoryOrders || memoryOrders.length === 0) {
+    memoryOrders = normalized;
+    try {
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(normalized));
+    } catch(e) {}
+  } else {
+    // Merge new server items that don't exist in memory
+    const existingIds = new Set(memoryOrders.map(o => o.id));
+    const newItems = normalized.filter(o => !existingIds.has(o.id));
+    if (newItems.length > 0) {
+      memoryOrders = [...memoryOrders, ...newItems];
+    }
+  }
+};
+
 export const saveOrders = (orders, changedOrders = []) => {
   const normalized = orders.map(normalizeOrder);
   memoryOrders = normalized;
@@ -1087,9 +1105,13 @@ export const stateManager = {
     return getOrders();
   },
 
+  hydrateOrders(orders) {
+    return hydrateOrders(orders);
+  },
+
   getJobById(id) {
     const orders = getOrders();
-    return orders.find(o => o.orderId === id) || null;
+    return orders.find(o => o.id === id || o.orderId === id || o.order_id === id) || null;
   },
 
   updateJob(jobId, updatedFields) {

@@ -39,6 +39,12 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   
   const [localUpdateCounter, setLocalUpdateCounter] = useState(0);
   useEffect(() => {
+    if (jobsData && jobsData.items) {
+      stateManager.hydrateOrders(jobsData.items);
+    }
+  }, [jobsData.items]);
+
+  useEffect(() => {
     const triggerRender = () => setLocalUpdateCounter(c => c + 1);
     window.addEventListener('fsa_storage_update', triggerRender);
     return () => window.removeEventListener('fsa_storage_update', triggerRender);
