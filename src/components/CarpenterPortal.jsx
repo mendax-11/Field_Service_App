@@ -9,7 +9,8 @@ import {
   Lock,
   MessageCircle,
   Send,
-  AlertTriangle
+  AlertTriangle,
+  LogOut
 } from 'lucide-react';
 import { stateManager, triggerN8nWebhook, fsaQueries, normalizeOrder } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
@@ -23,7 +24,7 @@ import CarpenterDashboard from './carpenter/CarpenterDashboard';
 import CarpenterJobList from './carpenter/CarpenterJobList';
 import CarpenterWallet from './carpenter/CarpenterWallet';
 import CarpenterJobDetail from './carpenter/CarpenterJobDetail';
-export default function CarpenterPortal({ carpenterName = 'John Carpenter', directJobId = null }) {
+export default function CarpenterPortal({ carpenterName = 'John Carpenter', directJobId = null, onLogout }) {
   const [appLang, setAppLang] = useState(() => localStorage.getItem('fsa_carpenter_lang') || 'en');
   const t = (key) => getTranslation(appLang, key);
 
@@ -879,8 +880,18 @@ Your review helps us serve you better. Thank you!`;
               onClick={toggleTheme} 
               className="btn-icon" 
               title={t('toggle_theme')}
+              style={{ marginRight: '6px' }}
             >
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <button 
+              type="button" 
+              onClick={onLogout} 
+              className="btn-icon" 
+              title="Logout"
+              style={{ color: 'var(--danger)', marginRight: '6px' }}
+            >
+              <LogOut size={16} />
             </button>
             <select 
               value={appLang} 

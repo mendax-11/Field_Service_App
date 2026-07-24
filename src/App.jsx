@@ -21,12 +21,9 @@ export default function App() {
   const carpenters = carpentersData.items || [];
   
   const [showMobileFrame, setShowMobileFrame] = useState(() => {
-    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-    if (isTouchDevice) return false;
-    
     const stored = localStorage.getItem('fsa_show_mobile_frame');
     if (stored !== null) return stored === 'true';
-    return window.innerWidth > 768;
+    return true; // Default to true everywhere! Mobile CSS strips the mock frame, Desktop CSS shows the mock frame.
   });
 
   const [trackOrderId] = useState(() => new URLSearchParams(window.location.search).get('track'));
@@ -34,13 +31,6 @@ export default function App() {
 
   // Load session from pb on mount
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth <= 1024) {
-        setShowMobileFrame(false);
-      }
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
 
     const checkAuth = () => {
       if (pb.authStore.isValid && pb.authStore.model) {
@@ -304,14 +294,14 @@ export default function App() {
           <div className="mobile-simulator-layout">
             <div className="mobile-phone-frame">
               <div className="mobile-screen-content">
-                <CarpenterPortal carpenterName={user.name} isSimulator={true} />
+                <CarpenterPortal carpenterName={user.name} isSimulator={true} onLogout={handleLogout} />
               </div>
             </div>
           </div>
         ) : (
           /* Render Carpenter Mobile App full screen for desktop users */
           <div style={{ minHeight: 'calc(100vh - 50px)', background: 'var(--slate-950)' }}>
-            <CarpenterPortal carpenterName={user.name} isSimulator={false} />
+            <CarpenterPortal carpenterName={user.name} isSimulator={false} onLogout={handleLogout} />
           </div>
         )
       ) : (
