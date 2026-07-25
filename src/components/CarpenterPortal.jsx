@@ -55,7 +55,8 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     return localMemory ? { ...job, ...localMemory } : job;
   });
   
-  const jobs = allJobs.filter(j => j.assignedCarpenter === carpenterName || j.orderId === directJobId);
+  // Pass all jobs through — carpenterJobs filter below does the robust multi-field matching
+  const jobs = allJobs;
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'jobs' | 'wallet'
   const [theme, setTheme] = useState(() => {
