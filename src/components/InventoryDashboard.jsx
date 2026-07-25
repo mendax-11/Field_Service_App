@@ -32,8 +32,16 @@ function getPartRequestStatus(order) {
   return String(status).toLowerCase();
 }
 
+function hasPartsDispatchedLog(order) {
+  const auditLogs = Array.isArray(order.auditLogs)
+    ? order.auditLogs
+    : (Array.isArray(order.audit_logs) ? order.audit_logs : []);
+  return auditLogs.some(log => log.action === 'Parts Dispatched');
+}
+
 function hasOpenPartRequest(order) {
   const requestStatus = getPartRequestStatus(order);
+  if (hasPartsDispatchedLog(order)) return false;
   return order.jobStatus === 'On Hold - Parts Requested' && !['approved', 'dispatched', 'resolved', 'closed'].includes(requestStatus);
 }
 
@@ -76,9 +84,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
     const onHold = allOrders.filter(hasOpenPartRequest);
     
     // Lean history: find orders that have a 'Parts Dispatched' audit log
-    const history = allOrders.filter(o => 
-      o.auditLogs && o.auditLogs.some(log => log.action === 'Parts Dispatched')
-    );
+    const history = allOrders.filter(hasPartsDispatchedLog);
 
     setOnHoldOrders(onHold);
     setHistoryOrders(history);

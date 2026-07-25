@@ -1447,6 +1447,43 @@ export function mapRecordToOrder(r) {
   });
 }
 
+function hasAuditAction(order, action) {
+  const auditLogs = Array.isArray(order?.auditLogs)
+    ? order.auditLogs
+    : (Array.isArray(order?.audit_logs) ? order.audit_logs : []);
+  return auditLogs.some(log => log.action === action);
+}
+
+function preserveLocalPartsDispatch(existingOrder, incomingOrder) {
+  if (!hasAuditAction(existingOrder, 'Parts Dispatched')) return incomingOrder;
+
+  const existingDamageReport = existingOrder.damageReport || existingOrder.damage_report || null;
+  const incomingDamageReport = incomingOrder.damageReport || incomingOrder.damage_report || null;
+  const damageReport = existingDamageReport
+    ? { ...existingDamageReport, status: existingDamageReport.status || 'Dispatched' }
+    : (incomingDamageReport ? { ...incomingDamageReport, status: incomingDamageReport.status || 'Dispatched' } : incomingDamageReport);
+  const auditLogs = Array.isArray(existingOrder.auditLogs) ? existingOrder.auditLogs : incomingOrder.auditLogs;
+  const preservedStatus = existingOrder.jobStatus === 'On Hold - Parts Requested'
+    ? 'Assigned'
+    : (existingOrder.jobStatus || existingOrder.status || 'Assigned');
+
+  return normalizeOrder({
+    ...incomingOrder,
+    jobStatus: preservedStatus,
+    status: preservedStatus,
+    assembly_status: preservedStatus,
+    damageReport,
+    damage_report: damageReport,
+    damagePhoto: existingOrder.damagePhoto || incomingOrder.damagePhoto,
+    damagePhotos: existingOrder.damagePhotos || incomingOrder.damagePhotos,
+    damage_photos: existingOrder.damage_photos || existingOrder.damagePhotos || incomingOrder.damage_photos,
+    partsList: existingOrder.partsList || incomingOrder.partsList,
+    carpenterComments: existingOrder.carpenterComments || incomingOrder.carpenterComments,
+    auditLogs,
+    audit_logs: existingOrder.audit_logs || auditLogs || incomingOrder.audit_logs
+  });
+}
+
 // Converts base64 Data URL to Blob for file upload
 export function dataURLtoBlob(dataurl) {
   if (!dataurl || typeof dataurl !== 'string' || !dataurl.startsWith('data:')) return null;
@@ -1781,7 +1818,7 @@ function setupPocketBaseRealtime() {
         try {
           fullRecord = await pb.collection('orders').getOne(record.id, { expand: 'assigned_carpenter' });
         } catch (err) {}
-        const updatedOrder = mapRecordToOrder(fullRecord);
+        let updatedOrder = mapRecordToOrder(fullRecord);
         
         // If PB record has no carpenter info, preserve local order's carpenter data
         // This handles the case when assigned_carpenter_name field doesn't exist in PB schema
@@ -1830,6 +1867,8 @@ function setupPocketBaseRealtime() {
             updatedOrder.status = 'Completed';
             updatedOrder.assembly_status = 'Completed';
           }
+
+          updatedOrder = preserveLocalPartsDispatch(existingOrder, updatedOrder);
           
           orders[orderIndex] = updatedOrder;
         } else {
@@ -2345,7 +2384,7 @@ setTimeout(() => {
       if (records.length > 0) {
         const localOrders = getOrders(); // existing local orders before overwrite
         const mapped = records.map(r => {
-          const order = mapRecordToOrder(r);
+          let order = mapRecordToOrder(r);
           const existingLocal = localOrders.find(o => o.orderId === order.orderId);
           if (existingLocal) {
             // Preserve local carpenter assignment if PB expand/name field is empty
@@ -2400,6 +2439,8 @@ setTimeout(() => {
                 order.damageReport.damagePhotos = existingLocal.damagePhotos;
               }
             }
+
+            order = preserveLocalPartsDispatch(existingLocal, order);
           }
           return order;
         });
