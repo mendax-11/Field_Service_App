@@ -411,9 +411,15 @@ export const saveOrders = (orders, changedOrders = []) => {
   }
 };
 
-export const rejectJob = (orderId, carpenterName, reason) => {
+export const rejectJob = (orderId, carpenterName, reason, fallbackJob = null) => {
   const orders = getOrders();
-  const index = orders.findIndex(o => o.id === orderId || o.orderId === orderId || o.order_id === orderId);
+  let index = orders.findIndex(o => o.id === orderId || o.orderId === orderId || o.order_id === orderId);
+  
+  if (index === -1 && fallbackJob) {
+    orders.push(fallbackJob);
+    index = orders.length - 1;
+  }
+
   if (index !== -1) {
     const order = orders[index];
     const newStatus = 'Unassigned';

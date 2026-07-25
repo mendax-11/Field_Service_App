@@ -524,7 +524,8 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       return;
     }
 
-    stateManager.rejectJob(selectedJobId, carpenterName, finalReason);
+    const currentJob = jobs.find(j => j.id === selectedJobId) || job;
+    stateManager.rejectJob(selectedJobId, carpenterName, finalReason, currentJob);
     
     refetchJobs();
     setShowRejectForm(false);
