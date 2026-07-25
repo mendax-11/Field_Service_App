@@ -1051,6 +1051,9 @@ export const autoAllocateOrders = () => {
         return {
           ...order,
           assignedCarpenter: bestCarpenter.name,
+          assignedCarpenterId: bestCarpenter.id,
+          assigned_carpenter_name: bestCarpenter.name,
+          assigned_carpenter_id: bestCarpenter.id,
           jobStatus: 'Assigned',
           assignedDate: todayStr,
           auditLogs: [

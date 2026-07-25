@@ -69,8 +69,14 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
 
   const handleQuickAssign = (orderId, carpenterName) => {
     const nextStatus = carpenterName ? 'Assigned' : 'Unassigned';
+    
+    // Resolve carpenter ID from the PocketBase fetched carpenters list
+    const matchedCarpenter = carpenters.find(c => c.name === carpenterName || c.username === carpenterName);
+    const assignedCarpenterId = matchedCarpenter ? matchedCarpenter.id : null;
+    
     const updatedFields = {
       assignedCarpenter: carpenterName || null,
+      assignedCarpenterId,
       jobStatus: nextStatus
     };
 
