@@ -1107,6 +1107,10 @@ export function resetState() {
 
 // Reconcile and export CarpenterPortal compatibility layer
 export const stateManager = {
+  getOrders() {
+    return getOrders();
+  },
+
   getJobs() {
     return getOrders();
   },
