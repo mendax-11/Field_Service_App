@@ -1351,7 +1351,7 @@ async function syncOrderToPocketBase(orderId, order) {
   try {
     let record = null;
     try {
-      record = await pb.collection('orders').getFirstListItem(`order_id="${orderId}"`, { $autoCancel: false });
+      record = await pb.collection('orders').getFirstListItem(`order_id="${orderId}" || id="${orderId}"`, { $autoCancel: false });
     } catch (err) {
       // 404
     }
