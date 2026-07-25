@@ -90,6 +90,7 @@
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  overscroll-behavior-y: none;
   transition: background-color 0.3s ease;
 }
 
@@ -167,6 +168,7 @@
   min-height: 0; /* Fix flexbox shrink constraint for scrolling */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch; /* Momentum scrolling in mobile WebViews */
+  overscroll-behavior-y: none; /* Prevent scroll-chaining/bouncing to the body in PWA */
   overflow-x: hidden;
   padding: 16px;
   display: flex;

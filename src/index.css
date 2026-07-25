@@ -388,6 +388,7 @@ html {
   padding: 40px 20px;
   flex: 1;
   box-sizing: border-box;
+  overscroll-behavior-y: none;
 }
 
 /* Realistic smartphone device wrapper */
@@ -403,6 +404,7 @@ html {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  overscroll-behavior-y: none;
 }
 
 /* Notch & speaker at the top */
