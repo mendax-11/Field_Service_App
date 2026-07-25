@@ -8,8 +8,7 @@ import {
   RotateCcw, 
   LogOut, 
   Calendar,
-  Sparkles,
-  ChevronRight
+  Sparkles
 } from 'lucide-react';
 
 export default function CarpenterWallet({ walletSummary, directJobId, handleResetDemo, t }) {
