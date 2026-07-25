@@ -449,7 +449,9 @@ export const rejectJob = (orderId, carpenterName, reason, fallbackJob = null) =>
     const updatedOrders = getOrders();
     const updatedIndex = updatedOrders.findIndex(o => o.id === orderId || o.orderId === orderId || o.order_id === orderId);
     if (updatedIndex !== -1) {
-      if (!updatedOrders[updatedIndex].auditLogs) updatedOrders[updatedIndex].auditLogs = [];
+      if (!Array.isArray(updatedOrders[updatedIndex].auditLogs)) {
+        updatedOrders[updatedIndex].auditLogs = [];
+      }
       updatedOrders[updatedIndex].auditLogs.push({
         timestamp: new Date().toISOString(),
         user: 'System',
@@ -977,7 +979,9 @@ export const addAuditLog = (orderId, action, user, comments) => {
   const orders = getOrders();
   const order = orders.find(o => o.orderId === orderId);
   if (order) {
-    if (!order.auditLogs) order.auditLogs = [];
+    if (!Array.isArray(order.auditLogs)) {
+      order.auditLogs = [];
+    }
     order.auditLogs.push({
       timestamp: new Date().toISOString(),
       action,
