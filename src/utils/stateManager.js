@@ -1475,6 +1475,8 @@ async function syncOrderToPocketBase(orderId, order) {
     // Append regular fields
     Object.keys(pbFields).forEach(key => {
       let val = pbFields[key];
+      // Do not append base64 strings to regular fields to avoid PocketBase validation errors (e.g. if the schema expects a file)
+      if (typeof val === 'string' && val.startsWith('data:image/')) return;
       if (typeof val === 'object' && val !== null) {
         val = JSON.stringify(val);
       }
@@ -1498,7 +1500,9 @@ async function syncOrderToPocketBase(orderId, order) {
     if (order.signature && order.signature.startsWith('data:image/')) {
       const blob = dataURLtoBlob(order.signature);
       if (blob) {
-        formData.append('signature_file', blob, `signature_${orderId}.png`);
+        formData.append('signature_file', blob, `sigfile_${orderId}.png`);
+        formData.append('signature', blob, `sig_${orderId}.png`);
+        formData.append('customer_signature', blob, `cus_sig_${orderId}.png`);
         hasFiles = true;
       }
     }
@@ -1507,28 +1511,27 @@ async function syncOrderToPocketBase(orderId, order) {
     
     const attemptJsonSync = async (fields) => {
       try {
-        if (record) {
-          return await pb.collection('orders').update(record.id, fields, { $autoCancel: false });
-        } else {
-          return await pb.collection('orders').create(fields, { $autoCancel: false });
-        }
-      } catch (err) {
-        console.warn('JSON sync failed. Retrying without base64 images to preserve status updates.', err);
+        // Strip out base64 strings from JSON to prevent 400 Bad Request
         const safeFields = { ...fields };
-        if (safeFields.signature && safeFields.signature.startsWith('data:image/')) safeFields.signature = '';
+        Object.keys(safeFields).forEach(k => {
+          if (typeof safeFields[k] === 'string' && safeFields[k].startsWith('data:image/')) {
+            delete safeFields[k];
+          }
+        });
         if (safeFields.photos) {
           safeFields.photos = { ...safeFields.photos };
-          if (safeFields.photos.before && safeFields.photos.before.startsWith('data:image/')) safeFields.photos.before = '';
-          if (safeFields.photos.after && safeFields.photos.after.startsWith('data:image/')) safeFields.photos.after = '';
+          if (safeFields.photos.before && typeof safeFields.photos.before === 'string' && safeFields.photos.before.startsWith('data:image/')) delete safeFields.photos.before;
+          if (safeFields.photos.after && typeof safeFields.photos.after === 'string' && safeFields.photos.after.startsWith('data:image/')) delete safeFields.photos.after;
         }
-        if (safeFields.damage_photos && Array.isArray(safeFields.damage_photos)) {
-          safeFields.damage_photos = safeFields.damage_photos.map(p => p.startsWith('data:image/') ? '' : p).filter(Boolean);
-        }
+        
         if (record) {
           return await pb.collection('orders').update(record.id, safeFields, { $autoCancel: false });
         } else {
           return await pb.collection('orders').create(safeFields, { $autoCancel: false });
         }
+      } catch (err) {
+        console.warn('JSON sync failed entirely.', err);
+        return null;
       }
     };
 
