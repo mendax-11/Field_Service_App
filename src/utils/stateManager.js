@@ -419,6 +419,9 @@ export const rejectJob = (orderId, carpenterName, reason) => {
       ...order, 
       assignedCarpenter: '', 
       assignedCarpenterId: '',
+      assigned_carpenter_name: '',
+      assigned_carpenter: null,
+      expand: order.expand ? { ...order.expand, assigned_carpenter: null } : undefined,
       jobStatus: newStatus,
       status: newStatus
     };
