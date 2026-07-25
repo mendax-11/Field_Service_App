@@ -771,16 +771,7 @@ function pruneLocalStorage() {
 
         const stripped = { ...order };
 
-        // Clear damagePhotos array (server has these in damage_report JSON field)
-        if (Array.isArray(stripped.damagePhotos) && stripped.damagePhotos.length > 0) {
-          stripped.damagePhotos = [];
-          stripped.damage_photos = [];
-          if (stripped.damageReport) {
-            stripped.damageReport = { ...stripped.damageReport, damagePhotos: [] };
-          }
-        }
-
-        // Clear before/after photos (server has these in photos JSON field)
+        // Clear heavy before/after photos from completed orders (server has these in photos JSON field)
         if (stripped.photos) {
           const hasBase64Before = typeof stripped.photos.before === 'string' && stripped.photos.before.startsWith('data:');
           const hasBase64After  = typeof stripped.photos.after  === 'string' && stripped.photos.after.startsWith('data:');
@@ -1633,11 +1624,9 @@ async function syncOrderToPocketBase(orderId, order) {
       if (idx !== -1) {
         const local = localOrders[idx];
 
-        // Clear damagePhotos — server now holds them in damage_report JSON
-        const strippedDamagePhotos = [];
-        const strippedDamageReport = local.damageReport
-          ? { ...local.damageReport, damagePhotos: [] }
-          : local.damageReport;
+        // Preserve damagePhotos and damageReport intact for Logistics dashboard
+        const updatedDamagePhotos = local.damagePhotos || [];
+        const updatedDamageReport = local.damageReport;
 
         // Replace base64 before/after photos with null (server holds them in photos JSON)
         const strippedPhotos = local.photos ? {
@@ -1655,9 +1644,9 @@ async function syncOrderToPocketBase(orderId, order) {
           comments: mergedComments,
           auditLogs: mergedAuditLogs,
           audit_logs: mergedAuditLogs,
-          damagePhotos: strippedDamagePhotos,
-          damage_photos: strippedDamagePhotos,
-          damageReport: strippedDamageReport,
+          damagePhotos: updatedDamagePhotos,
+          damage_photos: updatedDamagePhotos,
+          damageReport: updatedDamageReport,
           photos: strippedPhotos,
           signature: strippedSignature
         };
