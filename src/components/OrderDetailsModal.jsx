@@ -10,6 +10,16 @@ import { useQuery } from '@tanstack/react-query';
 export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly = false }) {
   const { data: carpentersData = { items: [] }, refetch: refetchCarpenters } = useQuery(fsaQueries.carpenters.all(1, 500));
   const carpenters = carpentersData.items || [];
+  
+  // Fetch full details of the order to get the heavy fields (photos/signature) that were excluded in the grid payload
+  const { data: fullOrderRaw } = useQuery({
+    ...fsaQueries.orders.detail(order?.id || ''),
+    enabled: !!order?.id
+  });
+  
+  // Merge the base order with the fetched heavy fields
+  const displayOrder = fullOrderRaw ? { ...order, photos: fullOrderRaw.photos || order.photos, signature: fullOrderRaw.signature || order.signature } : order;
+
   const [newComment, setNewComment] = useState('');
   const [assignedCarpenter, setAssignedCarpenter] = useState(order.assignedCarpenter || '');
   const [jobStatus, setJobStatus] = useState(order.jobStatus || 'Unassigned');
@@ -715,35 +725,38 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                     )}
 
                     {/* Completion Photos & Signature */}
-                    {(order.photos?.before || order.photos?.after || order.signature) && (
-                      <div className="admin-field-group" style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
+                    {(displayOrder.photos?.before || displayOrder.photos?.after || displayOrder.signature) && (
+                      <div className="section-block details-media-grid" style={{ marginTop: '16px', marginBottom: '24px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
                         <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Completion Evidence</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                          {order.photos?.before && (
-                            <div>
-                              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Before Photo</span>
-                              <div style={{ width: '100%', height: '100px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--admin-border-color)' }}>
-                                <img src={order.photos.before} alt="Before" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div className="media-row" style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '8px' }}>
+                          
+                          {displayOrder.photos?.before && (
+                            <div className="media-item" style={{ flex: '0 0 auto', width: '120px' }}>
+                              <div className="media-thumb" style={{ width: '120px', height: '120px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'var(--bg-input)' }}>
+                                <img src={displayOrder.photos.before} alt="Before" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               </div>
+                              <span style={{ display: 'block', textAlign: 'center', fontSize: '11px', marginTop: '4px', color: 'var(--admin-text-secondary)' }}>Before</span>
                             </div>
                           )}
-                          {order.photos?.after && (
-                            <div>
-                              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>After Photo</span>
-                              <div style={{ width: '100%', height: '100px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--admin-border-color)' }}>
-                                <img src={order.photos.after} alt="After" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+
+                          {displayOrder.photos?.after && (
+                            <div className="media-item" style={{ flex: '0 0 auto', width: '120px' }}>
+                              <div className="media-thumb" style={{ width: '120px', height: '120px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'var(--bg-input)' }}>
+                                <img src={displayOrder.photos.after} alt="After" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               </div>
+                              <span style={{ display: 'block', textAlign: 'center', fontSize: '11px', marginTop: '4px', color: 'var(--admin-text-secondary)' }}>After</span>
                             </div>
                           )}
-                        </div>
-                        {order.signature && (
-                          <div style={{ marginTop: '12px' }}>
-                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Customer Signature</span>
-                            <div style={{ width: '100%', padding: '8px', borderRadius: '4px', backgroundColor: '#fff', border: '1px solid var(--admin-border-color)', display: 'flex', justifyContent: 'center' }}>
-                              <img src={order.signature} alt="Signature" style={{ maxHeight: '80px', maxWidth: '100%' }} />
+
+                        {displayOrder.signature && (
+                          <div className="media-item signature" style={{ flex: '0 0 auto', minWidth: '160px' }}>
+                            <div className="media-thumb" style={{ height: '120px', borderRadius: '8px', border: '1px solid var(--border-color)', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
+                              <img src={displayOrder.signature} alt="Signature" style={{ maxHeight: '80px', maxWidth: '100%' }} />
                             </div>
+                            <span style={{ display: 'block', textAlign: 'center', fontSize: '11px', marginTop: '4px', color: 'var(--admin-text-secondary)' }}>Customer Sig</span>
                           </div>
                         )}
+                        </div>
                       </div>
                     )}
 
