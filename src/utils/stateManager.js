@@ -1541,10 +1541,25 @@ async function syncOrderToPocketBase(orderId, order) {
           if (safeFields.photos.after && typeof safeFields.photos.after === 'string' && safeFields.photos.after.startsWith('data:image/')) delete safeFields.photos.after;
         }
         
-        if (record) {
-          return await pb.collection('orders').update(record.id, safeFields, { $autoCancel: false });
-        } else {
-          return await pb.collection('orders').create(safeFields, { $autoCancel: false });
+        try {
+          if (record) {
+            await pb.collection('orders').update(record.id, safeFields, { $autoCancel: false });
+          } else {
+            await pb.collection('orders').create(safeFields, { $autoCancel: false });
+          }
+        } catch (err) {
+          if (err.status === 400 && record) {
+            console.warn('[PocketBase] 400 Bad Request during full sync. Applying KISS fallback for core status...', err);
+            const kissFields = {
+              status: safeFields.status,
+              assembly_status: safeFields.assembly_status,
+              payment_status: safeFields.payment_status,
+              delivery_status: safeFields.delivery_status
+            };
+            await pb.collection('orders').update(record.id, kissFields, { $autoCancel: false });
+          } else {
+            throw err;
+          }
         }
       } catch (err) {
         console.warn('JSON sync failed entirely.', err);
