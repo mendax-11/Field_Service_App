@@ -1105,10 +1105,10 @@ Your review helps us serve you better. Thank you!`;
                   </h3>
                   <button className="btn-close" onClick={() => setShowRejectForm(false)}>✕</button>
                 </div>
-                <form className="damage-form" onSubmit={handleRejectSubmit}>
+                <div style={{ padding: '0 16px 16px' }}>
                   <div className="form-group">
                     <label>Reason for Rejection *</label>
-                    <select value={rejectReason} onChange={e => setRejectReason(e.target.value)} required>
+                    <select value={rejectReason} onChange={e => setRejectReason(e.target.value)}>
                       <option value="">-- Select Reason --</option>
                       <option value="Out of service area">Out of service area</option>
                       <option value="Schedule conflict / No time">Schedule conflict / No time</option>
@@ -1118,29 +1118,56 @@ Your review helps us serve you better. Thank you!`;
                       <option value="Other">Other</option>
                     </select>
                   </div>
-                  
+
                   {rejectReason === 'Other' && (
-                    <div className="form-group">
+                    <div className="form-group" style={{ marginTop: '10px' }}>
                       <label>Specify Reason *</label>
-                      <textarea 
-                        value={customRejectReason} 
-                        onChange={e => setCustomRejectReason(e.target.value)} 
+                      <textarea
+                        value={customRejectReason}
+                        onChange={e => setCustomRejectReason(e.target.value)}
                         placeholder="Please specify the reason..."
                         rows={3}
-                        required
                       />
                     </div>
                   )}
 
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '12px 0 16px' }}>
                     Rejecting this order will unassign it from you and notify the dispatcher immediately. This action cannot be undone.
                   </p>
 
                   <div className="modal-actions">
-                    <button type="button" className="btn btn-secondary" onClick={() => setShowRejectForm(false)}>Cancel</button>
-                    <button type="submit" className="btn btn-primary" style={{ backgroundColor: 'var(--danger-color)', borderColor: 'var(--danger-color)' }}>Confirm Reject</button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setShowRejectForm(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ backgroundColor: 'var(--danger-color)', borderColor: 'var(--danger-color)' }}
+                      onClick={() => {
+                        const finalReason = rejectReason === 'Other' ? customRejectReason : rejectReason;
+                        if (!finalReason) {
+                          alert('Please select a reason for rejecting the order.');
+                          return;
+                        }
+                        const targetJob = job || allJobs.find(j => j.id === selectedJobId || j.orderId === selectedJobId);
+                        const targetId = targetJob?.id || targetJob?.orderId || selectedJobId;
+                        stateManager.rejectJob(targetId, carpenterName, finalReason, targetJob);
+                        setShowRejectForm(false);
+                        setRejectReason('');
+                        setCustomRejectReason('');
+                        setSelectedJobId(null);
+                        setActiveTab('jobs');
+                        refetchJobs();
+                      }}
+                    >
+                      Confirm Reject
+                    </button>
                   </div>
-                </form>
+                </div>
               </div>
             </div>
           )}
