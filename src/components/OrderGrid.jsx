@@ -5,10 +5,11 @@ import {
   Trash2, Eye, SlidersHorizontal, RefreshCw
 } from 'lucide-react';
 import { deleteOrder, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb, getCarpenters } from '../utils/stateManager';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import OrderDetailsModal from './OrderDetailsModal';
 
 export default function OrderGrid({ refreshTrigger, onRefresh }) {
+  const queryClient = useQueryClient();
   const { data: ordersData = { items: [] }, refetch: refetchOrders, isLoading: isOrdersLoading, isFetching: isOrdersFetching } = useQuery(fsaQueries.orders.all(1, 500));
   const { data: carpentersData = { items: [] }, refetch: refetchCarpenters, isLoading: isCarpentersLoading, isFetching: isCarpentersFetching } = useQuery(fsaQueries.carpenters.all(1, 500));
   
@@ -105,7 +106,16 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
     }
 
     updateOrder(orderId, updatedFields);
-    loadData();
+    
+    // Optimistic UI update to prevent race condition with server sync
+    queryClient.setQueryData(fsaQueries.orders.all(1, 500).queryKey, (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        items: old.items.map(o => o.order_id === orderId || o.id === orderId ? { ...o, assigned_carpenter_name: carpenterName, assigned_carpenter: assignedCarpenterId, assembly_status: nextStatus, status: nextStatus } : o)
+      };
+    });
+    
     if (onRefresh) onRefresh();
   };
 
@@ -128,7 +138,16 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
     e.stopPropagation(); // Avoid opening details modal
     if (confirm(`Are you sure you want to delete order ${orderId}?`)) {
       deleteOrder(orderId);
-      loadData();
+      
+      // Optimistic UI update to prevent race condition with server sync
+      queryClient.setQueryData(fsaQueries.orders.all(1, 500).queryKey, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.filter(o => o.order_id !== orderId && o.id !== orderId)
+        };
+      });
+      
       if (onRefresh) onRefresh();
     }
   };
@@ -165,8 +184,17 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
 
     if (confirm(`Are you sure you want to delete the ${selectedOrderIds.length} selected orders?`)) {
       selectedOrderIds.forEach(id => deleteOrder(id));
+      
+      // Optimistic UI update to prevent race condition with server sync
+      queryClient.setQueryData(fsaQueries.orders.all(1, 500).queryKey, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.filter(o => !selectedOrderIds.includes(o.order_id) && !selectedOrderIds.includes(o.id))
+        };
+      });
+      
       setSelectedOrderIds([]);
-      loadData();
       if (onRefresh) onRefresh();
     }
   };
@@ -182,8 +210,16 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
       });
     });
     
+    // Optimistic UI update to prevent race condition with server sync
+    queryClient.setQueryData(fsaQueries.orders.all(1, 500).queryKey, (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        items: old.items.map(o => selectedOrderIds.includes(o.order_id) || selectedOrderIds.includes(o.id) ? { ...o, assigned_carpenter_name: carpenterName, assembly_status: 'Assigned', status: 'Assigned' } : o)
+      };
+    });
+    
     setSelectedOrderIds([]);
-    loadData();
     if (onRefresh) onRefresh();
   };
 
@@ -197,8 +233,16 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
       });
     });
     
+    // Optimistic UI update to prevent race condition with server sync
+    queryClient.setQueryData(fsaQueries.orders.all(1, 500).queryKey, (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        items: old.items.map(o => selectedOrderIds.includes(o.order_id) || selectedOrderIds.includes(o.id) ? { ...o, assembly_status: status, status: status } : o)
+      };
+    });
+    
     setSelectedOrderIds([]);
-    loadData();
     if (onRefresh) onRefresh();
   };
 
