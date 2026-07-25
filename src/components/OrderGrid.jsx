@@ -4,7 +4,7 @@ import {
   Search, ArrowUpDown, ChevronLeft, ChevronRight, 
   Trash2, Eye, SlidersHorizontal, RefreshCw
 } from 'lucide-react';
-import { deleteOrder, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb } from '../utils/stateManager';
+import { deleteOrder, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb, getCarpenters } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
 import OrderDetailsModal from './OrderDetailsModal';
 
@@ -14,7 +14,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
   
   const isLoading = isOrdersLoading || isCarpentersLoading || isOrdersFetching || isCarpentersFetching;
   const orders = (ordersData.items || []).map(normalizeOrder);
-  const carpenters = carpentersData.items || [];
+  const carpenters = carpentersData.items?.length > 0 ? carpentersData.items : getCarpenters();
   
   const [role, setRole] = useState('Super Admin');
   

@@ -9,7 +9,7 @@ import {
   addCarpenterPincode, addCarpenterPincodes, removeCarpenterPincode,
   replaceCarpenterPincodes, clearCarpenterPincodes,
   exportCarpentersCSV, getActiveWorkload, MAX_ACTIVE_JOBS,
-  fsaQueries, normalizeOrder,
+  fsaQueries, normalizeOrder, getCarpenters,
   addCarpenter, updateCarpenter, deleteCarpenter, addNotification
 } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
@@ -253,7 +253,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
   const { data: carpentersData = { items: [] }, refetch: refetchCarpenters } = useQuery(fsaQueries.carpenters.all(1, 500));
   const { data: ordersData = { items: [] }, refetch: refetchOrders } = useQuery(fsaQueries.orders.all(1, 500));
   
-  const carpenters = carpentersData.items || [];
+  const carpenters = carpentersData.items?.length > 0 ? carpentersData.items : getCarpenters();
   const orders = (ordersData.items || []).map(normalizeOrder);
   const [showImporter, setShowImporter]   = useState(false);
   const [csvText, setCsvText]             = useState('');
