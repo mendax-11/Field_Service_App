@@ -122,6 +122,9 @@ export function normalizeOrder(o) {
   }
 
   let damagePhotos = o.damagePhotos || o.damage_photos || [];
+  if (damageReport && typeof damageReport === 'object' && damageReport.damagePhotos) {
+    damagePhotos = damageReport.damagePhotos;
+  }
   if (typeof damagePhotos === 'string') {
     try { damagePhotos = JSON.parse(damagePhotos); } catch (e) { damagePhotos = []; }
   }
@@ -145,7 +148,8 @@ export function normalizeOrder(o) {
     damageReport = {
       partName: partsList,
       notes: carpenterComments,
-      photo: damagePhoto
+      photo: damagePhoto,
+      damagePhotos: damagePhotos
     };
   } else if (damageReport && typeof damageReport === 'object') {
     damageReport.photo = damagePhoto || damageReport.photo || '';
@@ -1422,7 +1426,7 @@ async function syncOrderToPocketBase(orderId, order) {
       checklist: order.checklist || [],
       comments: mergedComments,
       audit_logs: mergedAuditLogs,
-      damage_report: order.damageReport || order.damage_report || null,
+      damage_report: order.damageReport ? { ...order.damageReport, damagePhotos: order.damagePhotos || [] } : (order.damage_report || null),
       photos: order.photos || { before: null, after: null },
       signature: order.signature || null,
       archived: order.archived || false,
