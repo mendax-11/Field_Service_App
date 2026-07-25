@@ -203,7 +203,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content order-details-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title-area">
             <h3>Order Details: {order.orderId}</h3>
@@ -440,7 +440,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                             const isAtCapacity = c.workload >= limit;
                             return (
                               <option key={c.id} value={c.name} style={{ color: isAtCapacity ? '#9ca3af' : 'inherit' }}>
-                                {c.name} ({c.rank}) — {c.servesArea ? '✅ Serves Area' : '❌ Out of Area'} ({c.workload}/{limit} Jobs){isAtCapacity ? ' ⚠️ max' : ''}
+                                {c.name} ({c.rank}) - {c.servesArea ? 'Serves Area' : 'Out of Area'} ({c.workload}/{limit} Jobs){isAtCapacity ? ' max' : ''}
                               </option>
                             );
                           })

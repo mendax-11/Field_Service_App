@@ -1034,19 +1034,25 @@
   background-color: var(--admin-bg-primary);
   border: 1px solid var(--admin-border-color);
   border-radius: 14px;
-  width: 900px;
-  max-width: 100%;
+  width: min(1040px, calc(100vw - 40px));
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+  box-sizing: border-box;
+}
+
+.order-details-modal {
+  width: min(1040px, calc(100vw - 40px));
+  max-width: calc(100vw - 40px);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex: 0 0 auto;
   padding: 16px 20px;
   background-color: var(--admin-bg-secondary);
   border-bottom: 1px solid var(--admin-border-color);
@@ -1056,12 +1062,14 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
 .modal-title-area h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .close-btn {
@@ -1085,19 +1093,42 @@
 
 .modal-body {
   padding: 20px;
-  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
   box-sizing: border-box;
+}
+
+.order-details-modal .modal-body {
+  width: 100%;
 }
 
 .modal-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 20px;
 }
 
 @media (max-width: 768px) {
+  .modal-overlay {
+    padding: 12px;
+  }
+
   .modal-grid {
     grid-template-columns: 1fr;
+  }
+
+  .modal-header {
+    padding: 14px 16px;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .order-details-modal {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
   }
 }
 
@@ -1106,6 +1137,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
 .info-card,
@@ -1114,6 +1146,8 @@
   border: 1px solid var(--admin-border-color);
   border-radius: 10px;
   padding: 16px;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .info-card h4,
@@ -1178,6 +1212,18 @@
   font-size: 12px;
   outline: none;
   box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.management-form,
+.form-group,
+.customer-edit-fields {
+  min-width: 0;
+}
+
+.customer-edit-fields > div {
+  min-width: 0;
 }
 
 .parts-request-fields {
@@ -1315,6 +1361,7 @@
 
 .comment-form input {
   flex: 1;
+  min-width: 0;
   background-color: var(--admin-bg-input);
   border: 1px solid var(--admin-border-color);
   color: var(--admin-text-primary);
@@ -2699,5 +2746,3 @@
 .leaflet-popup-close-button:hover {
   color: var(--color-danger, #ef4444) !important;
 }
-
-

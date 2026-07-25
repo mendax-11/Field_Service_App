@@ -154,12 +154,14 @@ export function normalizeOrder(o) {
       partName: partsList,
       notes: carpenterComments,
       photo: damagePhoto,
-      damagePhotos: damagePhotos
+      damagePhotos: damagePhotos,
+      status: o.partRequestStatus || o.part_request_status || 'Pending'
     };
   } else if (damageReport && typeof damageReport === 'object') {
     damageReport.photo = damagePhoto || damageReport.photo || '';
     damageReport.partName = partsList || damageReport.partName || '';
     damageReport.notes = carpenterComments || damageReport.notes || '';
+    damageReport.status = damageReport.status || o.partRequestStatus || o.part_request_status || 'Pending';
   }
 
   const photos = o.photos || { before: null, after: null };
@@ -1286,7 +1288,8 @@ export const stateManager = {
         partName,
         notes,
         photo: damagePhotos.length > 0 ? damagePhotos[0] : 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100%" height="100%" fill="%23c0392b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="10">Parts Damage</text></svg>',
-        damagePhotos  // embed so normalizeOrder can extract on re-load
+        damagePhotos,  // embed so normalizeOrder can extract on re-load
+        status: 'Pending'
       };
 
       const timestamp = new Date().toISOString();
@@ -2141,6 +2144,62 @@ export function normalizePhoneForComparison(p) {
 export async function authenticateUser(phone, password) {
   const cleanInputPhone = normalizePhoneForComparison(phone);
   const cleanPhoneDigits = phone.replace(/[^0-9]/g, '');
+  const normalizedInput = phone.trim().toLowerCase();
+
+  const demoUsers = [
+    { phone: '+91-80000-00001', password: 'admin123', role: 'Super Admin', name: 'Super Admin', email: 'superadmin@timberflow.in' },
+    { phone: '+91-80000-00002', password: 'admin123', role: 'Dispatcher', name: 'Dispatcher', email: 'dispatcher@timberflow.in' },
+    { phone: '+91-80000-00003', password: 'admin123', role: 'Inventory Manager', name: 'Inventory Manager', email: 'inventory@timberflow.in' },
+    { phone: '+91-80000-00004', password: 'admin123', role: 'Customer Support', name: 'Customer Support', email: 'support@timberflow.in' }
+  ];
+
+  const demoUser = demoUsers.find(user => {
+    const cleanDemoPhone = normalizePhoneForComparison(user.phone);
+    return password === user.password && (
+      cleanInputPhone === cleanDemoPhone ||
+      normalizedInput === user.email ||
+      cleanPhoneDigits === user.phone.replace(/[^0-9]/g, '')
+    );
+  });
+
+  if (demoUser) {
+    return {
+      success: true,
+      user: {
+        role: demoUser.role,
+        name: demoUser.name,
+        username: demoUser.phone.replace(/[^0-9]/g, ''),
+        phone: demoUser.phone,
+        email: demoUser.email,
+        id: `demo_${demoUser.role.toLowerCase().replace(/\s+/g, '_')}`
+      },
+      source: 'local-demo'
+    };
+  }
+
+  const demoCarpenter = getCarpenters().find(carpenter => {
+    const cleanCarpenterPhone = normalizePhoneForComparison(carpenter.phone || carpenter.id || '');
+    const carpenterEmail = String(carpenter.email || '').toLowerCase();
+    return password === 'carpenter123' && (
+      cleanInputPhone === cleanCarpenterPhone ||
+      normalizedInput === carpenterEmail
+    );
+  });
+
+  if (demoCarpenter) {
+    return {
+      success: true,
+      user: {
+        role: 'Carpenter',
+        name: demoCarpenter.name,
+        username: demoCarpenter.phone || demoCarpenter.id,
+        phone: demoCarpenter.phone || '',
+        email: demoCarpenter.email || '',
+        id: demoCarpenter.id
+      },
+      source: 'local-demo'
+    };
+  }
 
   // Try PocketBase first
   try {

@@ -1,7 +1,7 @@
 // src/components/InventoryDashboard.jsx
 import { useState, useEffect } from 'react';
 import { Package, Check, ClipboardList, AlertOctagon, User, FileText, Image as ImageIcon, Search } from 'lucide-react';
-import { updateOrder, addNotification, getUserRole, fsaQueries, normalizeOrder, stateManager } from '../utils/stateManager';
+import { updateOrder, saveOrders, addNotification, getUserRole, fsaQueries, normalizeOrder, stateManager } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
 import './InventoryDashboard.css';
 
@@ -25,6 +25,16 @@ function getPartsList(order) {
 
 function getCarpenterComments(order) {
   return order.carpenterComments || order.damageReport?.notes || order.damage_report?.notes || '';
+}
+
+function getPartRequestStatus(order) {
+  const status = order.damageReport?.status || order.damage_report?.status || order.replacement_request?.status || '';
+  return String(status).toLowerCase();
+}
+
+function hasOpenPartRequest(order) {
+  const requestStatus = getPartRequestStatus(order);
+  return order.jobStatus === 'On Hold - Parts Requested' && !['approved', 'dispatched', 'resolved', 'closed'].includes(requestStatus);
 }
 
 export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
@@ -63,7 +73,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
         carpenterComments: getCarpenterComments(normalized)
       };
     });
-    const onHold = allOrders.filter(o => o.jobStatus === 'On Hold - Parts Requested');
+    const onHold = allOrders.filter(hasOpenPartRequest);
     
     // Lean history: find orders that have a 'Parts Dispatched' audit log
     const history = allOrders.filter(o => 
@@ -119,13 +129,16 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
         };
 
         const updatedOrder = updateOrder(orderId, updatedFields);
+        const fallbackUpdatedOrder = normalizeOrder({ ...order, ...updatedFields });
         addNotification(`Logistics: Parts dispatched for order ${orderId}. Job status changed to Assigned.`);
         
         setProcessingId(null);
         if (updatedOrder) {
           loadOrders(currentOrders.map(o => o.orderId === orderId ? updatedOrder : o));
         } else {
-          loadOrders();
+          const mergedWithApprovedOrder = currentOrders.map(o => o.orderId === orderId ? fallbackUpdatedOrder : o);
+          saveOrders(mergedWithApprovedOrder, fallbackUpdatedOrder);
+          loadOrders(mergedWithApprovedOrder);
         }
         refetchOrders();
         if (onRefresh) onRefresh();
