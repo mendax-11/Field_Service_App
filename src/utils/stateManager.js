@@ -1203,7 +1203,8 @@ export const stateManager = {
       const damageReport = {
         partName,
         notes,
-        photo: damagePhotos.length > 0 ? damagePhotos[0] : 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100%" height="100%" fill="%23c0392b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="10">Parts Damage</text></svg>'
+        photo: damagePhotos.length > 0 ? damagePhotos[0] : 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100%" height="100%" fill="%23c0392b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="10">Parts Damage</text></svg>',
+        damagePhotos  // embed so normalizeOrder can extract on re-load
       };
 
       const timestamp = new Date().toISOString();
@@ -1216,7 +1217,7 @@ export const stateManager = {
         jobStatus: 'On Hold - Parts Requested',
         status: 'On Hold - Parts Requested',
         auditLogs: [
-          ...(order.auditLogs || []),
+          ...(Array.isArray(order.auditLogs) ? order.auditLogs : []),
           {
             timestamp,
             action: 'Status Changed to On Hold',
@@ -1227,7 +1228,7 @@ export const stateManager = {
       };
       
       orders[orderIndex] = updatedOrderObj;
-      saveOrders(orders);
+      saveOrders(orders, updatedOrderObj);  // pass changed order to trigger PB sync
       
       // Auto-insert chat comment
       addComment(jobId, `System: Replacement part requested [${partName}]. Status changed to On Hold. Notes: ${notes}`, order.assignedCarpenter || 'Carpenter');
@@ -2225,6 +2226,20 @@ setTimeout(() => {
             order.otp_sent = existingLocal.otpSent;
             order.otpVerified = existingLocal.otpVerified;
             order.otp_verified = existingLocal.otpVerified;
+
+            // Preserve locally saved damage photos — PB may not have synced them yet
+            if (
+              existingLocal.damagePhotos &&
+              Array.isArray(existingLocal.damagePhotos) &&
+              existingLocal.damagePhotos.length > 0 &&
+              (!order.damagePhotos || order.damagePhotos.length === 0)
+            ) {
+              order.damagePhotos = existingLocal.damagePhotos;
+              order.damage_photos = existingLocal.damagePhotos;
+              if (order.damageReport) {
+                order.damageReport.damagePhotos = existingLocal.damagePhotos;
+              }
+            }
           }
           return order;
         });
