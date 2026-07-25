@@ -1472,144 +1472,41 @@ async function syncOrderToPocketBase(orderId, order) {
       pbFields.assigned_carpenter = null;
     }
 
-
-    // Prepare files to upload if any fields contain base64 data URLs
-    let hasFiles = false;
-    const formData = new FormData();
-
-    // Append regular fields
-    Object.keys(pbFields).forEach(key => {
-      let val = pbFields[key];
-      // Do not append base64 strings to regular fields to avoid PocketBase validation errors (e.g. if the schema expects a file)
-      if (typeof val === 'string' && val.startsWith('data:image/')) return;
-      if (typeof val === 'object' && val !== null) {
-        val = JSON.stringify(val);
-      }
-      formData.append(key, val);
-    });
-
-    // Helper to extract extension from data URL
-    const getExt = (dataUrl) => {
-      if (dataUrl.startsWith('data:image/jpeg')) return 'jpg';
-      if (dataUrl.startsWith('data:image/png')) return 'png';
-      if (dataUrl.startsWith('data:image/gif')) return 'gif';
-      if (dataUrl.startsWith('data:image/webp')) return 'webp';
-      return 'png'; // default fallback
-    };
-
-    if (order.photos && order.photos.before && order.photos.before.startsWith('data:image/')) {
-      const blob = dataURLtoBlob(order.photos.before);
-      if (blob) {
-        const ext = getExt(order.photos.before);
-        formData.append('photos_before', blob, `before_${orderId}.${ext}`);
-        hasFiles = true;
-      }
-    }
-    if (order.photos && order.photos.after && order.photos.after.startsWith('data:image/')) {
-      const blob = dataURLtoBlob(order.photos.after);
-      if (blob) {
-        const ext = getExt(order.photos.after);
-        formData.append('photos_after', blob, `after_${orderId}.${ext}`);
-        hasFiles = true;
-      }
-    }
-    if (order.signature && order.signature.startsWith('data:image/')) {
-      const blob = dataURLtoBlob(order.signature);
-      if (blob) {
-        const ext = getExt(order.signature);
-        formData.append('signature_file', blob, `sigfile_${orderId}.${ext}`);
-        formData.append('signature', blob, `sig_${orderId}.${ext}`);
-        formData.append('customer_signature', blob, `cus_sig_${orderId}.${ext}`);
-        hasFiles = true;
-      }
-    }
-
+    // Attempt direct JSON sync. PocketBase schema uses "json" for photos and "text" for signature.
+    // Base64 strings will be stored directly in these fields.
     let updatedRecord = null;
     
-    const attemptJsonSync = async (fields) => {
+    try {
+      const safeFields = { ...pbFields };
+      
       try {
-        // Strip out base64 strings from JSON to prevent 400 Bad Request
-        const safeFields = { ...fields };
-        Object.keys(safeFields).forEach(k => {
-          if (typeof safeFields[k] === 'string' && safeFields[k].startsWith('data:image/')) {
-            delete safeFields[k];
-          }
-        });
-        if (safeFields.photos) {
-          safeFields.photos = { ...safeFields.photos };
-          if (safeFields.photos.before && typeof safeFields.photos.before === 'string' && safeFields.photos.before.startsWith('data:image/')) delete safeFields.photos.before;
-          if (safeFields.photos.after && typeof safeFields.photos.after === 'string' && safeFields.photos.after.startsWith('data:image/')) delete safeFields.photos.after;
-        }
-        
-        try {
-          if (record) {
-            await pb.collection('orders').update(record.id, safeFields, { $autoCancel: false });
-          } else {
-            await pb.collection('orders').create(safeFields, { $autoCancel: false });
-          }
-        } catch (err) {
-          if (err.status === 400 && record) {
-            console.warn('[PocketBase] 400 Bad Request during full sync. Applying KISS fallback for core status...', err);
-            const kissFields = {
-              status: safeFields.status,
-              assembly_status: safeFields.assembly_status,
-              payment_status: safeFields.payment_status,
-              delivery_status: safeFields.delivery_status
-            };
-            await pb.collection('orders').update(record.id, kissFields, { $autoCancel: false });
-          } else {
-            throw err;
-          }
+        if (record) {
+          updatedRecord = await pb.collection('orders').update(record.id, safeFields, { $autoCancel: false });
+        } else {
+          updatedRecord = await pb.collection('orders').create(safeFields, { $autoCancel: false });
         }
       } catch (err) {
-        console.warn('JSON sync failed entirely.', err);
-        return null;
-      }
-    };
-
-    if (hasFiles) {
-      try {
-        // Attempt upload with files
-        if (record) {
-          updatedRecord = await pb.collection('orders').update(record.id, formData, { $autoCancel: false });
+        if (err.status === 400 && record) {
+          console.warn('[PocketBase] 400 Bad Request during full sync. Applying KISS fallback for core status...', err);
+          const kissFields = {
+            status: safeFields.status,
+            assembly_status: safeFields.assembly_status,
+            payment_status: safeFields.payment_status,
+            delivery_status: safeFields.delivery_status
+          };
+          updatedRecord = await pb.collection('orders').update(record.id, kissFields, { $autoCancel: false });
         } else {
-          updatedRecord = await pb.collection('orders').create(formData, { $autoCancel: false });
+          throw err;
         }
-      } catch (uploadError) {
-        console.warn('File upload to PocketBase failed. Falling back to JSON sync:', uploadError);
-        updatedRecord = await attemptJsonSync(pbFields);
       }
-    } else {
-      updatedRecord = await attemptJsonSync(pbFields);
+    } catch (err) {
+      console.warn('JSON sync failed entirely.', err);
     }
 
-    // If upload succeeded and file paths exist, replace local base64 with public URL links
+    // If upload succeeded, ensure we keep our local base64/URLs
     if (updatedRecord) {
       const updatedPhotos = { ...order.photos };
-      let localUpdateNeeded = false;
-
-      if (updatedRecord.photos_before) {
-        const fileUrl = `${POCKETBASE_URL}/api/files/orders/${updatedRecord.id}/${updatedRecord.photos_before}`;
-        if (order.photos.before !== fileUrl) {
-          updatedPhotos.before = fileUrl;
-          localUpdateNeeded = true;
-        }
-      }
-      if (updatedRecord.photos_after) {
-        const fileUrl = `${POCKETBASE_URL}/api/files/orders/${updatedRecord.id}/${updatedRecord.photos_after}`;
-        if (order.photos.after !== fileUrl) {
-          updatedPhotos.after = fileUrl;
-          localUpdateNeeded = true;
-        }
-      }
       let updatedSignature = order.signature;
-      if (updatedRecord.signature_file) {
-        const fileUrl = `${POCKETBASE_URL}/api/files/orders/${updatedRecord.id}/${updatedRecord.signature_file}`;
-        if (order.signature !== fileUrl) {
-          updatedSignature = fileUrl;
-          localUpdateNeeded = true;
-        }
-      }
 
       // Always save merged comments and audit logs, and any resolved URLs
       const localOrders = getOrders();
