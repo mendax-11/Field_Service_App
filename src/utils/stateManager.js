@@ -416,6 +416,9 @@ export const saveOrders = (orders, changedOrders = []) => {
       syncOrderToPocketBase(o.orderId, o);
     });
   }
+
+  // Prune stale/heavy data from localStorage (runs async, non-blocking)
+  setTimeout(pruneLocalStorage, 0);
 };
 
 export const rejectJob = (orderId, carpenterName, reason, fallbackJob = null) => {
@@ -723,6 +726,84 @@ function saveOrdersLocalOnly(orders) {
     // ignore storage quota errors
   }
   window.dispatchEvent(new Event('fsa_storage_update'));
+}
+
+/**
+ * pruneLocalStorage — keeps localStorage lean by:
+ * 1. Stripping base64 photo/signature blobs from any order that already has a real
+ *    PocketBase record ID (meaning the data is confirmed on the server).
+ * 2. Evicting Completed or Archived orders whose last audit-log is older than 7 days.
+ * Called automatically after every saveOrders() write.
+ */
+function pruneLocalStorage() {
+  try {
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const orders = memoryOrders || [];
+
+    const pruned = orders
+      .filter(order => {
+        // ── Evict old completed / archived orders ──────────────────────────
+        const isDone = order.jobStatus === 'Completed' || order.status === 'Completed'
+          || order.archived === true || order.is_archived === true;
+        if (!isDone) return true; // keep active orders always
+
+        // Find the most-recent audit-log timestamp
+        const logs = Array.isArray(order.auditLogs) ? order.auditLogs : [];
+        const lastLogTs = logs.length > 0
+          ? Math.max(...logs.map(l => new Date(l.timestamp || 0).getTime()))
+          : 0;
+        const refTs = lastLogTs || new Date(order.updated || order.created || 0).getTime();
+        return (now - refTs) < SEVEN_DAYS_MS; // keep if still within 7-day window
+      })
+      .map(order => {
+        // ── Strip heavy base64 blobs only from server-confirmed orders ────
+        // A real PocketBase record ID is 15 chars; local mock IDs start with
+        // letters like 'c1', 'ORD-', etc.
+        const hasPbId = order.id && order.id.length === 15;
+        if (!hasPbId) return order; // local-only record — keep everything
+
+        const stripped = { ...order };
+
+        // Clear damagePhotos array (server has these in damage_report JSON field)
+        if (Array.isArray(stripped.damagePhotos) && stripped.damagePhotos.length > 0) {
+          stripped.damagePhotos = [];
+          stripped.damage_photos = [];
+          if (stripped.damageReport) {
+            stripped.damageReport = { ...stripped.damageReport, damagePhotos: [] };
+          }
+        }
+
+        // Clear before/after photos (server has these in photos JSON field)
+        if (stripped.photos) {
+          const hasBase64Before = typeof stripped.photos.before === 'string' && stripped.photos.before.startsWith('data:');
+          const hasBase64After  = typeof stripped.photos.after  === 'string' && stripped.photos.after.startsWith('data:');
+          if (hasBase64Before || hasBase64After) {
+            stripped.photos = {
+              before: hasBase64Before ? null : stripped.photos.before,
+              after:  hasBase64After  ? null : stripped.photos.after
+            };
+          }
+        }
+
+        // Clear base64 signature blob
+        if (typeof stripped.signature === 'string' && stripped.signature.startsWith('data:')) {
+          stripped.signature = null;
+        }
+
+        return stripped;
+      });
+
+    memoryOrders = pruned;
+    try {
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(pruned));
+    } catch (e) {
+      // Still full — nothing more we can do here
+    }
+  } catch (e) {
+    // Pruning is best-effort; never crash the app
+    console.warn('[FSA] pruneLocalStorage error:', e);
+  }
 }
 
 function saveCarpentersLocalOnly(carpenters) {
@@ -1539,24 +1620,43 @@ async function syncOrderToPocketBase(orderId, order) {
       console.warn('JSON sync failed entirely.', err);
     }
 
-    // If upload succeeded, ensure we keep our local base64/URLs
+    // If upload succeeded, strip heavy base64 blobs from localStorage — data is now on PocketBase
     if (updatedRecord) {
-      const updatedPhotos = { ...order.photos };
-      let updatedSignature = order.signature;
-
-      // Always save merged comments and audit logs, and any resolved URLs
       const localOrders = getOrders();
       const idx = localOrders.findIndex(o => o.id === orderId || o.orderId === orderId || o.order_id === orderId);
       if (idx !== -1) {
+        const local = localOrders[idx];
+
+        // Clear damagePhotos — server now holds them in damage_report JSON
+        const strippedDamagePhotos = [];
+        const strippedDamageReport = local.damageReport
+          ? { ...local.damageReport, damagePhotos: [] }
+          : local.damageReport;
+
+        // Replace base64 before/after photos with null (server holds them in photos JSON)
+        const strippedPhotos = local.photos ? {
+          before: typeof local.photos.before === 'string' && local.photos.before.startsWith('data:') ? null : local.photos.before,
+          after:  typeof local.photos.after  === 'string' && local.photos.after.startsWith('data:')  ? null : local.photos.after
+        } : local.photos;
+
+        // Clear base64 signature blob
+        const strippedSignature = typeof local.signature === 'string' && local.signature.startsWith('data:')
+          ? null
+          : local.signature;
+
         localOrders[idx] = {
-          ...localOrders[idx],
+          ...local,
           comments: mergedComments,
           auditLogs: mergedAuditLogs,
           audit_logs: mergedAuditLogs,
-          photos: updatedPhotos,
-          signature: updatedSignature
+          damagePhotos: strippedDamagePhotos,
+          damage_photos: strippedDamagePhotos,
+          damageReport: strippedDamageReport,
+          photos: strippedPhotos,
+          signature: strippedSignature
         };
         saveOrdersLocalOnly(localOrders);
+        console.log('[FSA] Base64 blobs cleared from localStorage for order', orderId, '— data confirmed on PocketBase.');
       }
     }
   } catch (err) {
