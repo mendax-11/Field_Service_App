@@ -5,6 +5,28 @@ import { updateOrder, addNotification, getUserRole, fsaQueries, normalizeOrder, 
 import { useQuery } from '@tanstack/react-query';
 import './InventoryDashboard.css';
 
+function getDamagePhotos(order) {
+  if (Array.isArray(order.damagePhotos) && order.damagePhotos.length > 0) {
+    return order.damagePhotos;
+  }
+  if (Array.isArray(order.damage_report?.damagePhotos) && order.damage_report.damagePhotos.length > 0) {
+    return order.damage_report.damagePhotos;
+  }
+  if (Array.isArray(order.damageReport?.damagePhotos) && order.damageReport.damagePhotos.length > 0) {
+    return order.damageReport.damagePhotos;
+  }
+  const singlePhoto = order.damagePhoto || order.damage_report?.photo || order.damageReport?.photo;
+  return singlePhoto ? [singlePhoto] : [];
+}
+
+function getPartsList(order) {
+  return order.partsList || order.damageReport?.partName || order.damage_report?.partName || '';
+}
+
+function getCarpenterComments(order) {
+  return order.carpenterComments || order.damageReport?.notes || order.damage_report?.notes || '';
+}
+
 export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
   const [onHoldOrders, setOnHoldOrders] = useState([]);
   const [historyOrders, setHistoryOrders] = useState([]);
@@ -13,12 +35,34 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
   const [processingId, setProcessingId] = useState(null);
 
   const { data: ordersData = { items: [] }, refetch: refetchOrders } = useQuery(fsaQueries.orders.all(1, 500));
-  const orders = (ordersData.items || []).map(normalizeOrder).filter(Boolean).map(order => {
-    const localMemory = stateManager.getOrders().find(o => o?.id === order?.id || o?.orderId === order?.id || o?.order_id === order?.id);
-    return localMemory ? { ...order, ...localMemory } : order;
-  });
-  const loadOrders = () => {
-    const allOrders = orders;
+  const getMergedOrders = () => {
+    const localOrders = stateManager.getOrders();
+    const serverOrders = (ordersData.items || []).map(normalizeOrder).filter(Boolean);
+    const mergedById = new Map();
+
+    serverOrders.forEach(order => {
+      mergedById.set(order.orderId, order);
+    });
+    localOrders.forEach(order => {
+      const key = order.orderId || order.order_id || order.id;
+      mergedById.set(key, { ...(mergedById.get(key) || {}), ...order });
+    });
+
+    return Array.from(mergedById.values()).map(normalizeOrder).filter(Boolean);
+  };
+
+  const loadOrders = (sourceOrders = getMergedOrders()) => {
+    const allOrders = sourceOrders.map(order => {
+      const normalized = normalizeOrder(order);
+      const damagePhotos = getDamagePhotos(normalized);
+      return {
+        ...normalized,
+        damagePhotos,
+        damage_photos: damagePhotos,
+        partsList: getPartsList(normalized),
+        carpenterComments: getCarpenterComments(normalized)
+      };
+    });
     const onHold = allOrders.filter(o => o.jobStatus === 'On Hold - Parts Requested');
     
     // Lean history: find orders that have a 'Parts Dispatched' audit log
@@ -50,11 +94,18 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
     
     // Simulate slight delay for premium feel
     setTimeout(() => {
-      const order = orders.find(o => o.orderId === orderId);
+      const currentOrders = getMergedOrders();
+      const order = currentOrders.find(o => o.orderId === orderId);
       if (order) {
         const timestamp = new Date().toISOString();
+        const requestedParts = partsList || getPartsList(order);
+        const damageReport = order.damageReport || order.damage_report || null;
         const updatedFields = {
           jobStatus: 'Assigned',
+          status: 'Assigned',
+          assembly_status: 'Assigned',
+          damageReport: damageReport ? { ...damageReport, status: 'Dispatched' } : damageReport,
+          damage_report: damageReport ? { ...damageReport, status: 'Dispatched' } : damageReport,
           // Append audit log
           auditLogs: [
             ...(order.auditLogs || []),
@@ -62,17 +113,24 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
               timestamp,
               action: 'Parts Dispatched',
               user: getUserRole(),
-              comments: `Parts approved & dispatched: ${partsList || 'Requested parts package'}`
+              comments: `Parts approved & dispatched: ${requestedParts || 'Requested parts package'}`
             }
           ]
         };
 
-        updateOrder(orderId, updatedFields);
+        const updatedOrder = updateOrder(orderId, updatedFields);
         addNotification(`Logistics: Parts dispatched for order ${orderId}. Job status changed to Assigned.`);
         
         setProcessingId(null);
-        loadOrders();
+        if (updatedOrder) {
+          loadOrders(currentOrders.map(o => o.orderId === orderId ? updatedOrder : o));
+        } else {
+          loadOrders();
+        }
+        refetchOrders();
         if (onRefresh) onRefresh();
+      } else {
+        setProcessingId(null);
       }
     }, 800);
   };
@@ -140,7 +198,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
                     return (
                       order.orderId.toLowerCase().includes(searchLower) ||
                       (order.assignedCarpenter || '').toLowerCase().includes(searchLower) ||
-                      (order.partsList || '').toLowerCase().includes(searchLower)
+                    getPartsList(order).toLowerCase().includes(searchLower)
                     );
                   })
                   .map(order => (
@@ -149,13 +207,13 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
                     <td>{order.customerName}</td>
                     <td>{order.assignedCarpenter}</td>
                     <td>
-                      {order.damagePhotos && order.damagePhotos.length > 0 ? (
+                      {getDamagePhotos(order).length > 0 ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <div style={{ width: '48px', height: '48px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--admin-border-color)', position: 'relative' }}>
-                            <img src={order.damagePhotos[0]} alt="Damage" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            {order.damagePhotos.length > 1 && (
+                            <img src={getDamagePhotos(order)[0]} alt="Damage" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            {getDamagePhotos(order).length > 1 && (
                               <div style={{ position: 'absolute', bottom: 0, right: 0, background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '9px', padding: '1px 3px', borderTopLeftRadius: '3px', fontWeight: 'bold' }}>
-                                +{order.damagePhotos.length - 1}
+                                +{getDamagePhotos(order).length - 1}
                               </div>
                             )}
                           </div>
@@ -166,7 +224,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
                     </td>
                     <td>
                       <div className="parts-tags">
-                        {order.partsList ? order.partsList.split(',').map((part, index) => (
+                        {getPartsList(order) ? getPartsList(order).split(',').map((part, index) => (
                           <span key={index} className="part-tag">{part.trim()}</span>
                         )) : (
                           <span className="no-parts-text">N/A</span>
@@ -208,9 +266,9 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
               <div className="card-main-layout">
                 {/* Damage Photo Section */}
                 <div className="damage-photo-panel" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {order.damagePhotos && order.damagePhotos.length > 0 ? (
+                  {getDamagePhotos(order).length > 0 ? (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '8px', width: '100%' }}>
-                      {order.damagePhotos.map((photo, idx) => (
+                      {getDamagePhotos(order).map((photo, idx) => (
                         <div key={idx} className="photo-wrapper" style={{ height: '90px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--admin-border-color)', position: 'relative' }}>
                           <img 
                             src={photo} 
@@ -238,9 +296,9 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
                   <div className="detail-section">
                     <span className="section-label"><Package size={14} /> Parts Requested:</span>
                     <div className="parts-list-display">
-                      {order.partsList ? (
+                      {getPartsList(order) ? (
                         <div className="parts-tags">
-                          {order.partsList.split(',').map((part, index) => (
+                          {getPartsList(order).split(',').map((part, index) => (
                             <span key={index} className="part-tag">{part.trim()}</span>
                           ))}
                         </div>
@@ -253,7 +311,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
                   <div className="detail-section">
                     <span className="section-label"><FileText size={14} /> Carpenter Comments:</span>
                     <p className="carpenter-quote">
-                      "{order.carpenterComments || 'No details provided by carpenter.'}"
+                      "{getCarpenterComments(order) || 'No details provided by carpenter.'}"
                     </p>
                   </div>
 
@@ -271,7 +329,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
                 <button
                   type="button"
                   className={`dispatch-parts-btn ${processingId === order.orderId ? 'loading' : ''}`}
-                  onClick={() => handleApproveDispatch(order.orderId, order.partsList)}
+                  onClick={() => handleApproveDispatch(order.orderId, getPartsList(order))}
                   disabled={processingId !== null}
                 >
                   {processingId === order.orderId ? (
