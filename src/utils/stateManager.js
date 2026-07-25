@@ -1162,6 +1162,10 @@ export const stateManager = {
     return updateOrder(jobId, updatedFields);
   },
 
+  rejectJob(orderId, carpenterName, reason, fallbackJob = null) {
+    return rejectJob(orderId, carpenterName, reason, fallbackJob);
+  },
+
   toggleChecklistItem(jobId, itemId) {
     lastLocalUpdate.set(jobId, Date.now());
     const orders = getOrders();
