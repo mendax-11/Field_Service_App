@@ -515,26 +515,6 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     alert("Reimbursement request submitted successfully!");
   };
 
-  // Submit Reject/Skip Order
-  const handleRejectSubmit = (e) => {
-    e.preventDefault();
-    const finalReason = rejectReason === 'Other' ? customRejectReason : rejectReason;
-    
-    if (!finalReason) {
-      alert("Please specify a reason for rejecting the order.");
-      return;
-    }
-
-    const currentJob = jobs.find(j => j.id === selectedJobId) || job;
-    stateManager.rejectJob(selectedJobId, carpenterName, finalReason, currentJob);
-    
-    refetchJobs();
-    setShowRejectForm(false);
-    setRejectReason('');
-    setCustomRejectReason('');
-    setSelectedJobId(null);
-    setActiveTab('jobs');
-  };
 
   const handleMockDamagePhoto = () => {
     const mockPhoto = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="100%" height="100%" fill="%237f1d1d"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23f87171" font-size="13">Damaged Shelf Rail Joint (Mock ${damagePhotos.length + 1})</text></svg>`;
