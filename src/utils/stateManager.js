@@ -506,7 +506,7 @@ export const updateOrder = (orderId, updatedFields) => {
     const updated = normalizeOrder(orders[index]);
 
     // Check status transition
-    if (newStatus && newStatus !== oldStatus) {
+    if (newStatus && newStatus !== oldStatus && !updatedFields.skipWebhook) {
       if (newStatus === 'Completed') {
         triggerN8nWebhook('job_completed', {
           orderId: updated.orderId,
@@ -1967,7 +1967,8 @@ export async function syncSettingsFromPocketBase() {
 export async function triggerN8nWebhook(event, data) {
   const config = getN8nConfig();
   if (!config.enabled || !config.webhookUrl) {
-    return;
+    addNotification(`Customer message skipped for '${event}': n8n webhook is not configured.`, '', 'System');
+    return { sent: false, skipped: true, queued: false };
   }
 
   const payload = {
@@ -1991,10 +1992,12 @@ export async function triggerN8nWebhook(event, data) {
     
     // Log success in dashboard notifications
     addNotification(`n8n Webhook: Fired '${event}' successfully.`, '', 'System');
+    return { sent: true, skipped: false, queued: false };
   } catch (err) {
     console.error(`n8n Webhook error for event '${event}':`, err);
     addNotification(`n8n Webhook failed for event '${event}'.`, '', 'System');
     queueSyncOperation('n8n_webhook', { event, data });
+    return { sent: false, skipped: false, queued: true, error: err.message || String(err) };
   }
 }
 

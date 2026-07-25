@@ -12,7 +12,7 @@ import {
   AlertTriangle,
   LogOut
 } from 'lucide-react';
-import { stateManager, triggerN8nWebhook, fsaQueries, normalizeOrder } from '../utils/stateManager';
+import { stateManager, triggerN8nWebhook, fsaQueries, normalizeOrder, addNotification } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
 import { getTranslation } from '../utils/translations';
 import { captureAndStampPhoto } from '../utils/photoStamper';
@@ -111,6 +111,28 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   // In-app mock SMS notification
   const [smsNotification, setSmsNotification] = useState(null);
 
+  const getCustomerMessagePhones = (rawPhone) => {
+    const smsPhone = rawPhone || '';
+    let waPhone = smsPhone.replace(/[^0-9]/g, '');
+    if (waPhone.length === 10) {
+      waPhone = `91${waPhone}`;
+    }
+    return { smsPhone, waPhone };
+  };
+
+  const showCustomerMessageNotification = ({ title, customerName, message, rawPhone, deliveryStatus = 'Preparing message...' }) => {
+    const { smsPhone, waPhone } = getCustomerMessagePhones(rawPhone);
+    setSmsNotification({
+      title,
+      customerName,
+      text: message,
+      deliveryStatus,
+      waPhone,
+      smsPhone,
+      encodedMsg: encodeURIComponent(message)
+    });
+  };
+
   // Onboarding Tutorial states
   const [showTutorial, setShowTutorial] = useState(() => {
     return !localStorage.getItem('fsa_carpenter_tutorial_completed');
@@ -161,6 +183,8 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
 
     stateManager.updateJob(jobId, {
       status: 'In Progress',
+      jobStatus: 'In Progress',
+      skipWebhook: true,
       auditLogs: [
         ...(currentJob.auditLogs || []),
         {
@@ -173,16 +197,29 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     });
     
     const trackLink = `${window.location.origin}${window.location.pathname}?track=${jobId}`;
-    const msg = `Hi ${currentJob.customerName}, your CarpentryPro technician ${carpenterName} is on the way! ETA: 25 mins. Live-track at: ${trackLink}`;
-    const rawPhone = currentJob.customerPhone || '+91-95555-01234';
-    const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+    const msg = `Hi ${currentJob.customerName}, your TimberFlow technician ${carpenterName} is on the way. ETA: 25 mins. Live tracking: ${trackLink}`;
+    const rawPhone = currentJob.customerPhone || currentJob.customer_phone || currentJob.customer_number || '';
     
-    setSmsNotification({
+    showCustomerMessageNotification({
+      title: "I'm on my way message",
       customerName: currentJob.customerName,
-      text: `[SMS to Client] "${msg}"`,
-      waPhone: cleanPhone,
-      smsPhone: rawPhone,
-      encodedMsg: encodeURIComponent(msg)
+      message: msg,
+      rawPhone
+    });
+
+    triggerN8nWebhook('transit_started', {
+      orderId: currentJob.orderId || currentJob.id,
+      customerName: currentJob.customerName,
+      customerPhone: rawPhone,
+      carpenterName,
+      etaMinutes: 25,
+      trackingUrl: trackLink
+    }).then((webhookResult) => {
+      const deliveryStatus = webhookResult?.sent
+        ? 'Automatic webhook sent.'
+        : (webhookResult?.queued ? 'Webhook failed and was queued. Use WhatsApp/SMS fallback below.' : 'Webhook is not configured. Use WhatsApp/SMS fallback below.');
+      addNotification(`Transit customer message for ${currentJob.orderId || currentJob.id}: ${deliveryStatus}`, '', 'System');
+      setSmsNotification(prev => prev ? { ...prev, deliveryStatus } : prev);
     });
 
     // Start GPS watch
@@ -529,17 +566,32 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   // Trigger Send OTP
   const handleSendOtp = (jobId) => {
     const currentJob = stateManager.getJobById(jobId);
-    stateManager.updateJob(jobId, { otpSent: true });
+    if (!currentJob) return;
+    const updatedJob = stateManager.updateJob(jobId, { otpSent: true }) || currentJob;
     setResendCooldown(60);
+    const rawPhone = updatedJob.customerPhone || updatedJob.customer_phone || updatedJob.customer_number || '';
+    const otpMessage = `Dear ${updatedJob.customerName || 'Customer'}, your TimberFlow assembly verification code is ${updatedJob.otp}. Please share this with your technician.`;
+
+    showCustomerMessageNotification({
+      title: 'OTP customer message',
+      customerName: updatedJob.customerName,
+      message: otpMessage,
+      rawPhone
+    });
 
     // Send real-time webhook to n8n for production WhatsApp/SMS OTP dispatch
     triggerN8nWebhook('otp_requested', {
-      orderId: currentJob.orderId || currentJob.id,
-      customerName: currentJob.customerName,
-      customerPhone: currentJob.customerPhone || '',
-      otp: currentJob.otp
+      orderId: updatedJob.orderId || updatedJob.id,
+      customerName: updatedJob.customerName,
+      customerPhone: rawPhone,
+      otp: updatedJob.otp
+    }).then((webhookResult) => {
+      const deliveryStatus = webhookResult?.sent
+        ? 'Automatic webhook sent.'
+        : (webhookResult?.queued ? 'Webhook failed and was queued. Use WhatsApp/SMS fallback below.' : 'Webhook is not configured. Use WhatsApp/SMS fallback below.');
+      addNotification(`OTP customer message for ${updatedJob.orderId || updatedJob.id}: ${deliveryStatus}`, '', 'System');
+      setSmsNotification(prev => prev ? { ...prev, deliveryStatus } : prev);
     });
-
     refetchJobs();
   };
 
@@ -924,7 +976,12 @@ Your review helps us serve you better. Thank you!`;
         {smsNotification && (
           <div className="mock-notification-banner">
             <div className="mock-notification-content">
-              <strong>MOCK SMS NOTIFICATION</strong>
+              <strong>{smsNotification.title || 'Customer Message'}</strong>
+              {smsNotification.deliveryStatus && (
+                <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {smsNotification.deliveryStatus}
+                </span>
+              )}
               <p>{smsNotification.text}</p>
               <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                 <a 
