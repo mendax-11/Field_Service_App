@@ -260,7 +260,9 @@ export function normalizeOrder(o) {
     partsList,
     carpenterComments,
     damagePhotos,
-    damage_photos: damagePhotos
+    damage_photos: damagePhotos,
+    secureSignatureUrl: o.secureSignatureUrl || o.secure_signature_url || '',
+    securePhotoUrl: o.securePhotoUrl || o.secure_photo_url || ''
   };
 }
 
@@ -935,7 +937,7 @@ export const clearNotifications = () => {
 // Comments
 export const addComment = (orderId, commentText, author) => {
   const orders = getOrders();
-  const order = orders.find(o => o.orderId === orderId);
+  const order = orders.find(o => o.id === orderId || o.orderId === orderId || o.order_id === orderId);
   if (order) {
     if (!order.comments) order.comments = [];
     const timestamp = new Date().toISOString();

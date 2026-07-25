@@ -697,7 +697,6 @@ Your review helps us serve you better. Thank you!`;
 
     // Refresh jobs
     refetchJobs();
-    setSelectedJobId(null);
     setEnteredOtp('');
     setOtpError('');
   };
@@ -1021,6 +1020,7 @@ Your review helps us serve you better. Thank you!`;
               jobs={jobs}
               activeUser={activeUser}
               setSelectedJobId={setSelectedJobId}
+              refetchJobs={refetchJobs}
             />
           )}
 

@@ -1,6 +1,17 @@
-import { Clock, CheckCircle, IndianRupee, CheckSquare, User, MapPin, ChevronRight } from 'lucide-react';
+import { Clock, CheckCircle, IndianRupee, CheckSquare, User, MapPin, ChevronRight, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 
-export default function CarpenterJobList({ carpenterName, activeJobs, walletSummary, jobs, activeUser, setSelectedJobId }) {
+export default function CarpenterJobList({ carpenterName, activeJobs, walletSummary, jobs, activeUser, setSelectedJobId, refetchJobs }) {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (refetchJobs) {
+      setIsRefreshing(true);
+      await refetchJobs();
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
+
   return (
     <>
       {/* Welcome card */}
@@ -37,9 +48,20 @@ export default function CarpenterJobList({ carpenterName, activeJobs, walletSumm
       </div>
 
       {/* Jobs List Header */}
-      <div className="section-title-bar">
-        <h3>Today's Work Orders</h3>
-        <span>{activeJobs.length} jobs assigned</span>
+      <div className="section-title-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h3>Today's Work Orders</h3>
+          <span>{activeJobs.length} jobs assigned</span>
+        </div>
+        <button 
+          onClick={handleRefresh} 
+          className="btn-action" 
+          style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem' }}
+          disabled={isRefreshing}
+        >
+          <RefreshCw size={14} className={isRefreshing ? 'spin-anim' : ''} />
+          {isRefreshing ? 'Refreshing...' : 'Refresh'}
+        </button>
       </div>
 
       {/* Jobs Stack */}
