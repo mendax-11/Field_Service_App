@@ -1476,7 +1476,7 @@ async function syncOrderToPocketBase(orderId, order) {
       }
     } else {
       pbFields.assigned_carpenter_name = '';
-      pbFields.assigned_carpenter = null;
+      pbFields.assigned_carpenter = '';
     }
 
     // Attempt direct JSON sync. PocketBase schema uses "json" for photos and "text" for signature.
@@ -1499,7 +1499,9 @@ async function syncOrderToPocketBase(orderId, order) {
             status: safeFields.status,
             assembly_status: safeFields.assembly_status,
             payment_status: safeFields.payment_status,
-            delivery_status: safeFields.delivery_status
+            delivery_status: safeFields.delivery_status,
+            assigned_carpenter_name: safeFields.assigned_carpenter_name,
+            assigned_carpenter: safeFields.assigned_carpenter
           };
           updatedRecord = await pb.collection('orders').update(record.id, kissFields, { $autoCancel: false });
         } else {
