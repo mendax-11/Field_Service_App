@@ -1420,7 +1420,6 @@ async function syncOrderToPocketBase(orderId, order) {
       comments: mergedComments,
       audit_logs: mergedAuditLogs,
       damage_report: order.damageReport || order.damage_report || null,
-      damage_photos: order.damagePhotos || order.damage_photos || [],
       photos: order.photos || { before: null, after: null },
       signature: order.signature || null,
       archived: order.archived || false,
