@@ -76,6 +76,11 @@ export function normalizeOrder(o) {
   } else if (o.assigned_carpenter) {
     assignedCarpenter = o.assigned_carpenter;
   }
+
+  if (jobStatus === 'Unassigned') {
+    assignedCarpenter = '';
+    assignedCarpenterId = '';
+  }
   const assignedDate = o.assignedDate || o.assigned_date || '';
   const productImage = o.productImage || o.product_image || o.product_image_url || 'https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&w=600&q=80';
   const productRefLink = o.productRefLink || o.product_ref_link || o.product_review_link || 'https://manuals.service.com/assembly-guide.pdf';
@@ -440,6 +445,7 @@ export const rejectJob = (orderId, carpenterName, reason, fallbackJob = null) =>
       assignedCarpenter: '', 
       assignedCarpenterId: '',
       assigned_carpenter_name: '',
+      assigned_carpenter_id: '',
       assigned_carpenter: null,
       expand: order.expand ? { ...order.expand, assigned_carpenter: null } : undefined,
       jobStatus: newStatus,

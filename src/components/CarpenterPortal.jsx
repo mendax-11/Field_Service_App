@@ -718,6 +718,11 @@ Your review helps us serve you better. Thank you!`;
   let carpenterJobs = directJobId 
     ? jobs.filter(j => (j.id || j.orderId) === directJobId)
     : jobs.filter(j => {
+        // Unassigned or rejected jobs are not assigned to any technician
+        if (j.jobStatus === 'Unassigned' || j.status === 'Unassigned') {
+          return false;
+        }
+
         // 1. Compare PocketBase relation User ID
         const jobCarpId = j.assignedCarpenterId || j.assigned_carpenter_id || (j.assigned_carpenter && j.assigned_carpenter.length > 10 ? j.assigned_carpenter : '');
         if (activeUser && activeUser.id && jobCarpId && activeUser.id === jobCarpId) {
