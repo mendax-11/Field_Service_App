@@ -10,10 +10,10 @@ import OrderDetailsModal from './OrderDetailsModal';
 
 export default function OrderGrid({ refreshTrigger, onRefresh }) {
   const queryClient = useQueryClient();
-  const { data: ordersData = { items: [] }, refetch: refetchOrders, isLoading: isOrdersLoading, isFetching: isOrdersFetching } = useQuery(fsaQueries.orders.all(1, 500));
-  const { data: carpentersData = { items: [] }, refetch: refetchCarpenters, isLoading: isCarpentersLoading, isFetching: isCarpentersFetching } = useQuery(fsaQueries.carpenters.all(1, 500));
+  const { data: ordersData = { items: [] }, refetch: refetchOrders, isLoading: isOrdersLoading } = useQuery(fsaQueries.orders.all(1, 500));
+  const { data: carpentersData = { items: [] }, refetch: refetchCarpenters, isLoading: isCarpentersLoading } = useQuery(fsaQueries.carpenters.all(1, 500));
   
-  const isLoading = isOrdersLoading || isCarpentersLoading || isOrdersFetching || isCarpentersFetching;
+  const isLoading = isOrdersLoading || isCarpentersLoading;
   const orders = (ordersData.items || []).map(normalizeOrder);
   const carpenters = carpentersData.items?.length > 0 ? carpentersData.items : getCarpenters();
   
