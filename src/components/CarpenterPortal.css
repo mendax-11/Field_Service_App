@@ -1620,7 +1620,7 @@
    Modal Overlay & Content (Copied from AdminPortal.css with slight tweaks for mobile)
    ────────────────────────────────────────────────────────────────────────── */
 
-.modal-overlay {
+.carpenter-app-simulator .modal-overlay {
   position: absolute; /* Changed from fixed so it stays inside the phone frame */
   top: 0;
   left: 0;
@@ -1636,7 +1636,7 @@
   box-sizing: border-box;
 }
 
-.modal-content {
+.carpenter-app-simulator .modal-content {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 14px;
@@ -1649,7 +1649,7 @@
   overflow: hidden;
 }
 
-.modal-header {
+.carpenter-app-simulator .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1658,7 +1658,7 @@
   background-color: rgba(0,0,0,0.2);
 }
 
-.modal-actions {
+.carpenter-app-simulator .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
@@ -1669,7 +1669,7 @@
 }
 
 
-.modal-header h3 {
+.carpenter-app-simulator .modal-header h3 {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
@@ -1689,7 +1689,7 @@
   transition: background 0.15s ease;
 }
 
-.modal-actions {
+.carpenter-app-simulator .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
@@ -1830,5 +1830,3 @@
 .tutorial-btn-next:hover {
   background: var(--primary-hover);
 }
-
-

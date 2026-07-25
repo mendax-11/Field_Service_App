@@ -203,7 +203,14 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content order-details-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-content order-details-modal"
+        style={{
+          width: 'min(1040px, calc(100vw - 40px))',
+          maxWidth: 'calc(100vw - 40px)'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <div className="modal-title-area">
             <h3>Order Details: {order.orderId}</h3>

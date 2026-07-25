@@ -1043,7 +1043,7 @@
   box-sizing: border-box;
 }
 
-.order-details-modal {
+.admin-portal-wrapper .order-details-modal {
   width: min(1040px, calc(100vw - 40px));
   max-width: calc(100vw - 40px);
 }
@@ -1099,7 +1099,7 @@
   box-sizing: border-box;
 }
 
-.order-details-modal .modal-body {
+.admin-portal-wrapper .order-details-modal .modal-body {
   width: 100%;
 }
 
@@ -1126,7 +1126,7 @@
     padding: 16px;
   }
 
-  .order-details-modal {
+  .admin-portal-wrapper .order-details-modal {
     width: calc(100vw - 24px);
     max-height: calc(100vh - 24px);
   }
