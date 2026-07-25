@@ -2,16 +2,17 @@
 import { useState, useEffect } from 'react';
 import { 
   Search, ArrowUpDown, ChevronLeft, ChevronRight, 
-  Trash2, Eye, SlidersHorizontal 
+  Trash2, Eye, SlidersHorizontal, RefreshCw
 } from 'lucide-react';
 import { deleteOrder, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
 import OrderDetailsModal from './OrderDetailsModal';
 
 export default function OrderGrid({ refreshTrigger, onRefresh }) {
-  const { data: ordersData = { items: [] }, refetch: refetchOrders } = useQuery(fsaQueries.orders.all(1, 500));
-  const { data: carpentersData = { items: [] }, refetch: refetchCarpenters } = useQuery(fsaQueries.carpenters.all(1, 500));
+  const { data: ordersData = { items: [] }, refetch: refetchOrders, isLoading: isOrdersLoading, isFetching: isOrdersFetching } = useQuery(fsaQueries.orders.all(1, 500));
+  const { data: carpentersData = { items: [] }, refetch: refetchCarpenters, isLoading: isCarpentersLoading, isFetching: isCarpentersFetching } = useQuery(fsaQueries.carpenters.all(1, 500));
   
+  const isLoading = isOrdersLoading || isCarpentersLoading || isOrdersFetching || isCarpentersFetching;
   const orders = (ordersData.items || []).map(normalizeOrder);
   const carpenters = carpentersData.items || [];
   
@@ -563,7 +564,34 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
       )}
 
       {/* Orders Table */}
-      <div className="table-responsive">
+      <div className="table-responsive" style={{ position: 'relative' }}>
+        {isLoading && (
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)', zIndex: 10,
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            backdropFilter: 'blur(2px)', borderRadius: '8px'
+          }}>
+            <div style={{
+              padding: '16px 24px', background: 'var(--bg-panel, #1e293b)',
+              border: '1px solid var(--border-color, #334155)', borderRadius: '8px',
+              color: 'var(--text-main, #f8fafc)', display: 'flex', alignItems: 'center', gap: '12px',
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
+            }}>
+              <RefreshCw 
+                size={18} 
+                style={{ 
+                  color: 'var(--color-primary, #3b82f6)',
+                  animation: 'spin 1s linear infinite'
+                }} 
+              />
+              <span style={{ fontWeight: 500 }}>Syncing with Database...</span>
+              <style>{`
+                @keyframes spin { 100% { transform: rotate(360deg); } }
+              `}</style>
+            </div>
+          </div>
+        )}
         <table className="orders-table">
           <thead>
             <tr>
