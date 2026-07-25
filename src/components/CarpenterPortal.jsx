@@ -1017,8 +1017,6 @@ Your review helps us serve you better. Thank you!`;
               carpenterName={carpenterName}
               activeJobs={activeJobs}
               walletSummary={walletSummary}
-              jobs={jobs}
-              activeUser={activeUser}
               setSelectedJobId={setSelectedJobId}
               refetchJobs={refetchJobs}
             />

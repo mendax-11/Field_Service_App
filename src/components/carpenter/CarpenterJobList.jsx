@@ -1,7 +1,7 @@
 import { Clock, CheckCircle, IndianRupee, CheckSquare, User, MapPin, ChevronRight, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 
-export default function CarpenterJobList({ carpenterName, activeJobs, walletSummary, jobs, activeUser, setSelectedJobId, refetchJobs }) {
+export default function CarpenterJobList({ carpenterName, activeJobs, walletSummary, setSelectedJobId, refetchJobs }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -70,36 +70,6 @@ export default function CarpenterJobList({ carpenterName, activeJobs, walletSumm
           <div className="empty-view">
             <CheckSquare size={36} />
             <p>No active jobs! Take a break or check with Dispatch.</p>
-            
-            {/* Diagnostic Info Panel to help debug logins */}
-            <div style={{
-              marginTop: '20px',
-              padding: '12px',
-              backgroundColor: 'rgba(239, 68, 68, 0.05)',
-              border: '1px dashed rgba(239, 68, 68, 0.2)',
-              borderRadius: '8px',
-              fontSize: '11px',
-              color: 'var(--text-muted)',
-              textAlign: 'left',
-              width: '100%',
-              boxSizing: 'border-box'
-            }}>
-              <span style={{ fontWeight: 'bold', display: 'block', marginBottom: '6px', color: 'var(--color-danger)' }}>
-                Session Diagnostics:
-              </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div><strong>Database Sync:</strong> {window.fsa_db_sync_error ? <span style={{ color: 'var(--color-danger)' }}>"❌ {window.fsa_db_sync_error}"</span> : <span style={{ color: 'var(--color-success)' }}>"✅ Connected"</span>}</div>
-                <div><strong>Logged-in User Name:</strong> "{activeUser?.name || 'empty'}"</div>
-                <div><strong>Logged-in Username:</strong> "{activeUser?.username || 'empty'}"</div>
-                <div><strong>Logged-in Phone:</strong> "{activeUser?.phone || 'empty'}"</div>
-                <div><strong>Logged-in User ID:</strong> "{activeUser?.id || 'empty'}"</div>
-                <div><strong>Total System Orders:</strong> {jobs.length}</div>
-                <div><strong>Orders with Assigned Carpenter:</strong> {jobs.filter(j => j.assignedCarpenter || j.assigned_carpenter_name).length}</div>
-                <div style={{ wordBreak: 'break-all', marginTop: '4px', fontSize: '9px', opacity: 0.8 }}>
-                  <strong>Assigned Names in DB:</strong> {Array.from(new Set(jobs.map(j => j.assignedCarpenter || j.assigned_carpenter_name || 'Unassigned'))).join(', ')}
-                </div>
-              </div>
-            </div>
           </div>
         ) : (
           activeJobs.map(j => (
