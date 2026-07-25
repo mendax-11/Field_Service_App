@@ -1487,26 +1487,38 @@ async function syncOrderToPocketBase(orderId, order) {
       formData.append(key, val);
     });
 
+    // Helper to extract extension from data URL
+    const getExt = (dataUrl) => {
+      if (dataUrl.startsWith('data:image/jpeg')) return 'jpg';
+      if (dataUrl.startsWith('data:image/png')) return 'png';
+      if (dataUrl.startsWith('data:image/gif')) return 'gif';
+      if (dataUrl.startsWith('data:image/webp')) return 'webp';
+      return 'png'; // default fallback
+    };
+
     if (order.photos && order.photos.before && order.photos.before.startsWith('data:image/')) {
       const blob = dataURLtoBlob(order.photos.before);
       if (blob) {
-        formData.append('photos_before', blob, `before_${orderId}.jpg`);
+        const ext = getExt(order.photos.before);
+        formData.append('photos_before', blob, `before_${orderId}.${ext}`);
         hasFiles = true;
       }
     }
     if (order.photos && order.photos.after && order.photos.after.startsWith('data:image/')) {
       const blob = dataURLtoBlob(order.photos.after);
       if (blob) {
-        formData.append('photos_after', blob, `after_${orderId}.jpg`);
+        const ext = getExt(order.photos.after);
+        formData.append('photos_after', blob, `after_${orderId}.${ext}`);
         hasFiles = true;
       }
     }
     if (order.signature && order.signature.startsWith('data:image/')) {
       const blob = dataURLtoBlob(order.signature);
       if (blob) {
-        formData.append('signature_file', blob, `sigfile_${orderId}.png`);
-        formData.append('signature', blob, `sig_${orderId}.png`);
-        formData.append('customer_signature', blob, `cus_sig_${orderId}.png`);
+        const ext = getExt(order.signature);
+        formData.append('signature_file', blob, `sigfile_${orderId}.${ext}`);
+        formData.append('signature', blob, `sig_${orderId}.${ext}`);
+        formData.append('customer_signature', blob, `cus_sig_${orderId}.${ext}`);
         hasFiles = true;
       }
     }
