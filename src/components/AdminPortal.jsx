@@ -1007,9 +1007,9 @@ export default function AdminPortal() {
         o => o.assignedCarpenter === carp.name && o.jobStatus === 'Completed' && (showArchivedPayouts || !o.archived)
       );
 
-      // Sum payout of completed jobs that are still 'Unpaid'
+      // Sum payout of completed jobs that are still 'Unpaid' or 'Pending Payout'
       const outstandingPayout = completedJobs
-        .filter(o => o.paymentStatus === 'Unpaid')
+        .filter(o => o.paymentStatus === 'Unpaid' || o.paymentStatus === 'Pending Payout')
         .reduce((sum, o) => sum + o.payout, 0);
 
       const totalCompletedPayout = completedJobs.reduce((sum, o) => sum + o.payout, 0);
@@ -1829,7 +1829,7 @@ export default function AdminPortal() {
                                         </span>
                                       </td>
                                       <td>
-                                        {job.paymentStatus === 'Unpaid' ? (
+                                        {(job.paymentStatus === 'Unpaid' || job.paymentStatus === 'Pending Payout') ? (
                                           <button
                                             onClick={() => handleClearPayout(job.orderId, carp.name, job.payout)}
                                             className="clear-job-payout-btn"
