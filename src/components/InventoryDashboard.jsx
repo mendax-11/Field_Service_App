@@ -1,7 +1,7 @@
 // src/components/InventoryDashboard.jsx
 import { useState, useEffect } from 'react';
 import { Package, Check, ClipboardList, AlertOctagon, User, FileText, Image as ImageIcon, Search } from 'lucide-react';
-import { updateOrder, addNotification, getUserRole, fsaQueries, normalizeOrder } from '../utils/stateManager';
+import { updateOrder, addNotification, getUserRole, fsaQueries, normalizeOrder, stateManager } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
 import './InventoryDashboard.css';
 
@@ -13,7 +13,10 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
   const [processingId, setProcessingId] = useState(null);
 
   const { data: ordersData = { items: [] }, refetch: refetchOrders } = useQuery(fsaQueries.orders.all(1, 500));
-  const orders = (ordersData.items || []).map(normalizeOrder);
+  const orders = (ordersData.items || []).map(normalizeOrder).filter(Boolean).map(order => {
+    const localMemory = stateManager.getOrders().find(o => o?.id === order?.id || o?.orderId === order?.id || o?.order_id === order?.id);
+    return localMemory ? { ...order, ...localMemory } : order;
+  });
   const loadOrders = () => {
     const allOrders = orders;
     const onHold = allOrders.filter(o => o.jobStatus === 'On Hold - Parts Requested');
