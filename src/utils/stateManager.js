@@ -397,6 +397,13 @@ export const saveOrders = (orders, changedOrders = []) => {
   const normalized = orders.map(normalizeOrder).filter(Boolean);
   memoryOrders = normalized;
 
+  // Always persist to localStorage so changes survive PB refetches and page reloads
+  try {
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(normalized));
+  } catch (e) {
+    // localStorage full — continue anyway, memory cache is still updated
+  }
+
   window.dispatchEvent(new Event('fsa_storage_update'));
   
   // Background sync ONLY changed orders to PocketBase
@@ -710,6 +717,11 @@ export const saveCarpenters = (carpenters) => {
 function saveOrdersLocalOnly(orders) {
   const normalized = orders.map(normalizeOrder);
   memoryOrders = normalized;
+  try {
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(normalized));
+  } catch (e) {
+    // ignore storage quota errors
+  }
   window.dispatchEvent(new Event('fsa_storage_update'));
 }
 
@@ -2187,6 +2199,25 @@ setTimeout(() => {
               order.jobStatus = 'Completed';
               order.status = 'Completed';
               order.assembly_status = 'Completed';
+            }
+
+            // Protect locally-rejected / unassigned orders from stale PB data
+            // If user just rejected (local = Unassigned + no carpenter) honour it
+            if (
+              existingLocal.jobStatus === 'Unassigned' &&
+              !existingLocal.assignedCarpenter &&
+              order.jobStatus !== 'Unassigned'
+            ) {
+              const localUpdatedAt = existingLocal.updated || existingLocal.updatedAt || 0;
+              const pbUpdatedAt = order.updated || order.updatedAt || 0;
+              if (new Date(localUpdatedAt) > new Date(pbUpdatedAt)) {
+                order.jobStatus = 'Unassigned';
+                order.status = 'Unassigned';
+                order.assignedCarpenter = '';
+                order.assignedCarpenterId = '';
+                order.assigned_carpenter = null;
+                order.assigned_carpenter_name = '';
+              }
             }
 
             // Preserve local-only UI states
