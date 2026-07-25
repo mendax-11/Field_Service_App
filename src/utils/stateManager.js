@@ -67,8 +67,8 @@ export function normalizeOrder(o) {
   if (paymentType === 'Company') paymentType = 'Company Pay';
   if (paymentType === 'Customer') paymentType = 'Customer Pay';
 
-  let assignedCarpenter = o.assignedCarpenter || o.assignedCarpenterName || o.assigned_carpenter_name || '';
-  let assignedCarpenterId = o.assignedCarpenterId || o.assigned_carpenter_id || '';
+  let assignedCarpenter = o.assignedCarpenter || o.assignedCarpenterName || o.assigned_carpenter_name || (o.expand?.assigned_carpenter?.name) || '';
+  let assignedCarpenterId = o.assignedCarpenterId || o.assigned_carpenter_id || (o.expand?.assigned_carpenter?.id) || '';
 
   // If assigned_carpenter contains the ID
   if (o.assigned_carpenter && o.assigned_carpenter.length > 10) {
@@ -2201,7 +2201,7 @@ export const fsaQueries = {
       queryKey: ['orders', page, perPage, filter],
       queryFn: async () => {
         // Request only lightweight fields to avoid downloading massive base64 strings in older records
-        const fields = 'id,created,updated,order_id,platform,customer_name,customer_phone,customer_address,city,state,pincode,status,payment_status,payment_type,assembly_payout,delivery_status,delivery_date,promise_date,checklist,comments,audit_logs,assigned_carpenter,archived,is_archived,otp,otp_sent,otp_verified,sub_carpenter_name,sub_carpenter_phone,product_sku,assigned_date,assembly_amount,customer_number,payment_source,product_image_url,product_review_link,seller_review_link,assembly_status,expand.assigned_carpenter.name,expand.assigned_carpenter.username';
+        const fields = 'id,created,updated,order_id,platform,customer_name,customer_phone,customer_address,city,state,pincode,status,payment_status,payment_type,assembly_payout,delivery_status,delivery_date,promise_date,checklist,comments,audit_logs,assigned_carpenter,assigned_carpenter_name,archived,is_archived,otp,otp_sent,otp_verified,sub_carpenter_name,sub_carpenter_phone,product_sku,assigned_date,assembly_amount,customer_number,payment_source,product_image_url,product_review_link,seller_review_link,assembly_status,expand.assigned_carpenter.name,expand.assigned_carpenter.username';
         return await pb.collection('orders').getList(page, perPage, { filter, sort: '-created', expand: 'assigned_carpenter', fields });
       }
     }),
