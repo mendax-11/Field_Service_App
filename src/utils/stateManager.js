@@ -1486,8 +1486,8 @@ async function syncOrderToPocketBase(orderId, order) {
           updatedRecord = await pb.collection('orders').create(safeFields, { $autoCancel: false });
         }
       } catch (err) {
-        if (err.status === 400 && record) {
-          console.warn('[PocketBase] 400 Bad Request during full sync. Applying KISS fallback for core status...', err);
+        if (err.status >= 400 && record) {
+          console.warn(`[PocketBase] ${err.status} Error during full sync. Applying KISS fallback for core status...`, err);
           const kissFields = {
             status: safeFields.status,
             assembly_status: safeFields.assembly_status,
