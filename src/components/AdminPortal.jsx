@@ -807,6 +807,8 @@ export default function AdminPortal() {
       let duplicateCount = 0;
       const rowErrors = [];
       const ordersToImport = [];
+      const ordersToUpdate = [];
+      const seenCsvOrderIds = new Set();
 
       // Extract platform from template selection or auto-detect
       let detectedPlatform = selectedTemplate || 'Amazon';
@@ -875,19 +877,15 @@ export default function AdminPortal() {
           continue;
         }
 
-        // Check duplicates in existing database
-        if (currentOrders.some(o => o.orderId === orderId)) {
-          duplicateCount++;
-          continue;
-        }
-
         // Check duplicates in this CSV itself
-        if (ordersToImport.some(o => o.orderId === orderId)) {
+        if (seenCsvOrderIds.has(orderId)) {
           duplicateCount++;
           continue;
         }
+        seenCsvOrderIds.add(orderId);
 
-        ordersToImport.push({
+        const existingOrder = currentOrders.find(o => o.orderId === orderId);
+        const importedOrderFields = {
           orderId,
           platform: detectedPlatform,
           customerName,
@@ -898,23 +896,45 @@ export default function AdminPortal() {
           pincode,
           sku,
           payout: payoutVal,
-          deliveryStatus: 'Pending',
+          deliveryStatus: existingOrder?.deliveryStatus || 'Pending',
           jobStatus: 'Unassigned',
-          assignedCarpenter: null,
-          paymentStatus: 'Unpaid',
+          paymentStatus: existingOrder?.paymentStatus || 'Unpaid',
           paymentType: paymentType || 'Prepaid',
           deliveryDate: parsedDeliveryDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-          orderDate: new Date().toISOString(),
-          comments: [],
+          orderDate: existingOrder?.orderDate || new Date().toISOString(),
+          comments: existingOrder?.comments || [],
           auditLogs: [
+            ...(existingOrder?.auditLogs || []),
             {
               timestamp: new Date().toISOString(),
-              action: 'Order Created',
+              action: existingOrder ? 'Order Updated via CSV' : 'Order Created',
               user: role,
-              comments: `Imported via CSV (${detectedPlatform} format)`
+              comments: `${existingOrder ? 'Updated' : 'Imported'} via CSV (${detectedPlatform} format)`
             }
           ]
-        });
+        };
+
+        if (existingOrder) {
+          ordersToUpdate.push({
+            ...existingOrder,
+            ...importedOrderFields,
+            jobStatus: existingOrder.jobStatus || existingOrder.status || 'Unassigned',
+            status: existingOrder.status || existingOrder.jobStatus || 'Unassigned',
+            assembly_status: existingOrder.assembly_status || existingOrder.status || existingOrder.jobStatus || 'Unassigned',
+            assignedCarpenter: existingOrder.assignedCarpenter,
+            assignedCarpenterId: existingOrder.assignedCarpenterId,
+            assigned_carpenter: existingOrder.assigned_carpenter,
+            assigned_carpenter_name: existingOrder.assigned_carpenter_name
+          });
+        } else {
+          ordersToImport.push({
+            ...importedOrderFields,
+            jobStatus: 'Unassigned',
+            status: 'Unassigned',
+            assembly_status: 'Unassigned',
+            assignedCarpenter: null
+          });
+        }
       }
 
       if (rowErrors.length > 0) {
@@ -922,16 +942,22 @@ export default function AdminPortal() {
         return;
       }
 
-      if (ordersToImport.length > 0) {
-        const mergedOrders = [...ordersToImport, ...currentOrders];
-        saveOrders(mergedOrders, ordersToImport);
-        addNotification(`Imported ${ordersToImport.length} new orders successfully. Platform: ${detectedPlatform}.`);
+      if (ordersToImport.length > 0 || ordersToUpdate.length > 0) {
+        const updatedById = new Map();
+        ordersToUpdate.forEach(order => updatedById.set(order.orderId, order));
+        const mergedOrders = [
+          ...ordersToImport,
+          ...currentOrders.map(order => updatedById.get(order.orderId) || order)
+        ];
+        const changedOrders = [...ordersToImport, ...ordersToUpdate];
+        saveOrders(mergedOrders, changedOrders);
+        addNotification(`CSV processed: imported ${ordersToImport.length}, updated ${ordersToUpdate.length}. Platform: ${detectedPlatform}.`);
         setCsvText('');
         queryClient.invalidateQueries({ queryKey: ['orders'] });
         triggerRefresh();
-        alert(`CSV Import Complete!\n- Imported: ${ordersToImport.length} orders\n- Duplicates skipped: ${duplicateCount}`);
+        alert(`CSV Import Complete!\n- Imported: ${ordersToImport.length} orders\n- Updated: ${ordersToUpdate.length} orders\n- Duplicate rows skipped: ${duplicateCount}`);
       } else {
-        alert(`No new orders imported. (Skipped ${duplicateCount} duplicates)`);
+        alert(`No orders imported or updated. (Skipped ${duplicateCount} duplicate rows)`);
       }
     } catch (error) {
       alert('Error parsing CSV. Ensure correct comma-separated column values.');
