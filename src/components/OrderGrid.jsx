@@ -4,7 +4,7 @@ import {
   Search, ArrowUpDown, ChevronLeft, ChevronRight, 
   Trash2, Eye, SlidersHorizontal, RefreshCw
 } from 'lucide-react';
-import { deleteOrder, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb, getCarpenters, stateManager } from '../utils/stateManager';
+import { deleteOrder, updateOrder, saveOrders, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb, getCarpenters, stateManager } from '../utils/stateManager';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import OrderDetailsModal from './OrderDetailsModal';
 
@@ -253,6 +253,61 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
     });
     
     setSelectedOrderIds([]);
+    if (onRefresh) onRefresh();
+  };
+
+  const handleBulkEvidenceDelete = () => {
+    if (selectedOrderIds.length === 0) return;
+
+    const targetOrders = orders.filter(o => selectedOrderIds.includes(o.orderId));
+    if (targetOrders.length === 0) {
+      alert('No selected orders found.');
+      return;
+    }
+
+    if (!confirm(`Clear before, after, and replacement photos from ${targetOrders.length} selected orders? Download anything important first.`)) {
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    targetOrders.forEach(order => {
+      const currentDamageReport = order.damageReport || order.damage_report || null;
+      const nextDamageReport = currentDamageReport
+        ? { ...currentDamageReport, damagePhotos: [], photo: '' }
+        : currentDamageReport;
+
+      const updatedFields = {
+        photos: { ...(order.photos || {}), before: null, after: null },
+        damagePhotos: [],
+        damage_photos: [],
+        damagePhoto: '',
+        damageReport: nextDamageReport,
+        damage_report: nextDamageReport,
+        auditLogs: [
+          ...(order.auditLogs || []),
+          {
+            timestamp,
+            action: 'Evidence Photos Bulk Deleted',
+            user: role,
+            comments: 'Before, after, and replacement photos cleared from selected-orders bulk action.'
+          }
+        ]
+      };
+      const updatedOrder = updateOrder(order.orderId, updatedFields);
+      if (!updatedOrder) {
+        const fallbackOrder = normalizeOrder({ ...order, ...updatedFields });
+        const localOrders = stateManager.getOrders();
+        const existingIndex = localOrders.findIndex(o => o.orderId === order.orderId || o.order_id === order.orderId || o.id === order.orderId);
+        const nextOrders = existingIndex === -1
+          ? [...localOrders, fallbackOrder]
+          : localOrders.map((localOrder, idx) => idx === existingIndex ? fallbackOrder : localOrder);
+        saveOrders(nextOrders, fallbackOrder);
+      }
+    });
+
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
+    setSelectedOrderIds([]);
+    loadData();
     if (onRefresh) onRefresh();
   };
 
@@ -608,6 +663,10 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
               Export CSV
             </button>
 
+            <button onClick={handleBulkEvidenceDelete} className="bulk-action-btn secondary">
+              Clear Evidence
+            </button>
+
             {hasRole(role, 'Super Admin') && (
               <button onClick={handleBulkDelete} className="bulk-action-btn danger">
                 Delete
@@ -874,11 +933,23 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
           onClose={() => setSelectedOrder(null)}
           onUpdate={() => {
             loadData();
+            const localSelected = stateManager.getOrders().find(o => o.orderId === selectedOrder.orderId || o.order_id === selectedOrder.orderId);
+            if (localSelected) {
+              setSelectedOrder(normalizeOrder(localSelected));
+            }
             // Re-sync selected order details to show updated logs/comments in real-time
             refetchOrders().then(({ data }) => {
               if (data) {
                 const refreshedOrders = (data.items || []).map(normalizeOrder);
                 const currentSelected = refreshedOrders.find(o => o.orderId === selectedOrder.orderId);
+                const latestLocalSelected = stateManager.getOrders().find(o => o.orderId === selectedOrder.orderId || o.order_id === selectedOrder.orderId);
+                if (latestLocalSelected) {
+                  setSelectedOrder({
+                    ...(currentSelected || {}),
+                    ...normalizeOrder(latestLocalSelected)
+                  });
+                  return;
+                }
                 setSelectedOrder(currentSelected || null);
               }
             });

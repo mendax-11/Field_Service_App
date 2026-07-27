@@ -1727,6 +1727,7 @@ async function syncOrderToPocketBase(orderId, order) {
             assembly_status: safeFields.assembly_status,
             payment_status: safeFields.payment_status,
             delivery_status: safeFields.delivery_status,
+            photos: safeFields.photos,
             damage_report: safeFields.damage_report,
             assigned_carpenter_name: safeFields.assigned_carpenter_name,
             assigned_carpenter: safeFields.assigned_carpenter

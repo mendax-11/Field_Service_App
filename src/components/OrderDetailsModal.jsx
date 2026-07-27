@@ -4,7 +4,7 @@ import {
   X, User, Package, Clock, 
   MessageSquare, History, Plus, AlertTriangle, CheckCircle, Send, IndianRupee, Download, Trash2
 } from 'lucide-react';
-import { updateOrder, addComment, getUserRole, getActiveWorkload, MAX_ACTIVE_JOBS, addCarpenterPincode, removeCarpenterPincode, fsaQueries } from '../utils/stateManager';
+import { updateOrder, saveOrders, addComment, getUserRole, getActiveWorkload, MAX_ACTIVE_JOBS, addCarpenterPincode, removeCarpenterPincode, fsaQueries, normalizeOrder, stateManager } from '../utils/stateManager';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly = false }) {
@@ -35,10 +35,6 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
     if (Array.isArray(slot)) return slot.filter(Boolean);
     return [slot].filter(Boolean);
   };
-  const beforePhotos = getPhotoList(displayOrder.photos?.before);
-  const afterPhotos = getPhotoList(displayOrder.photos?.after);
-  const replacementPhotos = getPhotoList(displayOrder.damagePhotos || displayOrder.damage_photos || displayOrder.damageReport?.damagePhotos || displayOrder.damage_report?.damagePhotos);
-
   const [newComment, setNewComment] = useState('');
   const [assignedCarpenter, setAssignedCarpenter] = useState(order.assignedCarpenter || '');
   const [jobStatus, setJobStatus] = useState(order.jobStatus || 'Unassigned');
@@ -57,8 +53,13 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
   const [pincode, setPincode] = useState(order.pincode || '');
   const [city, setCity] = useState(order.city || '');
   const [state, setState] = useState(order.state || '');
+  const [evidenceOverride, setEvidenceOverride] = useState(null);
 
   const userRole = getUserRole();
+  const activeEvidenceOrder = evidenceOverride || displayOrder;
+  const beforePhotos = getPhotoList(activeEvidenceOrder.photos?.before);
+  const afterPhotos = getPhotoList(activeEvidenceOrder.photos?.after);
+  const replacementPhotos = getPhotoList(activeEvidenceOrder.damagePhotos || activeEvidenceOrder.damage_photos || activeEvidenceOrder.damageReport?.damagePhotos || activeEvidenceOrder.damage_report?.damagePhotos);
 
   const getSafeFilePart = (value, fallback) => {
     const clean = String(value || fallback || '')
@@ -78,8 +79,8 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
   };
 
   const getEvidenceFileName = (type, idx, src) => {
-    const orderPart = getSafeFilePart(displayOrder.orderId || order.orderId, 'order');
-    const customerPart = getSafeFilePart(displayOrder.customerName || order.customerName, 'customer');
+    const orderPart = getSafeFilePart(activeEvidenceOrder.orderId || order.orderId, 'order');
+    const customerPart = getSafeFilePart(activeEvidenceOrder.customerName || order.customerName, 'customer');
     return `${orderPart}_${customerPart}_${type}_${idx + 1}.${getImageExtension(src)}`;
   };
 
@@ -132,6 +133,20 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
     return photos.length === 1 ? photos[0] : photos;
   };
 
+  const persistEvidenceUpdate = (updatedFields) => {
+    const updatedOrder = updateOrder(order.orderId, updatedFields);
+    if (updatedOrder) return updatedOrder;
+
+    const fallbackOrder = normalizeOrder({ ...activeEvidenceOrder, ...updatedFields });
+    const localOrders = stateManager.getOrders();
+    const existingIndex = localOrders.findIndex(o => o.orderId === order.orderId || o.order_id === order.orderId || o.id === order.orderId);
+    const nextOrders = existingIndex === -1
+      ? [...localOrders, fallbackOrder]
+      : localOrders.map((localOrder, idx) => idx === existingIndex ? fallbackOrder : localOrder);
+    saveOrders(nextOrders, fallbackOrder);
+    return fallbackOrder;
+  };
+
   const handleDeleteEvidenceImage = (type, idx) => {
     if (readOnly) return;
     if (!confirm(`Delete ${type} photo ${idx + 1} from this order? Download it first if you need to keep a copy.`)) {
@@ -139,9 +154,9 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
     }
 
     const nextPhotos = {
-      ...(displayOrder.photos || {}),
-      before: displayOrder.photos?.before || null,
-      after: displayOrder.photos?.after || null
+      ...(activeEvidenceOrder.photos || {}),
+      before: activeEvidenceOrder.photos?.before || null,
+      after: activeEvidenceOrder.photos?.after || null
     };
     let updatedFields;
 
@@ -155,7 +170,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
       updatedFields = { photos: nextPhotos };
     } else {
       const updatedDamagePhotos = replacementPhotos.filter((_, photoIdx) => photoIdx !== idx);
-      const currentDamageReport = displayOrder.damageReport || displayOrder.damage_report || null;
+      const currentDamageReport = activeEvidenceOrder.damageReport || activeEvidenceOrder.damage_report || null;
       const nextDamageReport = currentDamageReport
         ? {
             ...currentDamageReport,
@@ -174,7 +189,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
 
     const timestamp = new Date().toISOString();
     updatedFields.auditLogs = [
-      ...(displayOrder.auditLogs || order.auditLogs || []),
+      ...(activeEvidenceOrder.auditLogs || order.auditLogs || []),
       {
         timestamp,
         action: 'Evidence Photo Deleted',
@@ -183,16 +198,17 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
       }
     ];
 
-    updateOrder(order.orderId, updatedFields);
+    const updatedOrder = persistEvidenceUpdate(updatedFields);
+    setEvidenceOverride(updatedOrder || { ...activeEvidenceOrder, ...updatedFields });
     queryClient.invalidateQueries({ queryKey: ['orders'] });
     onUpdate();
   };
 
   const buildEvidenceDeleteFields = (typesToDelete) => {
     const nextPhotos = {
-      ...(displayOrder.photos || {}),
-      before: displayOrder.photos?.before || null,
-      after: displayOrder.photos?.after || null
+      ...(activeEvidenceOrder.photos || {}),
+      before: activeEvidenceOrder.photos?.before || null,
+      after: activeEvidenceOrder.photos?.after || null
     };
     const updatedFields = {};
 
@@ -207,7 +223,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
     }
 
     if (typesToDelete.includes('replacement')) {
-      const currentDamageReport = displayOrder.damageReport || displayOrder.damage_report || null;
+      const currentDamageReport = activeEvidenceOrder.damageReport || activeEvidenceOrder.damage_report || null;
       const nextDamageReport = currentDamageReport
         ? { ...currentDamageReport, damagePhotos: [], photo: '' }
         : currentDamageReport;
@@ -244,7 +260,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
     const updatedFields = buildEvidenceDeleteFields(typesToDelete);
     const timestamp = new Date().toISOString();
     updatedFields.auditLogs = [
-      ...(displayOrder.auditLogs || order.auditLogs || []),
+      ...(activeEvidenceOrder.auditLogs || order.auditLogs || []),
       {
         timestamp,
         action: 'Evidence Photos Bulk Deleted',
@@ -253,7 +269,8 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
       }
     ];
 
-    updateOrder(order.orderId, updatedFields);
+    const updatedOrder = persistEvidenceUpdate(updatedFields);
+    setEvidenceOverride(updatedOrder || { ...activeEvidenceOrder, ...updatedFields });
     queryClient.invalidateQueries({ queryKey: ['orders'] });
     onUpdate();
   };
@@ -292,6 +309,10 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
   useEffect(() => {
     refetchCarpenters();
   }, [refetchCarpenters]);
+
+  useEffect(() => {
+    setEvidenceOverride(null);
+  }, [order.orderId]);
 
   const handleAddComment = (e) => {
     e.preventDefault();
