@@ -1748,6 +1748,47 @@
   gap: 12px;
 }
 
+.evidence-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.evidence-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.evidence-bulk-actions button {
+  min-height: 26px;
+  border: 1px solid var(--admin-border-color);
+  border-radius: 6px;
+  background: var(--admin-bg-input);
+  color: var(--admin-text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.evidence-bulk-actions button:hover {
+  border-color: var(--color-info);
+  color: #ffffff;
+  background: var(--color-info);
+}
+
+.evidence-bulk-actions button.danger:hover {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+}
+
 .evidence-media-row {
   overflow-x: auto;
   padding-bottom: 8px;

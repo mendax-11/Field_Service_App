@@ -107,6 +107,26 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
     }
   };
 
+  const evidenceGroups = [
+    { type: 'before', label: 'Before', photos: beforePhotos },
+    { type: 'after', label: 'After', photos: afterPhotos },
+    { type: 'replacement', label: 'Replacement', photos: replacementPhotos }
+  ];
+
+  const allEvidencePhotos = evidenceGroups.flatMap(group =>
+    group.photos.map((photo, idx) => ({ ...group, photo, idx }))
+  );
+
+  const handleDownloadEvidenceGroup = async (type = 'all') => {
+    const targets = type === 'all'
+      ? allEvidencePhotos
+      : allEvidencePhotos.filter(item => item.type === type);
+
+    for (const item of targets) {
+      await handleDownloadImage(item.photo, item.type, item.idx);
+    }
+  };
+
   const normalizePhotoSlot = (photos) => {
     if (photos.length === 0) return null;
     return photos.length === 1 ? photos[0] : photos;
@@ -160,6 +180,76 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
         action: 'Evidence Photo Deleted',
         user: userRole,
         comments: `${type.charAt(0).toUpperCase() + type.slice(1)} photo ${idx + 1} deleted for storage cleanup.`
+      }
+    ];
+
+    updateOrder(order.orderId, updatedFields);
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
+    onUpdate();
+  };
+
+  const buildEvidenceDeleteFields = (typesToDelete) => {
+    const nextPhotos = {
+      ...(displayOrder.photos || {}),
+      before: displayOrder.photos?.before || null,
+      after: displayOrder.photos?.after || null
+    };
+    const updatedFields = {};
+
+    if (typesToDelete.includes('before')) {
+      nextPhotos.before = null;
+      updatedFields.photos = nextPhotos;
+    }
+
+    if (typesToDelete.includes('after')) {
+      nextPhotos.after = null;
+      updatedFields.photos = nextPhotos;
+    }
+
+    if (typesToDelete.includes('replacement')) {
+      const currentDamageReport = displayOrder.damageReport || displayOrder.damage_report || null;
+      const nextDamageReport = currentDamageReport
+        ? { ...currentDamageReport, damagePhotos: [], photo: '' }
+        : currentDamageReport;
+
+      updatedFields.damagePhotos = [];
+      updatedFields.damage_photos = [];
+      updatedFields.damagePhoto = '';
+      updatedFields.damageReport = nextDamageReport;
+      updatedFields.damage_report = nextDamageReport;
+    }
+
+    return updatedFields;
+  };
+
+  const handleDeleteEvidenceGroup = (type = 'all') => {
+    if (readOnly) return;
+    const typesToDelete = type === 'all'
+      ? evidenceGroups.filter(group => group.photos.length > 0).map(group => group.type)
+      : [type];
+    const deleteCount = evidenceGroups
+      .filter(group => typesToDelete.includes(group.type))
+      .reduce((sum, group) => sum + group.photos.length, 0);
+
+    if (deleteCount === 0) return;
+
+    const label = type === 'all'
+      ? 'all evidence photos'
+      : `${type} evidence photos`;
+
+    if (!confirm(`Delete ${deleteCount} ${label} from this order? Download them first if you need to keep copies.`)) {
+      return;
+    }
+
+    const updatedFields = buildEvidenceDeleteFields(typesToDelete);
+    const timestamp = new Date().toISOString();
+    updatedFields.auditLogs = [
+      ...(displayOrder.auditLogs || order.auditLogs || []),
+      {
+        timestamp,
+        action: 'Evidence Photos Bulk Deleted',
+        user: userRole,
+        comments: `${deleteCount} ${label} deleted for storage cleanup.`
       }
     ];
 
@@ -951,7 +1041,19 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                     {/* Damage Report Evidence */}
                     {replacementPhotos.length > 0 && (
                       <div className="admin-field-group" style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
-                        <label style={{ fontSize: '11px', fontWeight: '600', color: '#ef4444', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Replacement Evidence ({replacementPhotos.length} Photos)</label>
+                        <div className="evidence-section-header">
+                          <label style={{ fontSize: '11px', fontWeight: '600', color: '#ef4444', textTransform: 'uppercase' }}>Replacement Evidence ({replacementPhotos.length} Photos)</label>
+                          <div className="evidence-bulk-actions">
+                            <button type="button" onClick={() => handleDownloadEvidenceGroup('replacement')}>
+                              <Download size={12} /> Download
+                            </button>
+                            {!readOnly && (
+                              <button type="button" className="danger" onClick={() => handleDeleteEvidenceGroup('replacement')}>
+                                <Trash2 size={12} /> Delete
+                              </button>
+                            )}
+                          </div>
+                        </div>
                         <div className="evidence-media-grid">
                           {replacementPhotos.map((photo, idx) => renderEvidencePhoto(photo, 'replacement', idx, 'Replacement'))}
                         </div>
@@ -961,7 +1063,31 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                     {/* Completion Photos & Signature */}
                     {(beforePhotos.length > 0 || afterPhotos.length > 0 || displayOrder.signature) && (
                       <div className="section-block details-media-grid" style={{ marginTop: '16px', marginBottom: '24px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
-                        <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Completion Evidence</label>
+                        <div className="evidence-section-header">
+                          <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Completion Evidence</label>
+                          <div className="evidence-bulk-actions">
+                            {(beforePhotos.length > 0 || afterPhotos.length > 0) && (
+                              <button type="button" onClick={() => handleDownloadEvidenceGroup('all')}>
+                                <Download size={12} /> Download All
+                              </button>
+                            )}
+                            {beforePhotos.length > 0 && !readOnly && (
+                              <button type="button" className="danger" onClick={() => handleDeleteEvidenceGroup('before')}>
+                                <Trash2 size={12} /> Before
+                              </button>
+                            )}
+                            {afterPhotos.length > 0 && !readOnly && (
+                              <button type="button" className="danger" onClick={() => handleDeleteEvidenceGroup('after')}>
+                                <Trash2 size={12} /> After
+                              </button>
+                            )}
+                            {allEvidencePhotos.length > 0 && !readOnly && (
+                              <button type="button" className="danger" onClick={() => handleDeleteEvidenceGroup('all')}>
+                                <Trash2 size={12} /> All
+                              </button>
+                            )}
+                          </div>
+                        </div>
                         <div className="media-row evidence-media-row">
                           {beforePhotos.map((photo, idx) => renderEvidencePhoto(photo, 'before', idx, 'Before'))}
 
