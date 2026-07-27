@@ -19,7 +19,17 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
   });
   
   // Merge the base order with the fetched heavy fields
-  const displayOrder = fullOrderRaw ? { ...order, photos: fullOrderRaw.photos || order.photos, signature: fullOrderRaw.signature || order.signature } : order;
+  const displayOrder = fullOrderRaw
+    ? {
+        ...order,
+        photos: fullOrderRaw.photos || order.photos,
+        signature: fullOrderRaw.signature || order.signature,
+        damagePhotos: fullOrderRaw.damagePhotos || fullOrderRaw.damage_photos || order.damagePhotos,
+        damage_photos: fullOrderRaw.damage_photos || fullOrderRaw.damagePhotos || order.damage_photos,
+        damageReport: fullOrderRaw.damageReport || fullOrderRaw.damage_report || order.damageReport,
+        damage_report: fullOrderRaw.damage_report || fullOrderRaw.damageReport || order.damage_report
+      }
+    : order;
   const getPhotoList = (slot) => {
     if (!slot) return [];
     if (Array.isArray(slot)) return slot.filter(Boolean);
@@ -99,7 +109,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
       before: displayOrder.photos?.before || null,
       after: displayOrder.photos?.after || null
     };
-    let updatedFields = {};
+    let updatedFields;
 
     if (type === 'before') {
       const updatedBefore = beforePhotos.filter((_, photoIdx) => photoIdx !== idx);
@@ -140,6 +150,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
     ];
 
     updateOrder(order.orderId, updatedFields);
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
     onUpdate();
   };
 
@@ -924,16 +935,11 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                     )}
 
                     {/* Damage Report Evidence */}
-                    {order.damagePhotos && order.damagePhotos.length > 0 && (
+                    {replacementPhotos.length > 0 && (
                       <div className="admin-field-group" style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
-                        <label style={{ fontSize: '11px', fontWeight: '600', color: '#ef4444', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Damage Evidence ({order.damagePhotos.length} Photos)</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px' }}>
-                          {order.damagePhotos.map((photo, idx) => (
-                            <div key={idx} style={{ position: 'relative', height: '100px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--admin-border-color)' }}>
-                              <img src={photo} alt={`Damage Evidence ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              <span style={{ position: 'absolute', bottom: '2px', left: '2px', background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '9px', padding: '1px 4px', borderRadius: '2px' }}>Photo {idx + 1}</span>
-                            </div>
-                          ))}
+                        <label style={{ fontSize: '11px', fontWeight: '600', color: '#ef4444', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Replacement Evidence ({replacementPhotos.length} Photos)</label>
+                        <div className="evidence-media-grid">
+                          {replacementPhotos.map((photo, idx) => renderEvidencePhoto(photo, 'replacement', idx, 'Replacement'))}
                         </div>
                       </div>
                     )}
@@ -942,29 +948,10 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                     {(beforePhotos.length > 0 || afterPhotos.length > 0 || displayOrder.signature) && (
                       <div className="section-block details-media-grid" style={{ marginTop: '16px', marginBottom: '24px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
                         <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Completion Evidence</label>
-                        <div className="media-row" style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '8px' }}>
-                          
-                          {beforePhotos.map((photo, idx) => (
-                            <div key={`before-${idx}`} className="media-item" style={{ flex: '0 0 auto', width: '120px' }}>
-                                <div className="media-thumb" style={{ width: '120px', height: '120px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'var(--bg-input)' }}>
-                                  <img src={photo} alt={`Before ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                </div>
-                                <span style={{ display: 'block', textAlign: 'center', fontSize: '11px', marginTop: '4px', color: 'var(--admin-text-secondary)' }}>
-                                  Before {beforePhotos.length > 1 ? idx + 1 : ''}
-                                </span>
-                              </div>
-                          ))}
+                        <div className="media-row evidence-media-row">
+                          {beforePhotos.map((photo, idx) => renderEvidencePhoto(photo, 'before', idx, 'Before'))}
 
-                          {afterPhotos.map((photo, idx) => (
-                            <div key={`after-${idx}`} className="media-item" style={{ flex: '0 0 auto', width: '120px' }}>
-                                <div className="media-thumb" style={{ width: '120px', height: '120px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'var(--bg-input)' }}>
-                                  <img src={photo} alt={`After ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                </div>
-                                <span style={{ display: 'block', textAlign: 'center', fontSize: '11px', marginTop: '4px', color: 'var(--admin-text-secondary)' }}>
-                                  After {afterPhotos.length > 1 ? idx + 1 : ''}
-                                </span>
-                              </div>
-                          ))}
+                          {afterPhotos.map((photo, idx) => renderEvidencePhoto(photo, 'after', idx, 'After'))}
 
                         {displayOrder.signature && (
                           <div className="media-item signature" style={{ flex: '0 0 auto', minWidth: '160px' }}>
