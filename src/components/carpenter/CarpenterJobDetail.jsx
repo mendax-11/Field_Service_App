@@ -222,7 +222,7 @@ export default function CarpenterJobDetail({
                 // Add comment
                 stateManager.addComment(
                   job.id, 
-                  `System: Job details link shared with field technician. Verification PIN: ${job.otp}`,
+                  'System: Job details link shared with field technician using a separate technician access PIN.',
                   'System'
                 );
                 refetchJobs();
@@ -792,7 +792,7 @@ export default function CarpenterJobDetail({
                     {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP'}
                   </button>
                   <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                    (Hint: check the customer tracking portal or admin dashboard for the OTP code)
+                    The OTP is private to the customer. Ask the customer to read it aloud.
                   </span>
                 </div>
               ) : (

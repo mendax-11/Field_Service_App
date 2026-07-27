@@ -40,6 +40,15 @@ const OLD_UNUSED_ORDERS = [];
 
 const DEFAULT_NOTIFICATIONS = [];
 
+const getDefaultTechAccessPin = (orderId) => {
+  const source = String(orderId || '0000');
+  let hash = 0;
+  for (let i = 0; i < source.length; i += 1) {
+    hash = (hash * 31 + source.charCodeAt(i)) % 9000;
+  }
+  return String(1000 + hash).slice(-4);
+};
+
 const getDefaultAssemblyChecklist = () => [
   { id: 1, label: 'Unbox components & verify hardware inventory', checked: false },
   { id: 2, label: 'Assemble main frame structure', checked: false },
@@ -181,6 +190,7 @@ export function normalizeOrder(o) {
   }
   const otpSent = o.otpSent !== undefined ? o.otpSent : (o.otp_sent !== undefined ? o.otp_sent : false);
   const otpVerified = o.otpVerified !== undefined ? o.otpVerified : (o.otp_verified !== undefined ? o.otp_verified : false);
+  const techAccessPin = String(o.techAccessPin || o.tech_access_pin || o.jobAccessPin || o.job_access_pin || getDefaultTechAccessPin(orderId));
   const signature = o.signature || o.customer_signature || null;
   const comments = Array.isArray(o.comments) ? o.comments : (o.comments ? [o.comments] : []);
   const auditLogs = Array.isArray(o.auditLogs) ? o.auditLogs : (Array.isArray(o.audit_logs) ? o.audit_logs : []);
@@ -265,6 +275,8 @@ export function normalizeOrder(o) {
     otp_sent: otpSent,
     otpVerified,
     otp_verified: otpVerified,
+    techAccessPin,
+    tech_access_pin: techAccessPin,
     signature,
     customer_signature: signature,
     comments,

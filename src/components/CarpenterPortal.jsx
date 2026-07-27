@@ -120,7 +120,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     return { smsPhone, waPhone };
   };
 
-  const showCustomerMessageNotification = ({ title, customerName, message, rawPhone, deliveryStatus = 'Preparing message...' }) => {
+  const showCustomerMessageNotification = ({ title, customerName, message, rawPhone, deliveryStatus = 'Preparing message...', allowManualSend = true }) => {
     const { smsPhone, waPhone } = getCustomerMessagePhones(rawPhone);
     setSmsNotification({
       title,
@@ -129,7 +129,8 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       deliveryStatus,
       waPhone,
       smsPhone,
-      encodedMsg: encodeURIComponent(message)
+      encodedMsg: encodeURIComponent(message),
+      allowManualSend
     });
   };
 
@@ -575,13 +576,13 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     const updatedJob = stateManager.updateJob(jobId, { otpSent: true }) || currentJob;
     setResendCooldown(60);
     const rawPhone = updatedJob.customerPhone || updatedJob.customer_phone || updatedJob.customer_number || '';
-    const otpMessage = `Dear ${updatedJob.customerName || 'Customer'}, your TimberFlow assembly verification code is ${updatedJob.otp}. Please share this with your technician.`;
 
     showCustomerMessageNotification({
-      title: 'OTP customer message',
+      title: 'Secure OTP requested',
       customerName: updatedJob.customerName,
-      message: otpMessage,
-      rawPhone
+      message: 'The verification OTP was sent directly to the customer. Ask the customer to read the code aloud and enter it below.',
+      rawPhone,
+      allowManualSend: false
     });
 
     // Send real-time webhook to n8n for production WhatsApp/SMS OTP dispatch
@@ -593,7 +594,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     }).then((webhookResult) => {
       const deliveryStatus = webhookResult?.sent
         ? 'Automatic webhook sent.'
-        : (webhookResult?.queued ? 'Webhook failed and was queued. Use WhatsApp/SMS fallback below.' : 'Webhook is not configured. Use WhatsApp/SMS fallback below.');
+        : (webhookResult?.queued ? 'Webhook failed and was queued for admin retry.' : 'Webhook is not configured. Ask dispatcher/admin to send the OTP.');
       addNotification(`OTP customer message for ${updatedJob.orderId || updatedJob.id}: ${deliveryStatus}`, '', 'System');
       setSmsNotification(prev => prev ? { ...prev, deliveryStatus } : prev);
     });
@@ -617,7 +618,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   const handleVerifyDirectPin = (e) => {
     e.preventDefault();
     const currentJob = stateManager.getJobById(directJobId);
-    if (currentJob && String(enteredPin).trim() === String(currentJob.otp).trim()) {
+    if (currentJob && String(enteredPin).trim() === String(currentJob.techAccessPin || currentJob.tech_access_pin).trim()) {
       setPinVerified(true);
       setPinError('');
     } else {
@@ -632,7 +633,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
 👤 Client: ${job.customerName}
 📍 Address: ${job.customerAddress}, Pincode: ${job.pincode}
 🔧 Product: ${job.productName}
-🔑 Verification PIN: ${job.otp} (required to open link)
+🔑 Technician access PIN: ${job.techAccessPin || job.tech_access_pin} (required to open link)
 👉 Complete checklist, upload photos, and collect client signature here: ${jobLink}`;
     return `https://wa.me/?text=${encodeURIComponent(text)}`;
   };
@@ -989,6 +990,7 @@ Your review helps us serve you better. Thank you!`;
                 </span>
               )}
               <p>{smsNotification.text}</p>
+              {smsNotification.allowManualSend && (
               <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                 <a 
                   href={`https://wa.me/${smsNotification.waPhone}?text=${smsNotification.encodedMsg}`}
@@ -1035,6 +1037,7 @@ Your review helps us serve you better. Thank you!`;
                   Send SMS
                 </a>
               </div>
+              )}
             </div>
             <button 
               type="button" 
@@ -1277,3 +1280,4 @@ Your review helps us serve you better. Thank you!`;
 </div>
 );
 }
+
