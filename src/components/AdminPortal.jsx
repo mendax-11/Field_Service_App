@@ -10,9 +10,9 @@ import {
   getUserRole, setUserRole, hasRole, hasPermission,
   saveOrders, addNotification, updateOrder, addOrder, checkSlaBreaches,
   getN8nConfig, saveN8nConfig, getNotifications, autoAllocateOrders, clearNotifications,
-  exportOrdersCSV, pb, resetState, fsaQueries, normalizeOrder
+  exportOrdersCSV, pb, resetState, fsaQueries, normalizeOrder, stateManager
 } from '../utils/stateManager';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import OrderGrid from './OrderGrid';
 import InventoryDashboard from './InventoryDashboard';
@@ -219,6 +219,7 @@ const n8nBlueprintJSON = JSON.stringify({
 }, null, 2);
 
 export default function AdminPortal() {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined' && window.location.hash) {
       const hash = window.location.hash.replace('#/', '');
@@ -238,7 +239,17 @@ export default function AdminPortal() {
   const { data: ordersData = { items: [] } } = useQuery(fsaQueries.orders.all(1, 500));
   const { data: carpentersData = { items: [] } } = useQuery(fsaQueries.carpenters.all(1, 500));
 
-  const orders = (ordersData.items || []).map(normalizeOrder).filter(Boolean);
+  const serverOrders = (ordersData.items || []).map(normalizeOrder).filter(Boolean);
+  const localOrders = stateManager.getOrders();
+  const mergedOrders = new Map();
+  serverOrders.forEach(order => mergedOrders.set(order.orderId, order));
+  localOrders.forEach(order => {
+    const normalized = normalizeOrder(order);
+    if (normalized) {
+      mergedOrders.set(normalized.orderId, { ...(mergedOrders.get(normalized.orderId) || {}), ...normalized });
+    }
+  });
+  const orders = Array.from(mergedOrders.values());
   const carpenters = carpentersData.items || [];
   
   // Date-range filter states
@@ -913,9 +924,10 @@ export default function AdminPortal() {
 
       if (ordersToImport.length > 0) {
         const mergedOrders = [...ordersToImport, ...currentOrders];
-        saveOrders(mergedOrders);
+        saveOrders(mergedOrders, ordersToImport);
         addNotification(`Imported ${ordersToImport.length} new orders successfully. Platform: ${detectedPlatform}.`);
         setCsvText('');
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
         triggerRefresh();
         alert(`CSV Import Complete!\n- Imported: ${ordersToImport.length} orders\n- Duplicates skipped: ${duplicateCount}`);
       } else {

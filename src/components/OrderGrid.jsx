@@ -4,7 +4,7 @@ import {
   Search, ArrowUpDown, ChevronLeft, ChevronRight, 
   Trash2, Eye, SlidersHorizontal, RefreshCw
 } from 'lucide-react';
-import { deleteOrder, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb, getCarpenters } from '../utils/stateManager';
+import { deleteOrder, updateOrder, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb, getCarpenters, stateManager } from '../utils/stateManager';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import OrderDetailsModal from './OrderDetailsModal';
 
@@ -14,7 +14,17 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
   const { data: carpentersData = { items: [] }, refetch: refetchCarpenters, isLoading: isCarpentersLoading } = useQuery(fsaQueries.carpenters.all(1, 500));
   
   const isLoading = isOrdersLoading || isCarpentersLoading;
-  const orders = (ordersData.items || []).map(normalizeOrder);
+  const serverOrders = (ordersData.items || []).map(normalizeOrder).filter(Boolean);
+  const localOrders = stateManager.getOrders();
+  const mergedOrders = new Map();
+  serverOrders.forEach(order => mergedOrders.set(order.orderId, order));
+  localOrders.forEach(order => {
+    const normalized = normalizeOrder(order);
+    if (normalized) {
+      mergedOrders.set(normalized.orderId, { ...(mergedOrders.get(normalized.orderId) || {}), ...normalized });
+    }
+  });
+  const orders = Array.from(mergedOrders.values());
   const carpenters = carpentersData.items?.length > 0 ? carpentersData.items : getCarpenters();
   
   const [role, setRole] = useState('Super Admin');
