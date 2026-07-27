@@ -52,7 +52,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
 
   const allJobs = (jobsData.items || []).map(normalizeOrder).filter(Boolean).map(job => {
     const localMemory = stateManager.getOrders().find(o => o?.id === job?.id || o?.orderId === job?.id || o?.order_id === job?.id);
-    return localMemory ? { ...job, ...localMemory } : job;
+    return normalizeOrder(localMemory ? { ...job, ...localMemory } : job);
   });
   
   // Pass all jobs through — carpenterJobs filter below does the robust multi-field matching
@@ -429,16 +429,21 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
 
   // Photo uploads (Before/After) — stamps GPS + timestamp watermark
   const handlePhotoChange = async (jobId, type, e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length === 0) return;
 
     setUploadingPhoto(prev => ({ ...prev, [type]: true }));
     try {
-      const stampedDataUrl = await captureAndStampPhoto(file, jobId);
+      const stampedPhotos = [];
+      for (const file of files) {
+        stampedPhotos.push(await captureAndStampPhoto(file, jobId));
+      }
+
       const currentJob = stateManager.getJobById(jobId);
       const currentPhotos = (currentJob && currentJob.photos && currentJob.photos[type]) || [];
       const photosArray = Array.isArray(currentPhotos) ? currentPhotos : (currentPhotos ? [currentPhotos] : []);
-      const updatedPhotos = { ...currentJob.photos, [type]: [...photosArray, stampedDataUrl] };
+      const updatedPhotos = { ...currentJob.photos, [type]: [...photosArray, ...stampedPhotos] };
       stateManager.updateJob(jobId, { photos: updatedPhotos });
       refetchJobs();
     } catch (err) {
@@ -845,7 +850,8 @@ Your review helps us serve you better. Thank you!`;
   const activeJobs = carpenterJobs.filter(j => j.status !== 'Completed');
 
   // Detail validation check for unlocking OTP send
-  const isChecklistFinished = job ? job.checklist.every(item => item.checked) : false;
+  const jobChecklist = job && Array.isArray(job.checklist) ? job.checklist : [];
+  const isChecklistFinished = jobChecklist.length > 0 && jobChecklist.every(item => item.checked);
   const isBeforeUploaded = job ? !!job.photos.before : false;
   const isAfterUploaded = job ? !!job.photos.after : false;
   const isReadyToComplete = isChecklistFinished && isBeforeUploaded && isAfterUploaded;

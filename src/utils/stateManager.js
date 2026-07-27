@@ -40,6 +40,14 @@ const OLD_UNUSED_ORDERS = [];
 
 const DEFAULT_NOTIFICATIONS = [];
 
+const getDefaultAssemblyChecklist = () => [
+  { id: 1, label: 'Unbox components & verify hardware inventory', checked: false },
+  { id: 2, label: 'Assemble main frame structure', checked: false },
+  { id: 3, label: 'Install internal shelves/drawers', checked: false },
+  { id: 4, label: 'Inspect leg alignment and secure joints', checked: false },
+  { id: 5, label: 'Clean surfaces and request client sign-off', checked: false }
+];
+
 // Normalize an order object to present both snake_case and camelCase aliases 
 // to prevent breaking any component layouts that depend on either format.
 export function normalizeOrder(o) {
@@ -96,14 +104,14 @@ export function normalizeOrder(o) {
   if (typeof checklist === 'string') {
     try { checklist = JSON.parse(checklist); } catch (e) { checklist = null; }
   }
-  if (!Array.isArray(checklist)) {
-    checklist = [
-      { id: 1, label: 'Unbox components & verify hardware inventory', checked: false },
-      { id: 2, label: 'Assemble main frame structure', checked: false },
-      { id: 3, label: 'Install internal shelves/drawers', checked: false },
-      { id: 4, label: 'Inspect leg alignment and secure joints', checked: false },
-      { id: 5, label: 'Clean surfaces and request client sign-off', checked: false }
-    ];
+  if (!Array.isArray(checklist) || checklist.length === 0) {
+    checklist = getDefaultAssemblyChecklist();
+  } else {
+    checklist = checklist.map((item, index) => ({
+      id: item.id ?? index + 1,
+      label: item.label || item.title || item.name || `Checklist item ${index + 1}`,
+      checked: Boolean(item.checked)
+    }));
   }
 
   let damageReport = o.damageReport || o.damage_report || o.replacement_request || null;
@@ -1296,7 +1304,7 @@ export const stateManager = {
     const orders = getOrders();
     const orderIndex = orders.findIndex(o => o.id === jobId || o.orderId === jobId);
     if (orderIndex !== -1) {
-      const order = orders[orderIndex];
+      const order = normalizeOrder(orders[orderIndex]);
       const updatedChecklist = order.checklist.map(item => {
         if (item.id === itemId) {
           return { ...item, checked: !item.checked };

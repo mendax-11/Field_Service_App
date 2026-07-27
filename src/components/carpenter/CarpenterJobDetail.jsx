@@ -22,7 +22,9 @@ export default function CarpenterJobDetail({
   handleSendFeedbackWhatsApp, newCommentText, setNewCommentText, 
   handleSendComment, commentsEndRef
 }) {
-  const isChecklistFinished = job.checklist.every((i) => i.checked);
+  const checklist = Array.isArray(job.checklist) ? job.checklist : [];
+  const isChecklistVisible = job.status !== 'Completed' && checklist.length > 0;
+  const isChecklistFinished = checklist.length > 0 && checklist.every((i) => i.checked);
   
   const beforePhotos = (job.photos && Array.isArray(job.photos.before)) ? job.photos.before : (job.photos && job.photos.before ? [job.photos.before] : []);
   const afterPhotos = (job.photos && Array.isArray(job.photos.after)) ? job.photos.after : (job.photos && job.photos.after ? [job.photos.after] : []);
@@ -236,7 +238,7 @@ export default function CarpenterJobDetail({
       )}
 
       {/* Step-by-Step Interactive Assembly Checklist */}
-      {job.status === 'In Progress' && (
+      {isChecklistVisible && (
         <>
           <div className="detail-card">
         <div className="checklist-progress-container">
@@ -245,7 +247,7 @@ export default function CarpenterJobDetail({
             <span>Assembly Checklist</span>
           </h4>
           <span className="checklist-progress-text">
-            {job.checklist.filter(i => i.checked).length} of {job.checklist.length} done
+            {checklist.filter(i => i.checked).length} of {checklist.length} done
           </span>
         </div>
 
@@ -254,13 +256,13 @@ export default function CarpenterJobDetail({
           <div 
             className="progress-bar-fill" 
             style={{ 
-              width: `${(job.checklist.filter(i => i.checked).length / job.checklist.length) * 100}%` 
+              width: `${(checklist.filter(i => i.checked).length / checklist.length) * 100}%` 
             }}
           />
         </div>
 
         <div className="checklist-items-stack">
-          {job.checklist.map(item => (
+          {checklist.map(item => (
             <div 
               key={item.id} 
               className={`checklist-row ${item.checked ? 'checked' : ''}`}
@@ -320,12 +322,12 @@ export default function CarpenterJobDetail({
             {uploadingPhoto.before ? (
               <div className="upload-loading-spinner" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '10px', gap: '8px', border: '1px dashed var(--border-color)', borderRadius: '6px' }}>
                 <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--color-secondary, #3b82f6)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center' }}>Stamping GPS...</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center' }}>Stamping photos...</span>
               </div>
             ) : (
-              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
                 <label className="photo-btn-label" style={{ flex: 1, textAlign: 'center', padding: '8px', cursor: 'pointer' }}>
-                  {beforePhotos.length > 0 ? 'Add Another' : 'Take Photo'}
+                  Take Photo
                   <input 
                     type="file" 
                     accept="image/*" 
@@ -334,11 +336,21 @@ export default function CarpenterJobDetail({
                     onChange={(e) => handlePhotoChange(job.id, 'before', e)} 
                   />
                 </label>
+                <label className="photo-btn-label" style={{ flex: 1, textAlign: 'center', padding: '8px', cursor: 'pointer' }}>
+                  Attach Images
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={(e) => handlePhotoChange(job.id, 'before', e)} 
+                  />
+                </label>
                 <button 
                   type="button" 
                   onClick={() => handleMockPhoto(job.id, 'before')} 
                   className="btn-mock-photo"
-                  style={{ flex: 1, padding: '8px' }}
+                  style={{ gridColumn: '1 / -1', padding: '8px' }}
                 >
                   Mock Box
                 </button>
@@ -377,12 +389,12 @@ export default function CarpenterJobDetail({
             {uploadingPhoto.after ? (
               <div className="upload-loading-spinner" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '10px', gap: '8px', border: '1px dashed var(--border-color)', borderRadius: '6px' }}>
                 <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--color-secondary, #3b82f6)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center' }}>Stamping GPS...</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center' }}>Stamping photos...</span>
               </div>
             ) : (
-              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
                 <label className="photo-btn-label" style={{ flex: 1, textAlign: 'center', padding: '8px', cursor: 'pointer' }}>
-                  {afterPhotos.length > 0 ? 'Add Another' : 'Take Photo'}
+                  Take Photo
                   <input 
                     type="file" 
                     accept="image/*" 
@@ -391,11 +403,21 @@ export default function CarpenterJobDetail({
                     onChange={(e) => handlePhotoChange(job.id, 'after', e)} 
                   />
                 </label>
+                <label className="photo-btn-label" style={{ flex: 1, textAlign: 'center', padding: '8px', cursor: 'pointer' }}>
+                  Attach Images
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={(e) => handlePhotoChange(job.id, 'after', e)} 
+                  />
+                </label>
                 <button 
                   type="button" 
                   onClick={() => handleMockPhoto(job.id, 'after')} 
                   className="btn-mock-photo"
-                  style={{ flex: 1, padding: '8px' }}
+                  style={{ gridColumn: '1 / -1', padding: '8px' }}
                 >
                   Mock Finish
                 </button>
