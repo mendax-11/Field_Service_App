@@ -5,9 +5,10 @@ import {
   MessageSquare, History, Plus, AlertTriangle, CheckCircle, Send, IndianRupee
 } from 'lucide-react';
 import { updateOrder, addComment, getUserRole, getActiveWorkload, MAX_ACTIVE_JOBS, addCarpenterPincode, removeCarpenterPincode, fsaQueries } from '../utils/stateManager';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly = false }) {
+  const queryClient = useQueryClient();
   const { data: carpentersData = { items: [] }, refetch: refetchCarpenters } = useQuery(fsaQueries.carpenters.all(1, 500));
   const carpenters = carpentersData.items || [];
   
@@ -64,6 +65,80 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
       if (jobStatus === 'Assigned') {
         setJobStatus('Unassigned');
       }
+    }
+  };
+
+  const getSelectedCarpenter = () => {
+    if (!assignedCarpenter) return null;
+    return carpenters.find(c => c.name === assignedCarpenter)
+      || carpenters.find(c => c.username === assignedCarpenter)
+      || { id: assignedCarpenter, name: assignedCarpenter, pincodes: [] };
+  };
+
+  const updateCarpenterPincodeCache = (carpenterId, nextPincodes) => {
+    queryClient.setQueriesData({ queryKey: ['carpenters'] }, old => {
+      if (!old?.items) return old;
+      return {
+        ...old,
+        items: old.items.map(carp =>
+          carp.id === carpenterId || carp.name === assignedCarpenter
+            ? { ...carp, pincodes: nextPincodes }
+            : carp
+        )
+      };
+    });
+  };
+
+  const handleAuthorizeArea = (event, selectedCarp = getSelectedCarpenter()) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    const cleanPincode = String(pincode || '').trim();
+    if (!cleanPincode) {
+      alert('Please enter a pincode before authorizing the area.');
+      return;
+    }
+    if (!selectedCarp) {
+      alert('Please select a carpenter before authorizing the area.');
+      return;
+    }
+
+    const success = addCarpenterPincode(selectedCarp.id, cleanPincode, selectedCarp);
+    if (!success) {
+      alert('Unable to authorize this area. Please reselect the carpenter and try again.');
+      return;
+    }
+
+    updateCarpenterPincodeCache(selectedCarp.id, [
+      ...new Set([...(selectedCarp.pincodes || []), cleanPincode])
+    ]);
+  };
+
+  const handleRemoveAuthorizedArea = (event, selectedCarp = getSelectedCarpenter()) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    const cleanPincode = String(pincode || '').trim();
+    if (!cleanPincode) {
+      alert('Please enter a pincode before removing the area.');
+      return;
+    }
+    if (!selectedCarp) {
+      alert('Please select a carpenter before removing the area.');
+      return;
+    }
+
+    if (confirm(`Remove pincode ${cleanPincode} from ${assignedCarpenter}'s authorized areas?`)) {
+      const success = removeCarpenterPincode(selectedCarp.id, cleanPincode, selectedCarp);
+      if (!success) {
+        alert('Unable to remove this area. Please reselect the carpenter and try again.');
+        return;
+      }
+
+      updateCarpenterPincodeCache(
+        selectedCarp.id,
+        (selectedCarp.pincodes || []).filter(pin => pin !== cleanPincode)
+      );
     }
   };
 
@@ -493,11 +568,10 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                                     textDecoration: 'underline',
                                     padding: '2px 4px'
                                   }}
-                                  onClick={() => {
-                                    if (confirm(`Remove pincode ${pincode} from ${assignedCarpenter}'s authorized areas?`)) {
-                                      removeCarpenterPincode(selectedCarp.id, pincode);
-                                      refetchCarpenters();
-                                    }
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    handleRemoveAuthorizedArea(e, selectedCarp);
                                   }}
                                 >
                                   Remove Area
@@ -533,9 +607,10 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                                     cursor: 'pointer',
                                     fontWeight: 'bold'
                                   }}
-                                  onClick={() => {
-                                    addCarpenterPincode(selectedCarp.id, pincode);
-                                    refetchCarpenters();
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    handleAuthorizeArea(e, selectedCarp);
                                   }}
                                 >
                                   + Authorize Area

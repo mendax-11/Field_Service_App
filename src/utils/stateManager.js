@@ -717,6 +717,11 @@ export const getCarpenters = () => {
 
 export const saveCarpenters = (carpenters) => {
   memoryCarpenters = carpenters;
+  try {
+    localStorage.setItem(STORAGE_KEYS.CARPENTERS, JSON.stringify(carpenters));
+  } catch (e) {
+    console.warn('[FSA] Failed to persist carpenters locally:', e);
+  }
 
   window.dispatchEvent(new Event('fsa_storage_update'));
   
@@ -807,31 +812,71 @@ function pruneLocalStorage() {
 
 function saveCarpentersLocalOnly(carpenters) {
   memoryCarpenters = carpenters;
+  try {
+    localStorage.setItem(STORAGE_KEYS.CARPENTERS, JSON.stringify(carpenters));
+  } catch (e) {
+    console.warn('[FSA] Failed to persist carpenters locally:', e);
+  }
   window.dispatchEvent(new Event('fsa_storage_update'));
 }
 
-export const addCarpenterPincode = (carpenterId, pincode) => {
+const normalizePincodeValue = (pincode) => String(pincode || '').trim();
+
+const upsertCarpenterFromSnapshot = (carpenters, carpenterId, snapshot = {}) => {
+  const index = carpenters.findIndex(c =>
+    c.id === carpenterId
+    || (snapshot.email && c.email === snapshot.email)
+    || (snapshot.phone && c.phone === snapshot.phone)
+    || (snapshot.username && c.phone === snapshot.username)
+    || (snapshot.name && c.name === snapshot.name)
+  );
+
+  if (index !== -1) return index;
+  if (!carpenterId && !snapshot.id) return -1;
+
+  carpenters.push({
+    id: carpenterId || snapshot.id,
+    name: snapshot.name || snapshot.username || '',
+    phone: snapshot.phone || snapshot.username || '',
+    email: snapshot.email || '',
+    rank: snapshot.rank || 'Expert',
+    qualityScore: Number(snapshot.qualityScore || snapshot.quality_score || 100),
+    activeJobs: Number(snapshot.activeJobs || 0),
+    maxActiveJobs: Number(snapshot.maxActiveJobs || snapshot.max_active_jobs || 3),
+    pincodes: Array.isArray(snapshot.pincodes) ? snapshot.pincodes : []
+  });
+
+  return carpenters.length - 1;
+};
+
+export const addCarpenterPincode = (carpenterId, pincode, carpenterSnapshot = {}) => {
+  const cleanPincode = normalizePincodeValue(pincode);
+  if (!cleanPincode) return false;
+
   const carpenters = getCarpenters();
-  const index = carpenters.findIndex(c => c.id === carpenterId);
+  const index = upsertCarpenterFromSnapshot(carpenters, carpenterId, carpenterSnapshot);
   if (index !== -1) {
     const carp = carpenters[index];
     if (!carp.pincodes) carp.pincodes = [];
-    if (!carp.pincodes.includes(pincode)) {
-      carp.pincodes.push(pincode);
-      saveCarpenters(carpenters);
-      return true;
+    if (!carp.pincodes.includes(cleanPincode)) {
+      carp.pincodes.push(cleanPincode);
     }
+    saveCarpenters(carpenters);
+    return true;
   }
   return false;
 };
 
-export const removeCarpenterPincode = (carpenterId, pincode) => {
+export const removeCarpenterPincode = (carpenterId, pincode, carpenterSnapshot = {}) => {
+  const cleanPincode = normalizePincodeValue(pincode);
+  if (!cleanPincode) return false;
+
   const carpenters = getCarpenters();
-  const index = carpenters.findIndex(c => c.id === carpenterId);
+  const index = upsertCarpenterFromSnapshot(carpenters, carpenterId, carpenterSnapshot);
   if (index !== -1) {
     const carp = carpenters[index];
     if (carp.pincodes) {
-      carp.pincodes = carp.pincodes.filter(p => p !== pincode);
+      carp.pincodes = carp.pincodes.filter(p => p !== cleanPincode);
       saveCarpenters(carpenters);
       return true;
     }
@@ -2486,7 +2531,24 @@ export const fsaQueries = {
       queryKey: ['carpenters', page, perPage, filter],
       queryFn: async () => {
         const queryFilter = filter ? `(role="Carpenter" && ${filter})` : 'role="Carpenter"';
-        return await pb.collection('users').getList(page, perPage, { filter: queryFilter, sort: '-created' });
+        const result = await pb.collection('users').getList(page, perPage, { filter: queryFilter, sort: '-created' });
+        const localCarps = getCarpenters();
+        const items = result.items.map(record => {
+          const local = localCarps.find(c =>
+            c.id === record.id
+            || (record.email && c.email === record.email)
+            || (record.phone && c.phone === record.phone)
+            || (record.username && c.phone === record.username)
+            || (record.name && c.name === record.name)
+          );
+
+          return {
+            ...record,
+            pincodes: [...new Set([...(record.pincodes || []), ...(local?.pincodes || [])])]
+          };
+        });
+
+        return { ...result, items };
       }
     }),
     detail: (id) => ({
