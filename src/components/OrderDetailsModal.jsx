@@ -83,14 +83,28 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
     return `${orderPart}_${customerPart}_${type}_${idx + 1}.${getImageExtension(src)}`;
   };
 
-  const handleDownloadImage = (photo, type, idx) => {
+  const triggerImageDownload = (href, filename) => {
     const link = document.createElement('a');
-    link.href = photo;
-    link.download = getEvidenceFileName(type, idx, photo);
+    link.href = href;
+    link.download = filename;
     link.rel = 'noopener noreferrer';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDownloadImage = async (photo, type, idx) => {
+    const filename = getEvidenceFileName(type, idx, photo);
+    try {
+      const response = await fetch(photo);
+      if (!response.ok) throw new Error('Image download failed');
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      triggerImageDownload(objectUrl, filename);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch {
+      triggerImageDownload(photo, filename);
+    }
   };
 
   const normalizePhotoSlot = (photos) => {
