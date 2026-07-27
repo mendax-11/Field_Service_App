@@ -45,6 +45,14 @@ function hasOpenPartRequest(order) {
   return order.jobStatus === 'On Hold - Parts Requested' && !['approved', 'dispatched', 'resolved', 'closed'].includes(requestStatus);
 }
 
+function getResumeStatus(order) {
+  return order.damageReport?.previousStatus
+    || order.damage_report?.previousStatus
+    || order.partHoldPreviousStatus
+    || order.part_hold_previous_status
+    || 'Assigned';
+}
+
 export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
   const [onHoldOrders, setOnHoldOrders] = useState([]);
   const [historyOrders, setHistoryOrders] = useState([]);
@@ -116,12 +124,20 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
         const timestamp = new Date().toISOString();
         const requestedParts = partsList || getPartsList(order);
         const damageReport = order.damageReport || order.damage_report || null;
+        const previousStatus = getResumeStatus(order);
+        const resumeStatus = 'Assigned';
+        const dispatchedDamageReport = damageReport
+          ? { ...damageReport, status: 'Dispatched', previousStatus }
+          : damageReport;
         const updatedFields = {
-          jobStatus: 'Assigned',
-          status: 'Assigned',
-          assembly_status: 'Assigned',
-          damageReport: damageReport ? { ...damageReport, status: 'Dispatched' } : damageReport,
-          damage_report: damageReport ? { ...damageReport, status: 'Dispatched' } : damageReport,
+          jobStatus: resumeStatus,
+          status: resumeStatus,
+          assembly_status: resumeStatus,
+          damageReport: dispatchedDamageReport,
+          damage_report: dispatchedDamageReport,
+          partHoldPreviousStatus: previousStatus,
+          part_hold_previous_status: previousStatus,
+          skipWebhook: true,
           // Append audit log
           auditLogs: [
             ...(order.auditLogs || []),
@@ -129,14 +145,19 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
               timestamp,
               action: 'Parts Dispatched',
               user: getUserRole(),
-              comments: `Parts approved & dispatched: ${requestedParts || 'Requested parts package'}`
+              comments: `Parts approved & dispatched: ${requestedParts || 'Requested parts package'}. Job reopened for return visit.`
             }
           ]
         };
 
         const updatedOrder = updateOrder(orderId, updatedFields);
         const fallbackUpdatedOrder = normalizeOrder({ ...order, ...updatedFields });
-        addNotification(`Logistics: Parts dispatched for order ${orderId}. Job status changed to Assigned.`);
+        stateManager.addComment(
+          orderId,
+          `System: Replacement parts approved and dispatched for [${requestedParts || 'Requested parts package'}]. Please click "I'm on my way" when starting the return visit.`,
+          'Dispatcher'
+        );
+        addNotification(`Logistics: Parts dispatched for order ${orderId}. Job status changed to ${resumeStatus}.`);
         
         setProcessingId(null);
         if (updatedOrder) {

@@ -163,13 +163,15 @@ export function normalizeOrder(o) {
       notes: carpenterComments,
       photo: damagePhoto,
       damagePhotos: damagePhotos,
-      status: o.partRequestStatus || o.part_request_status || 'Pending'
+      status: o.partRequestStatus || o.part_request_status || 'Pending',
+      previousStatus: o.partHoldPreviousStatus || o.part_hold_previous_status || o.holdResumeStatus || o.hold_resume_status || ''
     };
   } else if (damageReport && typeof damageReport === 'object') {
     damageReport.photo = damagePhoto || damageReport.photo || '';
     damageReport.partName = partsList || damageReport.partName || '';
     damageReport.notes = carpenterComments || damageReport.notes || '';
     damageReport.status = damageReport.status || o.partRequestStatus || o.part_request_status || 'Pending';
+    damageReport.previousStatus = damageReport.previousStatus || o.partHoldPreviousStatus || o.part_hold_previous_status || o.holdResumeStatus || o.hold_resume_status || '';
   }
 
   const photos = o.photos || { before: null, after: null };
@@ -280,6 +282,8 @@ export function normalizeOrder(o) {
     carpenterComments,
     damagePhotos,
     damage_photos: damagePhotos,
+    partHoldPreviousStatus: damageReport?.previousStatus || o.partHoldPreviousStatus || o.part_hold_previous_status || '',
+    part_hold_previous_status: damageReport?.previousStatus || o.partHoldPreviousStatus || o.part_hold_previous_status || '',
     secureSignatureUrl: o.secureSignatureUrl || o.secure_signature_url || '',
     securePhotoUrl: o.securePhotoUrl || o.secure_photo_url || ''
   };
@@ -1342,7 +1346,8 @@ export const stateManager = {
         notes,
         photo: damagePhotos.length > 0 ? damagePhotos[0] : 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100%" height="100%" fill="%23c0392b"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="10">Parts Damage</text></svg>',
         damagePhotos,  // embed so normalizeOrder can extract on re-load
-        status: 'Pending'
+        status: 'Pending',
+        previousStatus: order.jobStatus || order.status || 'Assigned'
       };
 
       const timestamp = new Date().toISOString();
@@ -1354,6 +1359,8 @@ export const stateManager = {
         damageReportFile: null,
         jobStatus: 'On Hold - Parts Requested',
         status: 'On Hold - Parts Requested',
+        partHoldPreviousStatus: damageReport.previousStatus,
+        part_hold_previous_status: damageReport.previousStatus,
         auditLogs: [
           ...(Array.isArray(order.auditLogs) ? order.auditLogs : []),
           {
@@ -1512,9 +1519,16 @@ function preserveLocalPartsDispatch(existingOrder, incomingOrder) {
 
   const existingDamageReport = existingOrder.damageReport || existingOrder.damage_report || null;
   const incomingDamageReport = incomingOrder.damageReport || incomingOrder.damage_report || null;
+  const previousStatus = existingDamageReport?.previousStatus
+    || incomingDamageReport?.previousStatus
+    || existingOrder.partHoldPreviousStatus
+    || existingOrder.part_hold_previous_status
+    || incomingOrder.partHoldPreviousStatus
+    || incomingOrder.part_hold_previous_status
+    || '';
   const damageReport = existingDamageReport
-    ? { ...existingDamageReport, status: existingDamageReport.status || 'Dispatched' }
-    : (incomingDamageReport ? { ...incomingDamageReport, status: incomingDamageReport.status || 'Dispatched' } : incomingDamageReport);
+    ? { ...existingDamageReport, status: 'Dispatched', previousStatus }
+    : (incomingDamageReport ? { ...incomingDamageReport, status: 'Dispatched', previousStatus } : incomingDamageReport);
   const auditLogs = Array.isArray(existingOrder.auditLogs) ? existingOrder.auditLogs : incomingOrder.auditLogs;
   const preservedStatus = existingOrder.jobStatus === 'On Hold - Parts Requested'
     ? 'Assigned'
@@ -1532,6 +1546,8 @@ function preserveLocalPartsDispatch(existingOrder, incomingOrder) {
     damage_photos: existingOrder.damage_photos || existingOrder.damagePhotos || incomingOrder.damage_photos,
     partsList: existingOrder.partsList || incomingOrder.partsList,
     carpenterComments: existingOrder.carpenterComments || incomingOrder.carpenterComments,
+    partHoldPreviousStatus: previousStatus,
+    part_hold_previous_status: previousStatus,
     auditLogs,
     audit_logs: existingOrder.audit_logs || auditLogs || incomingOrder.audit_logs
   });

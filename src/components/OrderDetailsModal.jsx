@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { 
   X, User, Package, Clock, 
-  MessageSquare, History, Plus, AlertTriangle, CheckCircle, Send, IndianRupee
+  MessageSquare, History, Plus, AlertTriangle, CheckCircle, Send, IndianRupee, Download, Trash2
 } from 'lucide-react';
 import { updateOrder, addComment, getUserRole, getActiveWorkload, MAX_ACTIVE_JOBS, addCarpenterPincode, removeCarpenterPincode, fsaQueries } from '../utils/stateManager';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -20,6 +20,14 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
   
   // Merge the base order with the fetched heavy fields
   const displayOrder = fullOrderRaw ? { ...order, photos: fullOrderRaw.photos || order.photos, signature: fullOrderRaw.signature || order.signature } : order;
+  const getPhotoList = (slot) => {
+    if (!slot) return [];
+    if (Array.isArray(slot)) return slot.filter(Boolean);
+    return [slot].filter(Boolean);
+  };
+  const beforePhotos = getPhotoList(displayOrder.photos?.before);
+  const afterPhotos = getPhotoList(displayOrder.photos?.after);
+  const replacementPhotos = getPhotoList(displayOrder.damagePhotos || displayOrder.damage_photos || displayOrder.damageReport?.damagePhotos || displayOrder.damage_report?.damagePhotos);
 
   const [newComment, setNewComment] = useState('');
   const [assignedCarpenter, setAssignedCarpenter] = useState(order.assignedCarpenter || '');
@@ -41,6 +49,130 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
   const [state, setState] = useState(order.state || '');
 
   const userRole = getUserRole();
+
+  const getSafeFilePart = (value, fallback) => {
+    const clean = String(value || fallback || '')
+      .trim()
+      .replace(/[^a-z0-9]+/gi, '_')
+      .replace(/^_+|_+$/g, '');
+    return clean || fallback;
+  };
+
+  const getImageExtension = (src) => {
+    if (typeof src !== 'string') return 'jpg';
+    const dataMatch = src.match(/^data:image\/([a-z0-9.+-]+);/i);
+    if (dataMatch) return dataMatch[1].replace('jpeg', 'jpg').replace('svg+xml', 'svg');
+    const path = src.split('?')[0].split('#')[0];
+    const extMatch = path.match(/\.([a-z0-9]+)$/i);
+    return extMatch ? extMatch[1] : 'jpg';
+  };
+
+  const getEvidenceFileName = (type, idx, src) => {
+    const orderPart = getSafeFilePart(displayOrder.orderId || order.orderId, 'order');
+    const customerPart = getSafeFilePart(displayOrder.customerName || order.customerName, 'customer');
+    return `${orderPart}_${customerPart}_${type}_${idx + 1}.${getImageExtension(src)}`;
+  };
+
+  const handleDownloadImage = (photo, type, idx) => {
+    const link = document.createElement('a');
+    link.href = photo;
+    link.download = getEvidenceFileName(type, idx, photo);
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const normalizePhotoSlot = (photos) => {
+    if (photos.length === 0) return null;
+    return photos.length === 1 ? photos[0] : photos;
+  };
+
+  const handleDeleteEvidenceImage = (type, idx) => {
+    if (readOnly) return;
+    if (!confirm(`Delete ${type} photo ${idx + 1} from this order? Download it first if you need to keep a copy.`)) {
+      return;
+    }
+
+    const nextPhotos = {
+      ...(displayOrder.photos || {}),
+      before: displayOrder.photos?.before || null,
+      after: displayOrder.photos?.after || null
+    };
+    let updatedFields = {};
+
+    if (type === 'before') {
+      const updatedBefore = beforePhotos.filter((_, photoIdx) => photoIdx !== idx);
+      nextPhotos.before = normalizePhotoSlot(updatedBefore);
+      updatedFields = { photos: nextPhotos };
+    } else if (type === 'after') {
+      const updatedAfter = afterPhotos.filter((_, photoIdx) => photoIdx !== idx);
+      nextPhotos.after = normalizePhotoSlot(updatedAfter);
+      updatedFields = { photos: nextPhotos };
+    } else {
+      const updatedDamagePhotos = replacementPhotos.filter((_, photoIdx) => photoIdx !== idx);
+      const currentDamageReport = displayOrder.damageReport || displayOrder.damage_report || null;
+      const nextDamageReport = currentDamageReport
+        ? {
+            ...currentDamageReport,
+            damagePhotos: updatedDamagePhotos,
+            photo: updatedDamagePhotos[0] || ''
+          }
+        : currentDamageReport;
+      updatedFields = {
+        damagePhotos: updatedDamagePhotos,
+        damage_photos: updatedDamagePhotos,
+        damagePhoto: updatedDamagePhotos[0] || '',
+        damageReport: nextDamageReport,
+        damage_report: nextDamageReport
+      };
+    }
+
+    const timestamp = new Date().toISOString();
+    updatedFields.auditLogs = [
+      ...(displayOrder.auditLogs || order.auditLogs || []),
+      {
+        timestamp,
+        action: 'Evidence Photo Deleted',
+        user: userRole,
+        comments: `${type.charAt(0).toUpperCase() + type.slice(1)} photo ${idx + 1} deleted for storage cleanup.`
+      }
+    ];
+
+    updateOrder(order.orderId, updatedFields);
+    onUpdate();
+  };
+
+  const renderEvidencePhoto = (photo, type, idx, label) => (
+    <div key={`${type}-${idx}`} className="evidence-media-item">
+      <div className="evidence-media-thumb">
+        <img src={photo} alt={`${label} ${idx + 1}`} />
+        <div className="evidence-media-actions">
+          <button
+            type="button"
+            className="evidence-icon-btn"
+            title={`Download ${label.toLowerCase()} photo`}
+            onClick={() => handleDownloadImage(photo, type, idx)}
+          >
+            <Download size={13} />
+          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              className="evidence-icon-btn danger"
+              title={`Delete ${label.toLowerCase()} photo`}
+              onClick={() => handleDeleteEvidenceImage(type, idx)}
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+        </div>
+      </div>
+      <span className="evidence-media-label">
+        {label} {idx + 1}
+      </span>
+    </div>
+  );
 
   useEffect(() => {
     refetchCarpenters();
@@ -807,28 +939,32 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                     )}
 
                     {/* Completion Photos & Signature */}
-                    {(displayOrder.photos?.before || displayOrder.photos?.after || displayOrder.signature) && (
+                    {(beforePhotos.length > 0 || afterPhotos.length > 0 || displayOrder.signature) && (
                       <div className="section-block details-media-grid" style={{ marginTop: '16px', marginBottom: '24px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
                         <label style={{ fontSize: '11px', fontWeight: '600', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Completion Evidence</label>
                         <div className="media-row" style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '8px' }}>
                           
-                          {displayOrder.photos?.before && (
-                            <div className="media-item" style={{ flex: '0 0 auto', width: '120px' }}>
-                              <div className="media-thumb" style={{ width: '120px', height: '120px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'var(--bg-input)' }}>
-                                <img src={displayOrder.photos.before} alt="Before" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          {beforePhotos.map((photo, idx) => (
+                            <div key={`before-${idx}`} className="media-item" style={{ flex: '0 0 auto', width: '120px' }}>
+                                <div className="media-thumb" style={{ width: '120px', height: '120px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'var(--bg-input)' }}>
+                                  <img src={photo} alt={`Before ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                </div>
+                                <span style={{ display: 'block', textAlign: 'center', fontSize: '11px', marginTop: '4px', color: 'var(--admin-text-secondary)' }}>
+                                  Before {beforePhotos.length > 1 ? idx + 1 : ''}
+                                </span>
                               </div>
-                              <span style={{ display: 'block', textAlign: 'center', fontSize: '11px', marginTop: '4px', color: 'var(--admin-text-secondary)' }}>Before</span>
-                            </div>
-                          )}
+                          ))}
 
-                          {displayOrder.photos?.after && (
-                            <div className="media-item" style={{ flex: '0 0 auto', width: '120px' }}>
-                              <div className="media-thumb" style={{ width: '120px', height: '120px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'var(--bg-input)' }}>
-                                <img src={displayOrder.photos.after} alt="After" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          {afterPhotos.map((photo, idx) => (
+                            <div key={`after-${idx}`} className="media-item" style={{ flex: '0 0 auto', width: '120px' }}>
+                                <div className="media-thumb" style={{ width: '120px', height: '120px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'var(--bg-input)' }}>
+                                  <img src={photo} alt={`After ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                </div>
+                                <span style={{ display: 'block', textAlign: 'center', fontSize: '11px', marginTop: '4px', color: 'var(--admin-text-secondary)' }}>
+                                  After {afterPhotos.length > 1 ? idx + 1 : ''}
+                                </span>
                               </div>
-                              <span style={{ display: 'block', textAlign: 'center', fontSize: '11px', marginTop: '4px', color: 'var(--admin-text-secondary)' }}>After</span>
-                            </div>
-                          )}
+                          ))}
 
                         {displayOrder.signature && (
                           <div className="media-item signature" style={{ flex: '0 0 auto', minWidth: '160px' }}>

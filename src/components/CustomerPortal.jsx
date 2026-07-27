@@ -163,6 +163,10 @@ export default function CustomerPortal({ orderId }) {
   const isCompleted = stepIndex === 4;
   const techName = maskName(order.assignedCarpenter || order.assigned_carpenter);
   const hasGps = order.gpsCoords && order.gpsCoords.lat && order.gpsCoords.lng;
+  const afterPhotos = Array.isArray(order.photos?.after)
+    ? order.photos.after.filter(Boolean)
+    : (order.photos?.after ? [order.photos.after] : []);
+  const completionProofPhoto = afterPhotos[0] || '';
 
   const handleRate = (stars) => {
     setRating(stars);
@@ -351,9 +355,9 @@ export default function CustomerPortal({ orderId }) {
             <div className="cp-completion-icon"><CheckCircle size={36} /></div>
             <h3>Assembly Complete!</h3>
             <p>Your furniture has been successfully assembled by {techName}.</p>
-            {order.photos?.after && (
+            {completionProofPhoto && (
               <div className="cp-proof-photo">
-                <img src={order.photos.after} alt="Assembly complete proof" />
+                <img src={completionProofPhoto} alt="Assembly complete proof" />
                 <span>Final assembly photo</span>
               </div>
             )}
