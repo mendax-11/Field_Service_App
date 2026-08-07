@@ -435,6 +435,38 @@
   border: 1px solid var(--border-color);
 }
 
+.job-thumb-button {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: zoom-in;
+  flex-shrink: 0;
+}
+
+.job-thumb-button .job-thumb {
+  display: block;
+}
+
+.job-thumb-action {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(15, 23, 42, 0.82);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  pointer-events: none;
+}
+
 .job-desc {
   flex: 1;
 }
@@ -459,6 +491,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   border-top: 1px solid var(--border-color);
   padding-top: 10px;
   margin-top: 2px;
@@ -477,6 +510,27 @@
   background-color: var(--bg-input);
   padding: 2px 6px;
   border-radius: 6px;
+}
+
+.job-view-product-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 4px 7px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--bg-input);
+  color: var(--primary);
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: zoom-in;
+  white-space: nowrap;
+}
+
+.job-view-product-btn:hover {
+  border-color: var(--primary);
 }
 
 /* Empty view state */
@@ -657,6 +711,34 @@
   height: 180px;
   object-fit: cover;
   border-bottom: 1px solid var(--border-color);
+}
+
+.product-hero-img-button {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.product-hero-img-button .product-hero-img {
+  display: block;
+}
+
+.product-hero-img-action {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background-color: rgba(15, 23, 42, 0.82);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  pointer-events: none;
 }
 
 .product-hero-info {

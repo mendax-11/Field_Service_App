@@ -1,4 +1,4 @@
-import { Clock, CheckCircle, IndianRupee, CheckSquare, User, MapPin, ChevronRight, RefreshCw } from 'lucide-react';
+import { Clock, CheckCircle, IndianRupee, CheckSquare, User, MapPin, ChevronRight, RefreshCw, Image } from 'lucide-react';
 import { useState } from 'react';
 
 export default function CarpenterJobList({ carpenterName, activeJobs, walletSummary, setSelectedJobId, refetchJobs }) {
@@ -9,6 +9,14 @@ export default function CarpenterJobList({ carpenterName, activeJobs, walletSumm
       setIsRefreshing(true);
       await refetchJobs();
       setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
+
+  const handleOpenProductImage = (event, job) => {
+    event.stopPropagation();
+    const imageUrl = job.productImage || job.product_image_url || job.product_image;
+    if (imageUrl) {
+      window.open(imageUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -86,12 +94,22 @@ export default function CarpenterJobList({ carpenterName, activeJobs, walletSumm
               </div>
               
               <div className="job-card-body">
-                <img 
-                  src={j.productImage} 
-                  alt={j.productName} 
-                  className="job-thumb"
-                  onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1581428982868-e410dd047a90?w=100'; }}
-                />
+                <button
+                  type="button"
+                  className="job-thumb-button"
+                  onClick={(event) => handleOpenProductImage(event, j)}
+                  aria-label={`Open product image for ${j.productName}`}
+                >
+                  <img 
+                    src={j.productImage} 
+                    alt={j.productName} 
+                    className="job-thumb"
+                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1581428982868-e410dd047a90?w=100'; }}
+                  />
+                  <span className="job-thumb-action">
+                    <Image size={13} />
+                  </span>
+                </button>
                 <div className="job-desc">
                   <h4>{j.productName}</h4>
                   <p>
@@ -115,6 +133,14 @@ export default function CarpenterJobList({ carpenterName, activeJobs, walletSumm
 
               <div className="job-card-footer">
                 <span className="job-pay-type">{j.paymentType} Pay</span>
+                <button
+                  type="button"
+                  className="job-view-product-btn"
+                  onClick={(event) => handleOpenProductImage(event, j)}
+                >
+                  <Image size={13} />
+                  View Product
+                </button>
                 <span className="job-payout">₹{j.payoutAmount}</span>
               </div>
             </div>

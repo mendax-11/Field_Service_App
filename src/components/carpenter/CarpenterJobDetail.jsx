@@ -31,6 +31,7 @@ export default function CarpenterJobDetail({
 
   const isBeforeUploaded = beforePhotos.length > 0;
   const isAfterUploaded = afterPhotos.length > 0;
+  const productImageUrl = job.productImage || job.product_image_url || job.product_image;
 
   return (
     <>
@@ -60,12 +61,20 @@ export default function CarpenterJobDetail({
 
       {/* Product Visual Card & reference links */}
       <div className="product-hero-card">
-        <img 
-          src={job.productImage} 
-          alt={job.productName} 
-          className="product-hero-img"
-          onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1581428982868-e410dd047a90?w=300'; }}
-        />
+        <button
+          type="button"
+          className="product-hero-img-button"
+          onClick={() => productImageUrl && window.open(productImageUrl, '_blank', 'noopener,noreferrer')}
+          aria-label={`Open product image for ${job.productName}`}
+        >
+          <img 
+            src={job.productImage} 
+            alt={job.productName} 
+            className="product-hero-img"
+            onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1581428982868-e410dd047a90?w=300'; }}
+          />
+          <span className="product-hero-img-action">Tap to view full image</span>
+        </button>
         <div className="product-hero-info">
           <h3>{job.productName}</h3>
           <a 
