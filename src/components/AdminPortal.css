@@ -871,10 +871,76 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
   background-color: var(--admin-bg-secondary);
   border: 1px solid var(--admin-border-color);
   border-radius: 12px;
   padding: 16px 24px;
+}
+
+.ledger-bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.payout-select-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--admin-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.payout-select-toggle input,
+.select-col input {
+  accent-color: var(--color-success);
+  cursor: pointer;
+}
+
+.selected-payout-summary {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 76px;
+  color: var(--admin-text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.selected-payout-summary strong {
+  color: var(--color-success);
+  font-size: 14px;
+}
+
+.bulk-clear-payout-btn {
+  background-color: var(--color-success);
+  color: #ffffff;
+  border: none;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 7px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.bulk-clear-payout-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.bulk-clear-payout-btn.compact {
+  padding: 5px 8px;
+  font-size: 9px;
 }
 
 .ledger-total-box {
@@ -963,6 +1029,26 @@
   text-transform: uppercase;
 }
 
+.payout-card-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.payout-card-toolbar h5 {
+  margin: 0;
+}
+
+.payout-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .no-jobs-payout {
   font-size: 11px;
   color: var(--admin-text-muted);
@@ -986,6 +1072,11 @@
 .job-table-ledger td {
   padding: 8px 6px;
   border-bottom: 1px solid var(--admin-border-color);
+}
+
+.job-table-ledger .select-col {
+  width: 52px;
+  text-align: center;
 }
 
 .clear-job-payout-btn {

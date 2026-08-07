@@ -234,6 +234,7 @@ export default function AdminPortal() {
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showArchivedPayouts, setShowArchivedPayouts] = useState(false);
+  const [selectedPayoutOrderIds, setSelectedPayoutOrderIds] = useState([]);
   const [geocodeCache, setGeocodeCache] = useState({});
 
   const { data: ordersData = { items: [] } } = useQuery(fsaQueries.orders.all(1, 500));
@@ -1061,7 +1062,7 @@ export default function AdminPortal() {
     }).filter(carp => carp.completedJobs.length > 0);
   };
 
-  const handleClearPayout = (orderId, carpenterName, amount) => {
+  const handleClearPayoutLegacy = (orderId, carpenterName, amount) => {
     const order = orders.find(o => o.orderId === orderId);
     if (order) {
       const timestamp = new Date().toISOString();
@@ -1082,8 +1083,77 @@ export default function AdminPortal() {
       triggerRefresh();
     }
   };
+  void handleClearPayoutLegacy;
+
+  const isPendingPayout = (order) => order.paymentStatus === 'Unpaid' || order.paymentStatus === 'Pending Payout';
+
+  const clearPayoutOrders = (jobsToClear, notificationLabel) => {
+    const pendingJobs = jobsToClear.filter(isPendingPayout);
+    if (pendingJobs.length === 0) return;
+
+    const jobsById = new Map(pendingJobs.map(job => [job.orderId, job]));
+    const timestamp = new Date().toISOString();
+    const changedOrders = [];
+    const updatedOrders = orders.map(order => {
+      const targetJob = jobsById.get(order.orderId);
+      if (!targetJob) return order;
+
+      const updatedOrder = normalizeOrder({
+        ...order,
+        paymentStatus: 'Paid',
+        payment_status: 'Paid',
+        auditLogs: [
+          ...(order.auditLogs || []),
+          {
+            timestamp,
+            action: 'Payout Cleared',
+            user: role,
+            comments: `Outstanding payout of ₹${targetJob.payout} cleared by Super Admin.`
+          }
+        ]
+      });
+
+      changedOrders.push(updatedOrder);
+      return updatedOrder;
+    });
+
+    saveOrders(updatedOrders, changedOrders);
+    setSelectedPayoutOrderIds(prev => prev.filter(orderId => !jobsById.has(orderId)));
+
+    const totalAmount = pendingJobs.reduce((sum, job) => sum + Number(job.payout || 0), 0);
+    addNotification(`Payout: Cleared ₹${totalAmount} outstanding payout for ${notificationLabel} (${pendingJobs.length} order${pendingJobs.length === 1 ? '' : 's'}).`);
+    triggerRefresh();
+  };
+
+  const handleClearPayout = (job, carpenterName) => {
+    clearPayoutOrders([job], `${carpenterName} / Order ${job.orderId}`);
+  };
+
+  const togglePayoutSelection = (orderId) => {
+    setSelectedPayoutOrderIds(prev => (
+      prev.includes(orderId)
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    ));
+  };
+
+  const setPayoutSelection = (jobs, selected) => {
+    const pendingIds = jobs.filter(isPendingPayout).map(job => job.orderId);
+    setSelectedPayoutOrderIds(prev => {
+      const current = new Set(prev);
+      pendingIds.forEach(orderId => {
+        if (selected) current.add(orderId);
+        else current.delete(orderId);
+      });
+      return Array.from(current);
+    });
+  };
 
   const payoutLedgerData = getPayoutData();
+  const pendingPayoutJobs = payoutLedgerData.flatMap(carp => carp.completedJobs.filter(isPendingPayout));
+  const selectedPayoutJobs = pendingPayoutJobs.filter(job => selectedPayoutOrderIds.includes(job.orderId));
+  const selectedPayoutTotal = selectedPayoutJobs.reduce((sum, job) => sum + Number(job.payout || 0), 0);
+  const allPendingPayoutsSelected = pendingPayoutJobs.length > 0 && pendingPayoutJobs.every(job => selectedPayoutOrderIds.includes(job.orderId));
   const totalCompanyOutstanding = payoutLedgerData.reduce((sum, c) => sum + c.outstandingPayout, 0);
   const unreadNotifCount = notifications.filter(n => !n.read).length;
 
@@ -1803,6 +1873,29 @@ export default function AdminPortal() {
                     <h3><Coins size={22} /> Carpenter Payout Ledger</h3>
                     <p className="subtitle">Audit completed cabinet and furniture installations. View totals and clear payouts upon disbursement.</p>
                   </div>
+                  <div className="ledger-bulk-actions">
+                    <label className="payout-select-toggle">
+                      <input
+                        type="checkbox"
+                        checked={allPendingPayoutsSelected}
+                        disabled={pendingPayoutJobs.length === 0}
+                        onChange={(e) => setPayoutSelection(pendingPayoutJobs, e.target.checked)}
+                      />
+                      Select Pending
+                    </label>
+                    <div className="selected-payout-summary">
+                      <span>{selectedPayoutJobs.length} selected</span>
+                      <strong>₹{selectedPayoutTotal}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      className="bulk-clear-payout-btn"
+                      disabled={selectedPayoutJobs.length === 0}
+                      onClick={() => clearPayoutOrders(selectedPayoutJobs, 'selected carpenters')}
+                    >
+                      Clear Selected
+                    </button>
+                  </div>
                   <div className="ledger-total-box" style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: 'var(--text-muted)' }}>
                       <input 
@@ -1826,7 +1919,11 @@ export default function AdminPortal() {
                       <p>No completed jobs found for any technician.</p>
                     </div>
                   ) : (
-                    payoutLedgerData.map(carp => (
+                    payoutLedgerData.map(carp => {
+                      const pendingJobs = carp.completedJobs.filter(isPendingPayout);
+                      const allCarpPayoutsSelected = pendingJobs.length > 0 && pendingJobs.every(job => selectedPayoutOrderIds.includes(job.orderId));
+
+                      return (
                       <div key={carp.id} className="carp-ledger-card">
                         <div className="ledger-card-header">
                           <div>
@@ -1840,7 +1937,28 @@ export default function AdminPortal() {
                         </div>
 
                         <div className="completed-jobs-sublist">
-                          <h5>Completed Jobs ({carp.completedJobs.length})</h5>
+                          <div className="payout-card-toolbar">
+                            <h5>Completed Jobs ({carp.completedJobs.length})</h5>
+                            {pendingJobs.length > 0 && (
+                              <div className="payout-card-actions">
+                                <label className="payout-select-toggle">
+                                  <input
+                                    type="checkbox"
+                                    checked={allCarpPayoutsSelected}
+                                    onChange={(e) => setPayoutSelection(pendingJobs, e.target.checked)}
+                                  />
+                                  Select Pending
+                                </label>
+                                <button
+                                  type="button"
+                                  className="bulk-clear-payout-btn compact"
+                                  onClick={() => clearPayoutOrders(pendingJobs, carp.name)}
+                                >
+                                  Clear All
+                                </button>
+                              </div>
+                            )}
+                          </div>
                           {carp.completedJobs.length === 0 ? (
                             <p className="no-jobs-payout">No completed installation jobs yet.</p>
                           ) : (
@@ -1848,6 +1966,7 @@ export default function AdminPortal() {
                               <table>
                                 <thead>
                                   <tr>
+                                    <th className="select-col">Select</th>
                                     <th>Order ID</th>
                                     <th>SKU / Product</th>
                                     <th>Payout</th>
@@ -1858,6 +1977,16 @@ export default function AdminPortal() {
                                 <tbody>
                                   {carp.completedJobs.map(job => (
                                     <tr key={job.orderId}>
+                                      <td className="select-col">
+                                        {isPendingPayout(job) && (
+                                          <input
+                                            type="checkbox"
+                                            aria-label={`Select payout for order ${job.orderId}`}
+                                            checked={selectedPayoutOrderIds.includes(job.orderId)}
+                                            onChange={() => togglePayoutSelection(job.orderId)}
+                                          />
+                                        )}
+                                      </td>
                                       <td className="font-mono">{job.orderId}</td>
                                       <td className="font-mono text-small">{job.sku.split('-').slice(1).join('-') || job.sku}</td>
                                       <td className="text-bold">₹{job.payout}</td>
@@ -1869,7 +1998,7 @@ export default function AdminPortal() {
                                       <td>
                                         {(job.paymentStatus === 'Unpaid' || job.paymentStatus === 'Pending Payout') ? (
                                           <button
-                                            onClick={() => handleClearPayout(job.orderId, carp.name, job.payout)}
+                                            onClick={() => handleClearPayout(job, carp.name)}
                                             className="clear-job-payout-btn"
                                           >
                                             Clear Payout
@@ -1905,7 +2034,8 @@ export default function AdminPortal() {
                           <span>Total Earnings: ₹{carp.totalCompletedPayout}</span>
                         </div>
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
