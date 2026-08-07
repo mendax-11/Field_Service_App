@@ -22,17 +22,17 @@ import TechniciansDashboard from './TechniciansDashboard';
 
 // Templates for CSV Import
 const CSV_TEMPLATES = {
-  Amazon: `Order ID,Customer Name,Phone,SKU,Payout,Payment Type,Delivery Date
-AMZ-4001,John Smith,+1-555-0111,SKU-OAK-DESK-01,150,Prepaid,2026-06-28T10:00:00Z
-AMZ-4002,Bruce Wayne,+1-555-0122,SKU-MAHOGANY-TABLE-02,280,Prepaid,2026-06-27T14:00:00Z`,
+  Amazon: `Order ID,Customer Name,Phone,Customer Address,City,State,Pincode,SKU,Payout,Payment Type,Delivery Date,Promise Date,Product Image URL,Product Review Link,Seller Review Link
+AMZ-4001,John Smith,+1-555-0111,"221B MG Road",Mumbai,MH,400001,SKU-OAK-DESK-01,150,Prepaid,2026-06-28T10:00:00Z,2026-06-29T18:00:00Z,https://example.com/oak-desk.jpg,https://example.com/product-review,https://example.com/seller-review
+AMZ-4002,Bruce Wayne,+1-555-0122,"42 Park Street",Delhi,DL,110001,SKU-MAHOGANY-TABLE-02,280,Prepaid,2026-06-27T14:00:00Z,2026-06-28T18:00:00Z,https://example.com/table.jpg,https://example.com/product-review,https://example.com/seller-review`,
   
-  Flipkart: `Order ID,Customer Name,Phone,SKU,Payout,Payment Type,Delivery Date
-FLIP-5001,Clark Kent,+1-555-0133,SKU-PINE-BED-04,320,COD,2026-06-26T16:00:00Z
-FLIP-5002,Diana Prince,+1-555-0144,SKU-WALNUT-CHAIR-03,85,COD,2026-06-29T11:00:00Z`,
+  Flipkart: `Order ID,Customer Name,Phone,Customer Address,City,State,Pincode,SKU,Payout,Payment Type,Delivery Date,Promise Date,Product Image URL,Product Review Link,Seller Review Link
+FLIP-5001,Clark Kent,+1-555-0133,"88 Brigade Road",Bengaluru,KA,560001,SKU-PINE-BED-04,320,COD,2026-06-26T16:00:00Z,2026-06-27T18:00:00Z,https://example.com/pine-bed.jpg,https://example.com/product-review,https://example.com/seller-review
+FLIP-5002,Diana Prince,+1-555-0144,"17 Anna Salai",Chennai,TN,600002,SKU-WALNUT-CHAIR-03,85,COD,2026-06-29T11:00:00Z,2026-06-30T18:00:00Z,https://example.com/chair.jpg,https://example.com/product-review,https://example.com/seller-review`,
   
-  WooCommerce: `Order ID,Customer Name,Phone,SKU,Payout,Payment Type,Delivery Date
-WOO-6001,Tony Stark,+1-555-0155,SKU-BIRCH-CABINET-02,120,Prepaid,2026-06-25T18:00:00Z
-WOO-6002,Barry Allen,+1-555-0166,SKU-OAK-TABLE-02,190,Prepaid,2026-06-30T09:00:00Z`
+  WooCommerce: `Order ID,Customer Name,Phone,Customer Address,City,State,Pincode,SKU,Payout,Payment Type,Delivery Date,Promise Date,Product Image URL,Product Review Link,Seller Review Link
+WOO-6001,Tony Stark,+1-555-0155,"9 BKC Avenue",Mumbai,MH,400051,SKU-BIRCH-CABINET-02,120,Prepaid,2026-06-25T18:00:00Z,2026-06-26T18:00:00Z,https://example.com/cabinet.jpg,https://example.com/product-review,https://example.com/seller-review
+WOO-6002,Barry Allen,+1-555-0166,"5 Salt Lake Sector V",Kolkata,WB,700091,SKU-OAK-TABLE-02,190,Prepaid,2026-06-30T09:00:00Z,2026-07-01T18:00:00Z,https://example.com/oak-table.jpg,https://example.com/product-review,https://example.com/seller-review`
 };
 
 // Dormant settings-panel asset retained for the integrations tab.
@@ -784,6 +784,10 @@ export default function AdminPortal() {
       const idxPayout = getHeaderIdx(['payout', 'price', 'amount', 'fee']);
       const idxPaymentType = getHeaderIdx(['payment type', 'payment']);
       const idxDeliveryDate = getHeaderIdx(['delivery date', 'date']);
+      const idxPromiseDate = getHeaderIdx(['promise date', 'sla target', 'sla']);
+      const idxProductImageUrl = getHeaderIdx(['product image url', 'product image', 'image url', 'image']);
+      const idxProductReviewLink = getHeaderIdx(['product review link', 'product review', 'review link']);
+      const idxSellerReviewLink = getHeaderIdx(['seller review link', 'seller review', 'seller reviewer']);
       
       const idxAddress = getHeaderIdx(['customer address', 'address']);
       const idxCity = getHeaderIdx(['city']);
@@ -836,6 +840,10 @@ export default function AdminPortal() {
         const payoutStr = columns[idxPayout];
         const paymentType = columns[idxPaymentType];
         const deliveryDateStr = columns[idxDeliveryDate];
+        const promiseDateStr = idxPromiseDate !== -1 ? columns[idxPromiseDate] : '';
+        const productImageUrl = idxProductImageUrl !== -1 ? columns[idxProductImageUrl] : '';
+        const productReviewLink = idxProductReviewLink !== -1 ? columns[idxProductReviewLink] : '';
+        const sellerReviewLink = idxSellerReviewLink !== -1 ? columns[idxSellerReviewLink] : '';
         
         const customerAddress = idxAddress !== -1 ? columns[idxAddress] : '';
         const city = idxCity !== -1 ? columns[idxCity] : '';
@@ -873,6 +881,16 @@ export default function AdminPortal() {
           }
         }
 
+        let parsedPromiseDate = null;
+        if (promiseDateStr) {
+          const timestamp = Date.parse(promiseDateStr);
+          if (isNaN(timestamp)) {
+            currentErrors.push(`Invalid Promise Date format: "${promiseDateStr}"`);
+          } else {
+            parsedPromiseDate = new Date(timestamp).toISOString();
+          }
+        }
+
         if (currentErrors.length > 0) {
           rowErrors.push(`Row ${rowNum}: ${currentErrors.join(', ')}`);
           continue;
@@ -902,6 +920,16 @@ export default function AdminPortal() {
           paymentStatus: existingOrder?.paymentStatus || 'Unpaid',
           paymentType: paymentType || 'Prepaid',
           deliveryDate: parsedDeliveryDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+          promiseDate: parsedPromiseDate || existingOrder?.promiseDate || existingOrder?.promise_date || '',
+          promise_date: parsedPromiseDate || existingOrder?.promiseDate || existingOrder?.promise_date || '',
+          productImage: productImageUrl || existingOrder?.productImage || existingOrder?.product_image_url || '',
+          product_image_url: productImageUrl || existingOrder?.productImageUrl || existingOrder?.product_image_url || existingOrder?.productImage || '',
+          productReviewLink: productReviewLink || existingOrder?.productReviewLink || existingOrder?.product_review_link || existingOrder?.productRefLink || '',
+          productRefLink: productReviewLink || existingOrder?.productRefLink || existingOrder?.product_review_link || '',
+          product_review_link: productReviewLink || existingOrder?.productReviewLink || existingOrder?.product_review_link || existingOrder?.productRefLink || '',
+          sellerReviewLink: sellerReviewLink || existingOrder?.sellerReviewLink || existingOrder?.seller_review_link || existingOrder?.sellerReviewer || '',
+          sellerReviewer: sellerReviewLink || existingOrder?.sellerReviewer || existingOrder?.seller_review_link || '',
+          seller_review_link: sellerReviewLink || existingOrder?.sellerReviewLink || existingOrder?.seller_review_link || existingOrder?.sellerReviewer || '',
           orderDate: existingOrder?.orderDate || new Date().toISOString(),
           comments: existingOrder?.comments || [],
           auditLogs: [

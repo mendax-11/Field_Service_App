@@ -976,36 +976,38 @@ const downloadCSV = (csvString, filename) => {
 };
 
 export const exportOrdersCSV = () => {
-  const orders = getOrders().filter(o => !o.archived);
+  const orders = getOrders().map(normalizeOrder).filter(o => !o.archived);
   const headers = [
     'Order ID', 'Platform', 'Customer Name', 'Customer Phone', 'Customer Address',
     'City', 'State', 'Pincode', 'Product SKU', 'Assembly Payout (INR)',
     'Job Status', 'Payment Status', 'Payment Type',
     'Assigned Carpenter', 'Assigned Date',
     'Delivery Status', 'Delivery Date', 'Promise Date',
-    'Seller Reviewer'
+    'Product Image URL', 'Product Review Link', 'Seller Review Link'
   ];
 
   const rows = orders.map(o => [
-    csvCell(o.order_id),
+    csvCell(o.orderId),
     csvCell(o.platform),
-    csvCell(o.customer_name),
-    csvCell(o.customer_phone),
-    csvCell(o.customer_address),
+    csvCell(o.customerName),
+    csvCell(o.customerPhone),
+    csvCell(o.customerAddress),
     csvCell(o.city),
     csvCell(o.state),
     csvCell(o.pincode),
-    csvCell(o.product_sku),
-    csvCell(o.assembly_payout),
-    csvCell(o.status),
-    csvCell(o.payment_status),
-    csvCell(o.payment_type),
-    csvCell(o.assigned_carpenter),
-    csvCell(o.assigned_date),
-    csvCell(o.delivery_status),
-    csvCell(o.delivery_date),
-    csvCell(o.promise_date),
-    csvCell(o.seller_reviewer)
+    csvCell(o.sku),
+    csvCell(o.payout),
+    csvCell(o.jobStatus),
+    csvCell(o.paymentStatus),
+    csvCell(o.paymentType),
+    csvCell(o.assignedCarpenter),
+    csvCell(o.assignedDate),
+    csvCell(o.deliveryStatus),
+    csvCell(o.deliveryDate),
+    csvCell(o.promiseDate),
+    csvCell(o.product_image_url || o.productImage),
+    csvCell(o.product_review_link || o.productRefLink),
+    csvCell(o.seller_review_link || o.sellerReviewer)
   ].join(','));
 
   const today = new Date().toISOString().split('T')[0];
