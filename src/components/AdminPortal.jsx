@@ -520,6 +520,15 @@ export default function AdminPortal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const isValidLatLng = (coords) => (
+    Array.isArray(coords)
+    && coords.length === 2
+    && Number.isFinite(Number(coords[0]))
+    && Number.isFinite(Number(coords[1]))
+    && Math.abs(Number(coords[0])) <= 90
+    && Math.abs(Number(coords[1])) <= 180
+  );
+
   // Fetch true geographical coordinates for pincodes to plot on map
   useEffect(() => {
     if (activeTab !== 'dashboard') return;
@@ -545,7 +554,12 @@ export default function AdminPortal() {
             if (res.ok) {
               const data = await res.json();
               if (data && data.places && data.places.length > 0) {
-                newCache[pin] = [parseFloat(data.places[0].latitude), parseFloat(data.places[0].longitude)];
+                const coords = [parseFloat(data.places[0].latitude), parseFloat(data.places[0].longitude)];
+                if (isValidLatLng(coords)) {
+                  newCache[pin] = coords;
+                } else {
+                  newCache[`failed_${pin}`] = true;
+                }
                 updated = true;
               } else {
                 newCache[`failed_${pin}`] = true;
@@ -617,8 +631,9 @@ export default function AdminPortal() {
     const technicians = carpenters;
     technicians.forEach(t => {
       let coords;
-      if (t.gpsCoords && t.gpsCoords.lat && t.gpsCoords.lng) {
-        coords = [Number(t.gpsCoords.lat), Number(t.gpsCoords.lng)];
+      const gpsCoords = t.gpsCoords ? [Number(t.gpsCoords.lat), Number(t.gpsCoords.lng)] : null;
+      if (isValidLatLng(gpsCoords)) {
+        coords = gpsCoords;
       } else {
         // Fallback: slight random spread around center for simulation
         const hash = t.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -626,6 +641,8 @@ export default function AdminPortal() {
         const lngOffset = (((hash >> 8) & 0xFF) / 255 - 0.5) * 0.12;
         coords = [defaultCenter[0] + latOffset, defaultCenter[1] + lngOffset];
       }
+
+      if (!isValidLatLng(coords)) return;
 
       const activeJobsCount = orders.filter(o => o.assignedCarpenter === t.name && o.jobStatus !== 'Completed').length;
 
@@ -661,17 +678,19 @@ export default function AdminPortal() {
       }
       
       let coords;
-      if (geocodeCache[pinStr] && Array.isArray(geocodeCache[pinStr])) {
+      if (isValidLatLng(geocodeCache[pinStr])) {
         // Small random scatter around the true coordinates so multiple jobs in same pincode don't perfectly overlap
         const latOffset = ((hash & 0xFF) / 255 - 0.5) * 0.008;
         const lngOffset = (((hash >> 8) & 0xFF) / 255 - 0.5) * 0.008;
-        coords = [geocodeCache[pinStr][0] + latOffset, geocodeCache[pinStr][1] + lngOffset];
+        coords = [Number(geocodeCache[pinStr][0]) + latOffset, Number(geocodeCache[pinStr][1]) + lngOffset];
       } else {
         // Fallback: Random offset from default center if geocoding fails or is loading
         const latOffset = ((hash & 0xFF) / 255 - 0.5) * 0.16;
         const lngOffset = (((hash >> 8) & 0xFF) / 255 - 0.5) * 0.16;
         coords = [defaultCenter[0] + latOffset, defaultCenter[1] + lngOffset];
       }
+
+      if (!isValidLatLng(coords)) return;
 
       const statusColor = o.jobStatus === 'In Progress' ? '#eab308' : o.jobStatus === 'Assigned' ? '#10b981' : o.jobStatus === 'On Hold' ? '#f97316' : '#ef4444';
 
