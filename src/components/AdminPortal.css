@@ -972,6 +972,189 @@
   gap: 24px;
 }
 
+.expense-claims-panel {
+  background-color: var(--admin-bg-secondary);
+  border: 1px solid var(--admin-border-color);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.expense-claims-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--admin-border-color);
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.expense-claims-header h4 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.expense-claims-header p {
+  margin: 0;
+  color: var(--admin-text-secondary);
+  font-size: 12px;
+}
+
+.expense-claims-count {
+  min-width: 82px;
+  background-color: var(--admin-bg-input);
+  border: 1px solid var(--admin-border-color);
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: right;
+}
+
+.expense-claims-count strong {
+  display: block;
+  color: var(--color-warning);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.expense-claims-count span {
+  color: var(--admin-text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.expense-claims-empty {
+  padding: 18px;
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  text-align: center;
+  background-color: var(--admin-bg-input);
+  border-radius: 8px;
+}
+
+.expense-claims-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.expense-claim-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid var(--admin-border-color);
+  border-radius: 8px;
+  background-color: var(--admin-bg-card);
+}
+
+.expense-claim-row.pending-approval {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.expense-claim-main {
+  min-width: 0;
+}
+
+.expense-claim-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+}
+
+.expense-claim-title strong {
+  font-size: 13px;
+}
+
+.expense-claim-status {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.expense-claim-status.pending-approval {
+  color: var(--color-warning);
+}
+
+.expense-claim-status.approved {
+  color: var(--color-success);
+}
+
+.expense-claim-status.rejected {
+  color: var(--color-danger);
+}
+
+.expense-claim-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--admin-text-muted);
+  font-size: 10px;
+  margin-bottom: 6px;
+}
+
+.expense-claim-main p {
+  margin: 0;
+  color: var(--admin-text-secondary);
+  font-size: 12px;
+}
+
+.expense-receipt-link {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--color-info);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.expense-claim-side {
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.expense-claim-side > strong {
+  color: var(--color-success);
+  font-size: 18px;
+}
+
+.expense-claim-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.expense-approve-btn,
+.expense-reject-btn {
+  border: none;
+  border-radius: 4px;
+  padding: 5px 8px;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.expense-approve-btn {
+  background-color: var(--color-success);
+}
+
+.expense-reject-btn {
+  background-color: var(--color-danger);
+}
+
+.expense-resolved-note {
+  color: var(--admin-text-muted);
+  font-size: 10px;
+}
+
 .carp-ledger-card {
   background-color: var(--admin-bg-secondary);
   border: 1px solid var(--admin-border-color);

@@ -1663,6 +1663,7 @@ async function syncOrderToPocketBase(orderId, order) {
       checklist: order.checklist || [],
       comments: mergedComments,
       audit_logs: mergedAuditLogs,
+      extra_charges: order.extraCharges || order.extra_charges || [],
       damage_report: order.damageReport ? { ...order.damageReport, damagePhotos: order.damagePhotos || [] } : (order.damage_report || null),
       photos: order.photos || { before: null, after: null },
       signature: order.signature || null,
@@ -2562,7 +2563,7 @@ export const fsaQueries = {
       queryKey: ['orders', page, perPage, filter],
       queryFn: async () => {
         // Request only lightweight fields to avoid downloading massive base64 strings in older records
-        const fields = 'id,created,updated,order_id,platform,customer_name,customer_phone,customer_address,city,state,pincode,status,payment_status,payment_type,assembly_payout,delivery_status,delivery_date,promise_date,checklist,comments,audit_logs,damage_report,assigned_carpenter,assigned_carpenter_name,archived,is_archived,otp,otp_sent,otp_verified,sub_carpenter_name,sub_carpenter_phone,product_sku,assigned_date,assembly_amount,customer_number,payment_source,product_image_url,product_review_link,seller_review_link,assembly_status,expand.assigned_carpenter.name,expand.assigned_carpenter.username';
+        const fields = 'id,created,updated,order_id,platform,customer_name,customer_phone,customer_address,city,state,pincode,status,payment_status,payment_type,assembly_payout,delivery_status,delivery_date,promise_date,checklist,comments,audit_logs,extra_charges,damage_report,assigned_carpenter,assigned_carpenter_name,archived,is_archived,otp,otp_sent,otp_verified,sub_carpenter_name,sub_carpenter_phone,product_sku,assigned_date,assembly_amount,customer_number,payment_source,product_image_url,product_review_link,seller_review_link,assembly_status,expand.assigned_carpenter.name,expand.assigned_carpenter.username';
         return await pb.collection('orders').getList(page, perPage, { filter, sort: '-created', expand: 'assigned_carpenter', fields });
       }
     }),

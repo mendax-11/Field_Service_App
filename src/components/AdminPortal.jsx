@@ -1197,7 +1197,87 @@ export default function AdminPortal() {
     });
   };
 
+  const getExpenseClaimsData = () => {
+    return getFilteredOrdersList()
+      .flatMap(order => (order.extraCharges || []).map(claim => ({
+        ...claim,
+        orderId: order.orderId,
+        customerName: order.customerName,
+        assignedCarpenter: order.assignedCarpenter,
+        currentPayout: Number(order.payout || 0)
+      })))
+      .sort((a, b) => {
+        if (a.status === 'Pending Approval' && b.status !== 'Pending Approval') return -1;
+        if (a.status !== 'Pending Approval' && b.status === 'Pending Approval') return 1;
+        return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+      });
+  };
+
+  const handleResolveExpenseClaim = (orderId, chargeId, resolution) => {
+    const timestamp = new Date().toISOString();
+    let changedOrder = null;
+    let targetClaim = null;
+
+    const updatedOrders = orders.map(order => {
+      if (order.orderId !== orderId) return order;
+
+      const updatedCharges = (order.extraCharges || []).map(claim => {
+        if (claim.id !== chargeId) return claim;
+        targetClaim = claim;
+        return {
+          ...claim,
+          status: resolution,
+          resolvedAt: timestamp,
+          resolvedBy: role
+        };
+      });
+
+      if (!targetClaim) return order;
+
+      const amountVal = Number(targetClaim.amount || 0);
+      const payoutDelta = resolution === 'Approved' ? amountVal : 0;
+      const currentPayout = Number(order.payout || order.assembly_payout || 0);
+
+      changedOrder = normalizeOrder({
+        ...order,
+        extraCharges: updatedCharges,
+        extra_charges: updatedCharges,
+        payout: currentPayout + payoutDelta,
+        assembly_payout: currentPayout + payoutDelta,
+        assembly_amount: currentPayout + payoutDelta,
+        auditLogs: [
+          ...(order.auditLogs || []),
+          {
+            timestamp,
+            action: resolution === 'Approved' ? 'Extra Charge Approved' : 'Extra Charge Rejected',
+            user: role,
+            comments: `${resolution} extra charge of ₹${amountVal} for ${targetClaim.type || 'Expense'}.`
+          }
+        ],
+        comments: [
+          ...(order.comments || []),
+          {
+            timestamp,
+            author: 'System',
+            text: `System: Extra charge request of ₹${amountVal} has been ${resolution.toLowerCase()} by ${role}.`
+          }
+        ]
+      });
+
+      return changedOrder;
+    });
+
+    if (!changedOrder || !targetClaim) return;
+
+    saveOrders(updatedOrders, changedOrder);
+    addNotification(`Expense Claim: ${resolution} ₹${targetClaim.amount} for order ${orderId}.`);
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
+    triggerRefresh();
+  };
+
   const payoutLedgerData = getPayoutData();
+  const expenseClaimsData = getExpenseClaimsData();
+  const pendingExpenseClaims = expenseClaimsData.filter(claim => claim.status === 'Pending Approval');
   const pendingPayoutJobs = payoutLedgerData.flatMap(carp => carp.completedJobs.filter(isPendingPayout));
   const selectedPayoutJobs = pendingPayoutJobs.filter(job => selectedPayoutOrderIds.includes(job.orderId));
   const selectedPayoutTotal = selectedPayoutJobs.reduce((sum, job) => sum + Number(job.payout || 0), 0);
@@ -1959,6 +2039,69 @@ export default function AdminPortal() {
                       <span className="value font-mono">₹{totalCompanyOutstanding}</span>
                     </div>
                   </div>
+                </div>
+
+                <div className="expense-claims-panel">
+                  <div className="expense-claims-header">
+                    <div>
+                      <h4>Expense Claims</h4>
+                      <p>Approve technician reimbursement requests for travel, hardware, and other field expenses.</p>
+                    </div>
+                    <div className="expense-claims-count">
+                      <strong>{pendingExpenseClaims.length}</strong>
+                      <span>Pending</span>
+                    </div>
+                  </div>
+
+                  {expenseClaimsData.length === 0 ? (
+                    <div className="expense-claims-empty">No reimbursement claims submitted yet.</div>
+                  ) : (
+                    <div className="expense-claims-list">
+                      {expenseClaimsData.map(claim => {
+                        const isPending = claim.status === 'Pending Approval';
+                        const statusClass = (claim.status || 'pending').toLowerCase().replace(/\s+/g, '-');
+
+                        return (
+                          <div key={`${claim.orderId}-${claim.id}`} className={`expense-claim-row ${statusClass}`}>
+                            <div className="expense-claim-main">
+                              <div className="expense-claim-title">
+                                <strong>{claim.type}</strong>
+                                <span className={`expense-claim-status ${statusClass}`}>{claim.status}</span>
+                              </div>
+                              <div className="expense-claim-meta">
+                                <span>Order {claim.orderId}</span>
+                                <span>{claim.assignedCarpenter || claim.requestedBy || 'Technician'}</span>
+                                <span>{claim.timestamp ? new Date(claim.timestamp).toLocaleString('en-IN') : 'No date'}</span>
+                              </div>
+                              <p>{claim.notes || 'No notes provided.'}</p>
+                              {claim.receipt && (
+                                <a href={claim.receipt} target="_blank" rel="noopener noreferrer" className="expense-receipt-link">
+                                  View Receipt
+                                </a>
+                              )}
+                            </div>
+                            <div className="expense-claim-side">
+                              <strong>₹{claim.amount}</strong>
+                              {isPending ? (
+                                <div className="expense-claim-actions">
+                                  <button type="button" className="expense-approve-btn" onClick={() => handleResolveExpenseClaim(claim.orderId, claim.id, 'Approved')}>
+                                    Approve
+                                  </button>
+                                  <button type="button" className="expense-reject-btn" onClick={() => handleResolveExpenseClaim(claim.orderId, claim.id, 'Rejected')}>
+                                    Reject
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="expense-resolved-note">
+                                  {claim.resolvedAt ? `Resolved ${new Date(claim.resolvedAt).toLocaleDateString('en-IN')}` : 'Resolved'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div className="carpenter-ledger-grid">
