@@ -434,18 +434,71 @@ export const getOrders = () => {
   }
 };
 
+const mergeHydratedOrder = (localOrder, serverOrder) => {
+  if (!localOrder) return normalizeOrder(serverOrder);
+  if (!serverOrder) return normalizeOrder(localOrder);
+
+  const orderId = localOrder.orderId || localOrder.order_id || localOrder.id;
+  const lastLocalTime = Math.max(
+    lastLocalUpdate.get(orderId) || 0,
+    lastLocalUpdate.get(localOrder.id) || 0,
+    lastLocalUpdate.get(localOrder.order_id) || 0
+  );
+  const isRecentlyUpdatedLocally = (Date.now() - lastLocalTime) < 5000;
+  const serverDamageReport = serverOrder.damageReport || serverOrder.damage_report || null;
+  const serverRequestStatus = String(serverDamageReport?.status || '').toLowerCase();
+  const serverDispatchedParts = hasAuditAction(serverOrder, 'Parts Dispatched')
+    || ['approved', 'dispatched', 'resolved', 'closed'].includes(serverRequestStatus);
+
+  if (isRecentlyUpdatedLocally && !serverDispatchedParts) {
+    return normalizeOrder(localOrder);
+  }
+
+  const localDamageReport = localOrder.damageReport || localOrder.damage_report || null;
+  const mergedDamageReport = serverDamageReport || localDamageReport;
+  const localPhotos = localOrder.photos || {};
+  const serverPhotos = serverOrder.photos || {};
+  const mergedPhotos = {
+    before: serverPhotos.before || localPhotos.before || null,
+    after: serverPhotos.after || localPhotos.after || null
+  };
+
+  return normalizeOrder({
+    ...localOrder,
+    ...serverOrder,
+    photos: mergedPhotos,
+    signature: serverOrder.signature || localOrder.signature || null,
+    secureSignatureUrl: serverOrder.secureSignatureUrl || localOrder.secureSignatureUrl || '',
+    securePhotoUrl: serverOrder.securePhotoUrl || localOrder.securePhotoUrl || '',
+    damageReport: mergedDamageReport,
+    damage_report: mergedDamageReport,
+    damagePhotos: serverOrder.damagePhotos?.length ? serverOrder.damagePhotos : localOrder.damagePhotos,
+    damage_photos: serverOrder.damage_photos?.length ? serverOrder.damage_photos : localOrder.damage_photos,
+    otpSent: localOrder.otpSent,
+    otp_sent: localOrder.otpSent,
+    otpVerified: localOrder.otpVerified,
+    otp_verified: localOrder.otpVerified,
+    assignmentHold: serverOrder.assignmentHold || localOrder.assignmentHold,
+    assignment_hold: serverOrder.assignmentHold || localOrder.assignmentHold
+  });
+};
+
 export const hydrateOrders = (serverOrders) => {
   const normalized = serverOrders.map(normalizeOrder).filter(Boolean);
-  // Only update if memoryOrders is empty or missing items, to prevent overwriting recent optimistic updates
   if (!memoryOrders || memoryOrders.length === 0) {
     memoryOrders = normalized;
   } else {
-    // Merge new server items that don't exist in memory
-    const existingIds = new Set(memoryOrders.map(o => o.id));
-    const newItems = normalized.filter(o => !existingIds.has(o.id));
-    if (newItems.length > 0) {
-      memoryOrders = [...memoryOrders, ...newItems];
-    }
+    const serverById = new Map(normalized.map(order => [order.id, order]));
+    const localIds = new Set(memoryOrders.map(order => order.id));
+    const mergedExisting = memoryOrders.map(order => mergeHydratedOrder(order, serverById.get(order.id)));
+    const newItems = normalized.filter(order => !localIds.has(order.id));
+    memoryOrders = [...mergedExisting, ...newItems];
+  }
+
+  try {
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(memoryOrders));
+  } catch (e) {
+    // Ignore storage pressure; in-memory hydration still updates the UI.
   }
 };
 
