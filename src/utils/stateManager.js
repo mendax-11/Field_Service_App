@@ -57,6 +57,13 @@ const getDefaultAssemblyChecklist = () => [
   { id: 5, label: 'Clean surfaces and request client sign-off', checked: false }
 ];
 
+const normalizeBool = (value) => {
+  if (typeof value === 'string') {
+    return value.toLowerCase() === 'true';
+  }
+  return !!value;
+};
+
 // Normalize an order object to present both snake_case and camelCase aliases 
 // to prevent breaking any component layouts that depend on either format.
 export function normalizeOrder(o) {
@@ -197,7 +204,9 @@ export function normalizeOrder(o) {
   const comments = Array.isArray(o.comments) ? o.comments : (o.comments ? [o.comments] : []);
   const auditLogs = Array.isArray(o.auditLogs) ? o.auditLogs : (Array.isArray(o.audit_logs) ? o.audit_logs : []);
   const rawArchived = o.archived !== undefined ? o.archived : (o.is_archived !== undefined ? o.is_archived : false);
-  const archived = typeof rawArchived === 'string' ? rawArchived.toLowerCase() === 'true' : !!rawArchived;
+  const archived = normalizeBool(rawArchived);
+  const rawAssignmentHold = o.assignmentHold !== undefined ? o.assignmentHold : (o.assignment_hold !== undefined ? o.assignment_hold : false);
+  const assignmentHold = normalizeBool(rawAssignmentHold);
   const extraCharges = Array.isArray(o.extraCharges) ? o.extraCharges : (Array.isArray(o.extra_charges) ? o.extra_charges : []);
 
   return {
@@ -217,6 +226,7 @@ export function normalizeOrder(o) {
     payment_type: paymentType,
     assigned_carpenter: assignedCarpenterId || assignedCarpenter || null,
     assigned_carpenter_name: assignedCarpenter,
+    assignment_hold: assignmentHold,
     assigned_date: assignedDate,
     product_image: productImage,
     product_ref_link: productRefLink,
@@ -241,6 +251,7 @@ export function normalizeOrder(o) {
     paymentType,
     assignedCarpenter,
     assignedCarpenterId,
+    assignmentHold,
     assignedDate,
     productImage,
     productRefLink,
@@ -392,10 +403,20 @@ initializeStorage();
 
 export const MAX_ACTIVE_JOBS = 3;
 
+export const isActiveOrder = (order) => {
+  if (!order) return false;
+  const jobStatus = order.jobStatus || order.status || order.assembly_status || '';
+  const deliveryStatus = order.deliveryStatus || order.delivery_status || '';
+  if (order.archived || order.is_archived) return false;
+  if (jobStatus === 'Completed' || jobStatus === 'Unassigned') return false;
+  if (deliveryStatus === 'Cancelled') return false;
+  return true;
+};
+
 export const getActiveWorkload = (carpName) => {
   if (!carpName) return 0;
   const orders = getOrders();
-  return orders.filter(o => o.assignedCarpenter === carpName && o.jobStatus !== 'Completed').length;
+  return orders.filter(o => o.assignedCarpenter === carpName && isActiveOrder(o)).length;
 };
 
 // Orders
@@ -1190,14 +1211,23 @@ export const autoAllocateOrders = () => {
   const carpenters = getCarpenters();
   let allocatedCount = 0;
   const todayStr = new Date().toISOString();
+  const activeWorkloads = new Map();
 
-  // Helper to count active jobs for a carpenter
-  const getActiveWorkload = (carpenterName) => {
-    return orders.filter(o => o.assignedCarpenter === carpenterName && o.jobStatus !== 'Completed').length;
-  };
+  carpenters.forEach(c => {
+    activeWorkloads.set(c.name, orders.filter(o => o.assignedCarpenter === c.name && isActiveOrder(o)).length);
+  });
 
   const updatedOrders = orders.map(order => {
-    if (order.jobStatus === 'Unassigned' || !order.assignedCarpenter) {
+    const deliveryStatus = order.deliveryStatus || order.delivery_status || '';
+    const jobStatus = order.jobStatus || order.status || '';
+    const isAssignable = !order.archived
+      && !order.is_archived
+      && !order.assignmentHold
+      && !order.assignment_hold
+      && deliveryStatus !== 'Cancelled'
+      && jobStatus !== 'Completed';
+
+    if (isAssignable && (jobStatus === 'Unassigned' || !order.assignedCarpenter)) {
       const orderPincode = order.pincode || '';
       
       // Filter carpenters serving this pincode
@@ -1222,14 +1252,14 @@ export const autoAllocateOrders = () => {
       // Filter out carpenters who are at or above their capacity limit (custom maxActiveJobs or fallback to MAX_ACTIVE_JOBS)
       const underCapacityCarpenters = candidatePool.filter(c => {
         const limit = Number(c.maxActiveJobs || c.max_active_jobs || MAX_ACTIVE_JOBS);
-        return getActiveWorkload(c.name) < limit;
+        return (activeWorkloads.get(c.name) || 0) < limit;
       });
 
       // Map to weighted score
       const scoredCarpenters = underCapacityCarpenters.map(c => {
         const qs = Number(c.qualityScore || 100);
         const limit = Number(c.maxActiveJobs || c.max_active_jobs || MAX_ACTIVE_JOBS);
-        const active = getActiveWorkload(c.name);
+        const active = activeWorkloads.get(c.name) || 0;
         
         const qualityPoints = qs / 2; // e.g. 100 score = 50 pts
         const capacityPoints = (limit - active) * 10; // e.g. 5 spare slots = 50 pts
@@ -1254,6 +1284,7 @@ export const autoAllocateOrders = () => {
       const winner = scoredCarpenters[0];
       if (winner) {
         const bestCarpenter = winner.carpenter;
+        activeWorkloads.set(bestCarpenter.name, (activeWorkloads.get(bestCarpenter.name) || 0) + 1);
         allocatedCount++;
         return {
           ...order,
@@ -1261,6 +1292,8 @@ export const autoAllocateOrders = () => {
           assignedCarpenterId: bestCarpenter.id,
           assigned_carpenter_name: bestCarpenter.name,
           assigned_carpenter_id: bestCarpenter.id,
+          assignmentHold: false,
+          assignment_hold: false,
           jobStatus: 'Assigned',
           assignedDate: todayStr,
           auditLogs: [
@@ -1975,6 +2008,18 @@ function setupPocketBaseRealtime() {
           updatedOrder.otp_sent = existingOrder.otpSent;
           updatedOrder.otpVerified = existingOrder.otpVerified;
           updatedOrder.otp_verified = existingOrder.otpVerified;
+          updatedOrder.assignmentHold = existingOrder.assignmentHold;
+          updatedOrder.assignment_hold = existingOrder.assignmentHold;
+
+          if (existingOrder.assignmentHold && !existingOrder.assignedCarpenter) {
+            updatedOrder.jobStatus = 'Unassigned';
+            updatedOrder.status = 'Unassigned';
+            updatedOrder.assembly_status = 'Unassigned';
+            updatedOrder.assignedCarpenter = '';
+            updatedOrder.assignedCarpenterId = '';
+            updatedOrder.assigned_carpenter = null;
+            updatedOrder.assigned_carpenter_name = '';
+          }
 
           // Merge & preserve local fields to prevent race conditions on recent local updates
           const lastLocalTime = lastLocalUpdate.get(record.order_id) || 0;
@@ -1998,6 +2043,8 @@ function setupPocketBaseRealtime() {
             updatedOrder.gpsCoords = existingOrder.gpsCoords;
             updatedOrder.auditLogs = existingOrder.auditLogs;
             updatedOrder.audit_logs = existingOrder.audit_logs;
+            updatedOrder.assignmentHold = existingOrder.assignmentHold;
+            updatedOrder.assignment_hold = existingOrder.assignmentHold;
           }
 
           // Protect completed status from being overwritten by a pending server status
@@ -2567,6 +2614,18 @@ setTimeout(() => {
             order.otp_sent = existingLocal.otpSent;
             order.otpVerified = existingLocal.otpVerified;
             order.otp_verified = existingLocal.otpVerified;
+            order.assignmentHold = existingLocal.assignmentHold;
+            order.assignment_hold = existingLocal.assignmentHold;
+
+            if (existingLocal.assignmentHold && !existingLocal.assignedCarpenter) {
+              order.jobStatus = 'Unassigned';
+              order.status = 'Unassigned';
+              order.assembly_status = 'Unassigned';
+              order.assignedCarpenter = '';
+              order.assignedCarpenterId = '';
+              order.assigned_carpenter = null;
+              order.assigned_carpenter_name = '';
+            }
 
             // Preserve locally saved damage photos — PB may not have synced them yet
             if (

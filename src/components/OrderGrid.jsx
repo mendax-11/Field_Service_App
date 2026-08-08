@@ -4,7 +4,7 @@ import {
   Search, ArrowUpDown, ChevronLeft, ChevronRight, 
   Trash2, Eye, SlidersHorizontal, RefreshCw
 } from 'lucide-react';
-import { deleteOrder, updateOrder, saveOrders, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb, getCarpenters, stateManager } from '../utils/stateManager';
+import { deleteOrder, updateOrder, saveOrders, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb, getCarpenters, stateManager, isActiveOrder } from '../utils/stateManager';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import OrderDetailsModal from './OrderDetailsModal';
 
@@ -81,6 +81,12 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
 
   const handleQuickAssign = (orderId, carpenterName) => {
     const nextStatus = carpenterName ? 'Assigned' : 'Unassigned';
+    const currentOrder = orders.find(o => o.orderId === orderId);
+
+    if (carpenterName && currentOrder && !isActiveOrder({ ...currentOrder, assignedCarpenter: carpenterName, jobStatus: nextStatus })) {
+      alert('This order is cancelled, completed, or archived and cannot be assigned to a technician.');
+      return;
+    }
     
     // Resolve carpenter ID from the PocketBase fetched carpenters list
     const matchedCarpenter = carpenters.find(c => c.name === carpenterName || c.username === carpenterName);
@@ -89,11 +95,11 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
     const updatedFields = {
       assignedCarpenter: carpenterName || null,
       assignedCarpenterId,
-      jobStatus: nextStatus
+      jobStatus: nextStatus,
+      assignmentHold: !carpenterName,
+      assignment_hold: !carpenterName
     };
 
-    const ordersList = orders;
-    const currentOrder = ordersList.find(o => o.orderId === orderId);
     if (currentOrder) {
       const changes = [];
       if (currentOrder.assignedCarpenter !== updatedFields.assignedCarpenter) {
@@ -122,7 +128,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
       if (!old) return old;
       return {
         ...old,
-        items: old.items.map(o => o.order_id === orderId || o.id === orderId ? { ...o, assigned_carpenter_name: carpenterName, assigned_carpenter: assignedCarpenterId, assembly_status: nextStatus, status: nextStatus } : o)
+        items: old.items.map(o => o.order_id === orderId || o.id === orderId ? { ...o, assigned_carpenter_name: carpenterName, assigned_carpenter: assignedCarpenterId, assignment_hold: !carpenterName, assembly_status: nextStatus, status: nextStatus } : o)
       };
     });
     
@@ -211,12 +217,21 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
 
   const handleBulkAssign = (carpenterName) => {
     if (selectedOrderIds.length === 0 || !carpenterName) return;
+
+    const targetOrders = orders.filter(o => selectedOrderIds.includes(o.orderId));
+    const blockedOrders = targetOrders.filter(o => !isActiveOrder({ ...o, assignedCarpenter: carpenterName, jobStatus: 'Assigned' }));
+    if (blockedOrders.length > 0) {
+      alert(`Cannot assign ${blockedOrders.length} selected orders because they are cancelled, completed, or archived.`);
+      return;
+    }
     
     selectedOrderIds.forEach(id => {
       updateOrder(id, { 
         assignedCarpenter: carpenterName,
         jobStatus: 'Assigned',
-        status: 'Assigned'
+        status: 'Assigned',
+        assignmentHold: false,
+        assignment_hold: false
       });
     });
     
@@ -225,7 +240,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
       if (!old) return old;
       return {
         ...old,
-        items: old.items.map(o => selectedOrderIds.includes(o.order_id) || selectedOrderIds.includes(o.id) ? { ...o, assigned_carpenter_name: carpenterName, assembly_status: 'Assigned', status: 'Assigned' } : o)
+        items: old.items.map(o => selectedOrderIds.includes(o.order_id) || selectedOrderIds.includes(o.id) ? { ...o, assigned_carpenter_name: carpenterName, assignment_hold: false, assembly_status: 'Assigned', status: 'Assigned' } : o)
       };
     });
     
@@ -235,11 +250,20 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
 
   const handleBulkStatusChange = (status) => {
     if (selectedOrderIds.length === 0 || !status) return;
+    const assignmentHold = status === 'Unassigned';
     
     selectedOrderIds.forEach(id => {
       updateOrder(id, { 
         jobStatus: status,
-        status: status
+        status: status,
+        ...(assignmentHold ? {
+          assignedCarpenter: null,
+          assignedCarpenterId: null,
+          assigned_carpenter_name: '',
+          assigned_carpenter: null
+        } : {}),
+        assignmentHold,
+        assignment_hold: assignmentHold
       });
     });
     
@@ -248,7 +272,13 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
       if (!old) return old;
       return {
         ...old,
-        items: old.items.map(o => selectedOrderIds.includes(o.order_id) || selectedOrderIds.includes(o.id) ? { ...o, assembly_status: status, status: status } : o)
+        items: old.items.map(o => selectedOrderIds.includes(o.order_id) || selectedOrderIds.includes(o.id) ? {
+          ...o,
+          ...(assignmentHold ? { assigned_carpenter_name: '', assigned_carpenter: null } : {}),
+          assignment_hold: assignmentHold,
+          assembly_status: status,
+          status: status
+        } : o)
       };
     });
     
@@ -384,7 +414,8 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
       
     const matchesPlatform = selectedPlatform === 'All' || order.platform === selectedPlatform;
     const matchesJobStatus = selectedJobStatus === 'All' || order.jobStatus === selectedJobStatus;
-    const matchesCarpenter = selectedCarpenter === 'All' || order.assignedCarpenter === selectedCarpenter;
+    const matchesCarpenter = selectedCarpenter === 'All'
+      || (selectedCarpenter === 'Unassigned' ? !order.assignedCarpenter : order.assignedCarpenter === selectedCarpenter);
     const matchesPaymentType = selectedPaymentType === 'All' || order.paymentType === selectedPaymentType;
 
     return matchesSearch && matchesPlatform && matchesJobStatus && matchesCarpenter && matchesPaymentType;

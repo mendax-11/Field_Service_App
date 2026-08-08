@@ -10,7 +10,7 @@ import {
   getUserRole, setUserRole, hasRole, hasPermission,
   saveOrders, addNotification, updateOrder, addOrder, checkSlaBreaches,
   getN8nConfig, saveN8nConfig, getNotifications, autoAllocateOrders, clearNotifications,
-  exportOrdersCSV, pb, resetState, fsaQueries, normalizeOrder, stateManager
+  exportOrdersCSV, pb, resetState, fsaQueries, normalizeOrder, stateManager, isActiveOrder
 } from '../utils/stateManager';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -534,7 +534,7 @@ export default function AdminPortal() {
   useEffect(() => {
     if (activeTab !== 'dashboard') return;
     
-    const activeOrders = orders.filter(o => o.jobStatus !== 'Completed');
+    const activeOrders = orders.filter(isActiveOrder);
     const uniquePins = [...new Set(activeOrders.map(o => o.pincode).filter(Boolean))];
     
     let isSubscribed = true;
@@ -645,7 +645,7 @@ export default function AdminPortal() {
 
       if (!isValidLatLng(coords)) return;
 
-      const activeJobsCount = orders.filter(o => o.assignedCarpenter === t.name && o.jobStatus !== 'Completed').length;
+      const activeJobsCount = orders.filter(o => o.assignedCarpenter === t.name && isActiveOrder(o)).length;
 
       const techIcon = window.L.divIcon({
         className: 'custom-leaflet-tech-icon',
@@ -669,7 +669,7 @@ export default function AdminPortal() {
     });
 
     // 2. Plot Active Orders
-    const activeOrders = orders.filter(o => o.jobStatus !== 'Completed');
+    const activeOrders = orders.filter(isActiveOrder);
     activeOrders.forEach(o => {
       // Deterministic offset based on pincode for clean grid grouping
       const pinStr = o.pincode || '';
@@ -1210,11 +1210,12 @@ export default function AdminPortal() {
   };
 
   const getOrderExpenseClaims = (order) => {
-    const structuredClaims = (order.extraCharges || []).map(claim => ({
+    const rawStructuredClaims = (order.extraCharges || []).map(claim => ({
       ...claim,
       source: 'structured'
     }));
-    const seenClaims = new Set(structuredClaims.map(getClaimKey));
+    const seenClaims = new Set(rawStructuredClaims.map(getClaimKey));
+    const structuredClaims = rawStructuredClaims.filter(claim => claim.status !== 'Dismissed');
 
     const auditClaims = (order.auditLogs || [])
       .filter(log => log.action === 'Extra Charge Requested')
@@ -1269,6 +1270,7 @@ export default function AdminPortal() {
         orderId: order.orderId,
         customerName: order.customerName,
         assignedCarpenter: order.assignedCarpenter,
+        isClosedOrder: !isActiveOrder(order),
         currentPayout: Number(order.payout || 0)
       })))
       .sort((a, b) => {
@@ -1361,9 +1363,83 @@ export default function AdminPortal() {
     alert(`Expense claim ${resolution.toLowerCase()} successfully.`);
   };
 
+  const handleClearClosedExpenseClaims = () => {
+    const timestamp = new Date().toISOString();
+    const localSourceOrders = stateManager.getOrders();
+    const sourceOrders = localSourceOrders.length > 0 ? localSourceOrders : orders;
+    let clearedCount = 0;
+    const changedOrders = [];
+
+    const updatedOrders = sourceOrders.map(sourceOrder => {
+      const order = normalizeOrder(sourceOrder);
+      if (!order || isActiveOrder(order)) return sourceOrder;
+
+      const pendingClosedClaims = getOrderExpenseClaims(order).filter(claim => claim.status === 'Pending Approval');
+      if (pendingClosedClaims.length === 0) return sourceOrder;
+
+      const existingCharges = order.extraCharges || [];
+      const existingKeys = new Set(existingCharges.map(getClaimKey));
+      const dismissedFallbackClaims = pendingClosedClaims
+        .filter(claim => !existingKeys.has(getClaimKey(claim)))
+        .map(claim => ({
+          ...claim,
+          status: 'Dismissed',
+          resolvedAt: timestamp,
+          resolvedBy: role,
+          dismissalReason: 'Cleared because order is already closed.'
+        }));
+
+      const updatedCharges = [
+        ...existingCharges.map(claim => (
+          claim.status === 'Pending Approval'
+            ? {
+                ...claim,
+                status: 'Dismissed',
+                resolvedAt: timestamp,
+                resolvedBy: role,
+                dismissalReason: 'Cleared because order is already closed.'
+              }
+            : claim
+        )),
+        ...dismissedFallbackClaims
+      ];
+
+      clearedCount += pendingClosedClaims.length;
+      const updatedOrder = normalizeOrder({
+        ...order,
+        extraCharges: updatedCharges,
+        extra_charges: updatedCharges,
+        auditLogs: [
+          ...(order.auditLogs || []),
+          {
+            timestamp,
+            action: 'Closed Order Expense Claims Cleared',
+            user: role,
+            comments: `Dismissed ${pendingClosedClaims.length} pending expense claim${pendingClosedClaims.length === 1 ? '' : 's'} on closed order.`
+          }
+        ]
+      });
+
+      changedOrders.push(updatedOrder);
+      return updatedOrder;
+    });
+
+    if (clearedCount === 0) {
+      alert('No pending expense claims found on closed orders.');
+      return;
+    }
+
+    saveOrders(updatedOrders, changedOrders);
+    addNotification(`Expense Claims: Cleared ${clearedCount} closed-order claim${clearedCount === 1 ? '' : 's'}.`);
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
+    triggerRefresh();
+    alert(`Cleared ${clearedCount} closed-order expense claim${clearedCount === 1 ? '' : 's'}.`);
+  };
+
   const payoutLedgerData = getPayoutData();
   const expenseClaimsData = getExpenseClaimsData();
   const pendingExpenseClaims = expenseClaimsData.filter(claim => claim.status === 'Pending Approval');
+  const pendingClosedExpenseClaims = pendingExpenseClaims.filter(claim => claim.isClosedOrder);
   const pendingPayoutJobs = payoutLedgerData.flatMap(carp => carp.completedJobs.filter(isPendingPayout));
   const selectedPayoutJobs = pendingPayoutJobs.filter(job => selectedPayoutOrderIds.includes(job.orderId));
   const selectedPayoutTotal = selectedPayoutJobs.reduce((sum, job) => sum + Number(job.payout || 0), 0);
@@ -1690,7 +1766,7 @@ export default function AdminPortal() {
                 <div className="tech-workloads-list">
                   {carpenters.map(c => {
                     const activeJobsCount = orders.filter(
-                      o => o.assignedCarpenter === c.name && o.jobStatus !== 'Completed'
+                      o => o.assignedCarpenter === c.name && isActiveOrder(o)
                     ).length;
 
                     return (
@@ -2090,6 +2166,14 @@ export default function AdminPortal() {
                   <span className="label">Pending Claims:</span>
                   <span className="value font-mono">{pendingExpenseClaims.length}</span>
                 </div>
+                <button
+                  type="button"
+                  className="expense-clear-closed-btn"
+                  disabled={pendingClosedExpenseClaims.length === 0}
+                  onClick={handleClearClosedExpenseClaims}
+                >
+                  Clear Closed Claims ({pendingClosedExpenseClaims.length})
+                </button>
               </div>
 
               <div className="expense-claims-panel">
@@ -2102,6 +2186,14 @@ export default function AdminPortal() {
                     <strong>{pendingExpenseClaims.length}</strong>
                     <span>Pending</span>
                   </div>
+                  <button
+                    type="button"
+                    className="expense-clear-closed-btn"
+                    disabled={pendingClosedExpenseClaims.length === 0}
+                    onClick={handleClearClosedExpenseClaims}
+                  >
+                    Clear Closed ({pendingClosedExpenseClaims.length})
+                  </button>
                 </div>
 
                 {expenseClaimsData.length === 0 ? (
@@ -2229,6 +2321,14 @@ export default function AdminPortal() {
                       <strong>{pendingExpenseClaims.length}</strong>
                       <span>Pending</span>
                     </div>
+                    <button
+                      type="button"
+                      className="expense-clear-closed-btn"
+                      disabled={pendingClosedExpenseClaims.length === 0}
+                      onClick={handleClearClosedExpenseClaims}
+                    >
+                      Clear Closed ({pendingClosedExpenseClaims.length})
+                    </button>
                   </div>
 
                   {expenseClaimsData.length === 0 ? (

@@ -1024,6 +1024,30 @@
   text-transform: uppercase;
 }
 
+.expense-clear-closed-btn {
+  align-self: center;
+  border: 1px solid var(--admin-border-color);
+  background-color: var(--admin-bg-input);
+  color: var(--admin-text-secondary);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.expense-clear-closed-btn:hover:not(:disabled) {
+  color: #ffffff;
+  border-color: var(--color-warning);
+}
+
+.expense-clear-closed-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .expense-claims-empty {
   padding: 18px;
   color: var(--admin-text-muted);

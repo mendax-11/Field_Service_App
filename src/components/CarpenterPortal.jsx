@@ -12,7 +12,7 @@ import {
   AlertTriangle,
   LogOut
 } from 'lucide-react';
-import { stateManager, triggerN8nWebhook, fsaQueries, normalizeOrder, addNotification } from '../utils/stateManager';
+import { stateManager, triggerN8nWebhook, fsaQueries, normalizeOrder, addNotification, isActiveOrder } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
 import { getTranslation } from '../utils/translations';
 import { captureAndStampPhoto } from '../utils/photoStamper';
@@ -853,7 +853,7 @@ Your review helps us serve you better. Thank you!`;
   };
 
   const walletSummary = getCarpenterEarnings();
-  const activeJobs = carpenterJobs.filter(j => j.status !== 'Completed');
+  const activeJobs = carpenterJobs.filter(isActiveOrder);
 
   // Detail validation check for unlocking OTP send
   const jobChecklist = job && Array.isArray(job.checklist) ? job.checklist : [];

@@ -4,7 +4,7 @@ import {
   X, User, Package, Clock, 
   MessageSquare, History, Plus, AlertTriangle, CheckCircle, Send, IndianRupee, Download, Trash2
 } from 'lucide-react';
-import { updateOrder, saveOrders, addComment, getUserRole, getActiveWorkload, MAX_ACTIVE_JOBS, addCarpenterPincode, removeCarpenterPincode, fsaQueries, normalizeOrder, stateManager } from '../utils/stateManager';
+import { updateOrder, saveOrders, addComment, getUserRole, getActiveWorkload, MAX_ACTIVE_JOBS, addCarpenterPincode, removeCarpenterPincode, fsaQueries, normalizeOrder, stateManager, isActiveOrder } from '../utils/stateManager';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly = false }) {
@@ -411,11 +411,20 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
   };
 
   const handleSaveFieldChanges = () => {
+    const nextJobStatus = assignedCarpenter ? jobStatus : 'Unassigned';
+
+    if (assignedCarpenter && !isActiveOrder({ ...order, assignedCarpenter, jobStatus: nextJobStatus, deliveryStatus })) {
+      alert('This order is cancelled, completed, or archived and cannot be assigned to a technician.');
+      return;
+    }
+
     const updatedFields = {
       assignedCarpenter: assignedCarpenter || null,
-      jobStatus,
+      jobStatus: nextJobStatus,
       deliveryStatus,
       paymentStatus,
+      assignmentHold: !assignedCarpenter,
+      assignment_hold: !assignedCarpenter,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       customerAddress: customerAddress.trim(),

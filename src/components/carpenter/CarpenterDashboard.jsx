@@ -1,6 +1,10 @@
 import { Briefcase, CheckCircle, IndianRupee, Calendar, MapPin, ChevronRight, TrendingUp } from 'lucide-react';
+import { isActiveOrder } from '../../utils/stateManager';
 
 export default function CarpenterDashboard({ availability, setAvailability, jobs, carpenterName, setActiveTab, setSelectedJobId }) {
+  const activeJobs = jobs.filter(j => j.assignedCarpenter === carpenterName && isActiveOrder(j));
+  const completedJobs = jobs.filter(j => j.assignedCarpenter === carpenterName && j.jobStatus === 'Completed');
+
   return (
     <div className="carpenter-dashboard-tab animate-fade-in">
       {/* Availability Toggler Card */}
@@ -40,14 +44,14 @@ export default function CarpenterDashboard({ availability, setAvailability, jobs
           <div className="stat-icon-wrap primary">
             <Briefcase size={16} />
           </div>
-          <span className="stat-val">{jobs.filter(j => j.assignedCarpenter === carpenterName && j.jobStatus !== 'Completed').length}</span>
+          <span className="stat-val">{activeJobs.length}</span>
           <span className="stat-lbl">Active Jobs</span>
         </div>
         <div className="stat-card">
           <div className="stat-icon-wrap success">
             <CheckCircle size={16} />
           </div>
-          <span className="stat-val">{jobs.filter(j => j.assignedCarpenter === carpenterName && j.jobStatus === 'Completed').length}</span>
+          <span className="stat-val">{completedJobs.length}</span>
           <span className="stat-lbl">Completed</span>
         </div>
         <div className="stat-card">
@@ -55,8 +59,7 @@ export default function CarpenterDashboard({ availability, setAvailability, jobs
             <IndianRupee size={16} />
           </div>
           <span className="stat-val">₹{
-            jobs.filter(j => j.assignedCarpenter === carpenterName && j.jobStatus === 'Completed')
-              .reduce((sum, j) => sum + j.payout, 0)
+            completedJobs.reduce((sum, j) => sum + j.payout, 0)
           }</span>
           <span className="stat-lbl">Earnings</span>
         </div>
@@ -66,19 +69,17 @@ export default function CarpenterDashboard({ availability, setAvailability, jobs
       <div className="agenda-section">
         <div className="section-title-bar">
           <h3><Calendar size={15} /> Today's Agenda</h3>
-          <span>{jobs.filter(j => j.assignedCarpenter === carpenterName && j.jobStatus !== 'Completed').length} Pending</span>
+          <span>{activeJobs.length} Pending</span>
         </div>
 
         <div className="agenda-timeline">
-          {jobs.filter(j => j.assignedCarpenter === carpenterName && j.jobStatus !== 'Completed').length === 0 ? (
+          {activeJobs.length === 0 ? (
             <div className="empty-agenda">
               <CheckCircle size={28} style={{ color: 'var(--success)', marginBottom: '8px' }} />
               <p>All caught up! No pending jobs assigned to you today.</p>
             </div>
           ) : (
-            jobs
-              .filter(j => j.assignedCarpenter === carpenterName && j.jobStatus !== 'Completed')
-              .map((j, index) => (
+            activeJobs.map((j, index) => (
                 <div key={j.id} className="timeline-item">
                   <div className="timeline-marker">
                     <span className="marker-number">{index + 1}</span>

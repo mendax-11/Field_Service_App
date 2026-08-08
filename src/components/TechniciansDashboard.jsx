@@ -9,7 +9,7 @@ import {
   addCarpenterPincode, addCarpenterPincodes, removeCarpenterPincode,
   replaceCarpenterPincodes, clearCarpenterPincodes,
   exportCarpentersCSV, getActiveWorkload, MAX_ACTIVE_JOBS,
-  fsaQueries, normalizeOrder, getCarpenters,
+  fsaQueries, normalizeOrder, getCarpenters, isActiveOrder,
   addCarpenter, updateCarpenter, deleteCarpenter, addNotification
 } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
@@ -291,7 +291,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
     
     return orders.filter(o => {
       if (o.assignedCarpenter !== carpName) return false;
-      if (o.jobStatus === 'Completed' || o.status === 'Completed') return false;
+      if (!isActiveOrder(o)) return false;
       
       const targetDate = o.deliveryDate || o.promiseDate;
       if (!targetDate) return false;
