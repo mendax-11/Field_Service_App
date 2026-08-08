@@ -1210,6 +1210,17 @@ export default function AdminPortal() {
   };
 
   const getOrderExpenseClaims = (order) => {
+    const closedClaimsClearedAt = (order.auditLogs || [])
+      .filter(log => log.action === 'Closed Order Expense Claims Cleared')
+      .map(log => new Date(log.timestamp || 0).getTime())
+      .filter(Number.isFinite)
+      .reduce((latest, ts) => Math.max(latest, ts), 0);
+    const isSuppressedLegacyClaim = (claim) => (
+      closedClaimsClearedAt > 0
+      && !isActiveOrder(order)
+      && new Date(claim.timestamp || 0).getTime() <= closedClaimsClearedAt
+    );
+
     const rawStructuredClaims = (order.extraCharges || []).map(claim => ({
       ...claim,
       source: 'structured'
@@ -1232,6 +1243,7 @@ export default function AdminPortal() {
         };
       })
       .filter(Boolean)
+      .filter(claim => !isSuppressedLegacyClaim(claim))
       .filter(claim => {
         const key = getClaimKey(claim);
         if (seenClaims.has(key)) return false;
@@ -1253,6 +1265,7 @@ export default function AdminPortal() {
         };
       })
       .filter(Boolean)
+      .filter(claim => !isSuppressedLegacyClaim(claim))
       .filter(claim => {
         const key = getClaimKey(claim);
         if (seenClaims.has(key)) return false;
@@ -1416,6 +1429,14 @@ export default function AdminPortal() {
             action: 'Closed Order Expense Claims Cleared',
             user: role,
             comments: `Dismissed ${pendingClosedClaims.length} pending expense claim${pendingClosedClaims.length === 1 ? '' : 's'} on closed order.`
+          }
+        ],
+        comments: [
+          ...(order.comments || []),
+          {
+            timestamp,
+            author: 'System',
+            text: `System: Cleared ${pendingClosedClaims.length} pending expense claim${pendingClosedClaims.length === 1 ? '' : 's'} because this order is already closed.`
           }
         ]
       });
