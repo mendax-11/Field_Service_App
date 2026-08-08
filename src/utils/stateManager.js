@@ -101,7 +101,9 @@ export function normalizeOrder(o) {
   const assignedDate = o.assignedDate || o.assigned_date || '';
   const productImage = o.productImage || o.product_image || o.product_image_url || 'https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&w=600&q=80';
   const productRefLink = o.productRefLink || o.product_ref_link || o.product_review_link || 'https://manuals.service.com/assembly-guide.pdf';
-  const sellerReviewer = o.sellerReviewer || o.seller_reviewer || o.seller_review_link || 'System';
+  const productReviewLink = o.productReviewLink || o.product_review_link || '';
+  const sellerReviewLink = o.sellerReviewLink || o.seller_review_link || '';
+  const sellerReviewer = sellerReviewLink || o.sellerReviewer || o.seller_reviewer || 'System';
   let deliveryStatus = o.deliveryStatus || o.delivery_status || 'Pending';
   if (jobStatus === 'Completed' && deliveryStatus !== 'Delivered') {
     deliveryStatus = 'Delivered';
@@ -242,7 +244,9 @@ export function normalizeOrder(o) {
     assignedDate,
     productImage,
     productRefLink,
+    productReviewLink,
     sellerReviewer,
+    sellerReviewLink,
     deliveryStatus,
     deliveryDate,
     promiseDate,
@@ -252,8 +256,8 @@ export function normalizeOrder(o) {
     customer_number: customerPhone,
     payment_source: paymentType,
     product_image_url: productImage,
-    product_review_link: productRefLink,
-    seller_review_link: sellerReviewer,
+    product_review_link: productReviewLink,
+    seller_review_link: sellerReviewLink,
     'promise date': promiseDate,
     assembly_status: jobStatus,
     orderDate: o.orderDate || o.created || o.order_date || '',
@@ -1509,6 +1513,10 @@ export function mapRecordToOrder(r) {
     partsList: r.parts_list || r.partsList || '',
     carpenterComments: r.carpenter_comments || r.carpenterComments || '',
     productImage: r.product_image || r.product_image_url || '',
+    productReviewLink: r.product_review_link || '',
+    sellerReviewLink: r.seller_review_link || '',
+    product_review_link: r.product_review_link || '',
+    seller_review_link: r.seller_review_link || '',
     photos: r.photos || { before: null, after: null },
     signature: r.signature || null,
     archived: r.archived || r.is_archived || false,
@@ -1674,8 +1682,8 @@ async function syncOrderToPocketBase(orderId, order) {
       customer_number: order.customerPhone || order.customer_number || '',
       payment_source: order.paymentType || order.payment_source || '',
       product_image_url: order.productImage || order.product_image_url || '',
-      product_review_link: order.productRefLink || order.product_review_link || '',
-      seller_review_link: order.sellerReviewer || order.seller_review_link || '',
+      product_review_link: order.productReviewLink || order.product_review_link || '',
+      seller_review_link: order.sellerReviewLink || order.seller_review_link || '',
       assembly_status: order.jobStatus || order.assembly_status || 'Unassigned'
     };
 

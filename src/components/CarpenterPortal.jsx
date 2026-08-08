@@ -648,8 +648,8 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       phone = '91' + phone;
     }
     
-    const prodLink = currentJob.productRefLink || currentJob.product_review_link || '';
-    const sellLink = currentJob.sellerReviewer || currentJob.seller_review_link || '';
+    const prodLink = currentJob.productReviewLink || currentJob.product_review_link || '';
+    const sellLink = currentJob.sellerReviewLink || currentJob.seller_review_link || '';
     
     const link = type === 'product' ? prodLink : sellLink;
     
@@ -677,8 +677,8 @@ Your review helps us serve you better. Thank you!`;
       phone = '91' + phone;
     }
     
-    const prodLink = job.productRefLink || job.product_review_link || '';
-    const sellLink = job.sellerReviewer || job.seller_review_link || '';
+    const prodLink = job.productReviewLink || job.product_review_link || '';
+    const sellLink = job.sellerReviewLink || job.seller_review_link || '';
     
     const text = `Hi ${job.customerName}, thank you for choosing TimberFlow for your furniture assembly! 😊
 
@@ -712,8 +712,13 @@ Your review helps us serve you better. Thank you!`;
 
     stateManager.updateJob(job.id, {
       status: 'Completed',
+      jobStatus: 'Completed',
+      assembly_status: 'Completed',
+      deliveryStatus: 'Delivered',
+      delivery_status: 'Delivered',
       signature: signatureBase64,
       paymentStatus: paymentStatusUpdate,
+      payment_status: paymentStatusUpdate,
       gpsCoords: null, // Clear GPS on completion for privacy
       secureSignatureUrl: mockSecureSigUrl,
       securePhotoUrl: mockSecurePhotoUrl,

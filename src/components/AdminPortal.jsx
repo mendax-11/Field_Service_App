@@ -421,10 +421,11 @@ export default function AdminPortal() {
   useEffect(() => {
     const handleUpdate = () => {
       loadData();
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     };
     window.addEventListener('fsa_storage_update', handleUpdate);
     return () => window.removeEventListener('fsa_storage_update', handleUpdate);
-  }, []);
+  }, [queryClient]);
 
   // Set default tab based on role and enforce access control
   useEffect(() => {
