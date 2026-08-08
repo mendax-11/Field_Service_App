@@ -487,16 +487,30 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
 
   // Resolve Extra Charge claim (Approve or Reject)
   const handleResolveExtraCharge = (chargeId, resolution) => {
+    const targetCharge = (order.extraCharges || []).find(ec => ec.id === chargeId);
+    if (!targetCharge) {
+      alert('Could not find this claim. Refresh the order and try again.');
+      return;
+    }
+    if (targetCharge.status && targetCharge.status !== 'Pending Approval') {
+      alert('This claim is already resolved.');
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
     const updatedCharges = (order.extraCharges || []).map(ec => {
       if (ec.id === chargeId) {
-        return { ...ec, status: resolution };
+        return {
+          ...ec,
+          status: resolution,
+          resolvedAt: timestamp,
+          resolvedBy: userRole
+        };
       }
       return ec;
     });
 
-    const targetCharge = (order.extraCharges || []).find(ec => ec.id === chargeId);
-    const amountVal = targetCharge ? targetCharge.amount : 0;
-    const timestamp = new Date().toISOString();
+    const amountVal = Number(targetCharge.amount || 0);
 
     const updatedFields = {
       extraCharges: updatedCharges,

@@ -1198,6 +1198,7 @@ export default function AdminPortal() {
   };
 
   const getClaimKey = (claim) => `${claim.type || ''}|${Number(claim.amount || 0)}|${claim.notes || ''}`;
+  const getClaimResolutionKey = (claim) => `${String(claim.type || '').trim().toLowerCase()}|${Number(claim.amount || 0)}`;
 
   const parseExpenseClaimText = (text = '') => {
     const match = text.match(/(?:requested extra charge of|field tech requested extra charge of)\s*₹?\s*(\d+(?:\.\d+)?)\s*for\s*(.+?)\.\s*Notes:\s*(.+)$/i);
@@ -1206,6 +1207,15 @@ export default function AdminPortal() {
       amount: Number(match[1]),
       type: match[2].trim(),
       notes: match[3].trim()
+    };
+  };
+
+  const parseResolvedExpenseClaimText = (text = '') => {
+    const match = text.match(/(?:approved|rejected|dismissed)\s+extra charge of\s*(?:₹|â‚¹)?\s*(\d+(?:\.\d+)?)\s*for\s*(.+?)(?:\.|$)/i);
+    if (!match) return null;
+    return {
+      amount: Number(match[1]),
+      type: match[2].trim()
     };
   };
 
@@ -1226,6 +1236,20 @@ export default function AdminPortal() {
       source: 'structured'
     }));
     const seenClaims = new Set(rawStructuredClaims.map(getClaimKey));
+    const resolvedClaimKeys = new Set(
+      rawStructuredClaims
+        .filter(claim => claim.status && claim.status !== 'Pending Approval')
+        .map(getClaimResolutionKey)
+    );
+    (order.auditLogs || []).forEach(log => {
+      if (log.action !== 'Extra Charge Approved' && log.action !== 'Extra Charge Rejected') return;
+      const parsed = parseResolvedExpenseClaimText(log.comments || '');
+      if (parsed) resolvedClaimKeys.add(getClaimResolutionKey(parsed));
+    });
+    (order.comments || []).forEach(comment => {
+      const parsed = parseResolvedExpenseClaimText(comment.text || '');
+      if (parsed) resolvedClaimKeys.add(getClaimResolutionKey(parsed));
+    });
     const structuredClaims = rawStructuredClaims.filter(claim => claim.status !== 'Dismissed');
 
     const auditClaims = (order.auditLogs || [])
@@ -1243,6 +1267,7 @@ export default function AdminPortal() {
         };
       })
       .filter(Boolean)
+      .filter(claim => !resolvedClaimKeys.has(getClaimResolutionKey(claim)))
       .filter(claim => !isSuppressedLegacyClaim(claim))
       .filter(claim => {
         const key = getClaimKey(claim);
@@ -1265,6 +1290,7 @@ export default function AdminPortal() {
         };
       })
       .filter(Boolean)
+      .filter(claim => !resolvedClaimKeys.has(getClaimResolutionKey(claim)))
       .filter(claim => !isSuppressedLegacyClaim(claim))
       .filter(claim => {
         const key = getClaimKey(claim);
@@ -1293,13 +1319,39 @@ export default function AdminPortal() {
       });
   };
 
+  const hasResolvedExpenseClaim = (order, claim) => {
+    if (!order || !claim) return false;
+    const key = getClaimResolutionKey(claim);
+    const resolvedInCharges = (order.extraCharges || []).some(existingClaim => (
+      getClaimResolutionKey(existingClaim) === key
+      && existingClaim.status
+      && existingClaim.status !== 'Pending Approval'
+    ));
+    if (resolvedInCharges) return true;
+
+    return (order.auditLogs || []).some(log => {
+      if (log.action !== 'Extra Charge Approved' && log.action !== 'Extra Charge Rejected') return false;
+      const parsed = parseResolvedExpenseClaimText(log.comments || '');
+      return parsed && getClaimResolutionKey(parsed) === key;
+    });
+  };
+
   const handleResolveExpenseClaim = (orderId, chargeId, resolution, fallbackClaim = null) => {
     const timestamp = new Date().toISOString();
     let changedOrder = null;
     let targetClaim = null;
+    let alreadyResolved = false;
 
     const localSourceOrders = stateManager.getOrders();
     const sourceOrders = localSourceOrders.length > 0 ? localSourceOrders : orders;
+    const currentOrder = sourceOrders.map(normalizeOrder).find(order => (
+      order && (order.orderId === orderId || order.id === orderId || order.order_id === orderId)
+    ));
+    if (fallbackClaim && hasResolvedExpenseClaim(currentOrder, fallbackClaim)) {
+      alert('This expense claim is already resolved.');
+      return;
+    }
+
     const updatedOrders = sourceOrders.map(sourceOrder => {
       const order = normalizeOrder(sourceOrder);
       if (!order || (order.orderId !== orderId && order.id !== orderId && order.order_id !== orderId)) return sourceOrder;
@@ -1307,6 +1359,10 @@ export default function AdminPortal() {
       let updatedCharges = (order.extraCharges || []).map(claim => {
         if (claim.id !== chargeId) return claim;
         targetClaim = claim;
+        if (claim.status && claim.status !== 'Pending Approval') {
+          alreadyResolved = true;
+          return claim;
+        }
         return {
           ...claim,
           status: resolution,
@@ -1363,6 +1419,11 @@ export default function AdminPortal() {
 
       return changedOrder;
     });
+
+    if (alreadyResolved) {
+      alert('This expense claim is already resolved.');
+      return;
+    }
 
     if (!changedOrder || !targetClaim) {
       alert('Could not resolve this claim. Refresh the orders and try again.');
