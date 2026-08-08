@@ -42,7 +42,10 @@ function hasPartsDispatchedLog(order) {
 function hasOpenPartRequest(order) {
   const requestStatus = getPartRequestStatus(order);
   if (hasPartsDispatchedLog(order)) return false;
-  return order.jobStatus === 'On Hold - Parts Requested' && !['approved', 'dispatched', 'resolved', 'closed'].includes(requestStatus);
+  const hasPendingRequest = !!(order.damageReport || order.damage_report || order.replacement_request)
+    && !['approved', 'dispatched', 'resolved', 'closed'].includes(requestStatus);
+  return (order.jobStatus === 'On Hold - Parts Requested' || order.status === 'On Hold - Parts Requested' || hasPendingRequest)
+    && !['approved', 'dispatched', 'resolved', 'closed'].includes(requestStatus);
 }
 
 function getResumeStatus(order) {

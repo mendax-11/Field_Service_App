@@ -445,17 +445,21 @@ const mergeHydratedOrder = (localOrder, serverOrder) => {
     lastLocalUpdate.get(localOrder.order_id) || 0
   );
   const isRecentlyUpdatedLocally = (Date.now() - lastLocalTime) < 5000;
+  const localDamageReport = localOrder.damageReport || localOrder.damage_report || null;
   const serverDamageReport = serverOrder.damageReport || serverOrder.damage_report || null;
+  const localRequestStatus = String(localDamageReport?.status || '').toLowerCase();
   const serverRequestStatus = String(serverDamageReport?.status || '').toLowerCase();
   const serverDispatchedParts = hasAuditAction(serverOrder, 'Parts Dispatched')
     || ['approved', 'dispatched', 'resolved', 'closed'].includes(serverRequestStatus);
   const serverClearedPayout = hasAuditAction(serverOrder, 'Payout Cleared') || serverOrder.paymentStatus === 'Paid';
+  const localPendingParts = (localOrder.jobStatus === 'On Hold - Parts Requested' || localOrder.status === 'On Hold - Parts Requested')
+    && !['approved', 'dispatched', 'resolved', 'closed'].includes(localRequestStatus);
+  const serverClosedJob = serverOrder.jobStatus === 'Completed' || serverOrder.status === 'Completed';
 
-  if (isRecentlyUpdatedLocally && !serverDispatchedParts && !serverClearedPayout) {
+  if ((isRecentlyUpdatedLocally || localPendingParts) && !serverDispatchedParts && !serverClearedPayout && !serverClosedJob) {
     return normalizeOrder(localOrder);
   }
 
-  const localDamageReport = localOrder.damageReport || localOrder.damage_report || null;
   const mergedDamageReport = serverDamageReport || localDamageReport;
   const localPhotos = localOrder.photos || {};
   const serverPhotos = serverOrder.photos || {};
@@ -1482,11 +1486,17 @@ export const stateManager = {
       const updatedOrderObj = {
         ...order,
         damageReport,
+        damage_report: damageReport,
+        replacement_request: damageReport,
         damagePhotos,
         damage_photos: damagePhotos,
         damageReportFile: null,
+        damagePhoto: damageReport.photo,
+        partsList: partName,
+        carpenterComments: notes,
         jobStatus: 'On Hold - Parts Requested',
         status: 'On Hold - Parts Requested',
+        assembly_status: 'On Hold - Parts Requested',
         partHoldPreviousStatus: damageReport.previousStatus,
         part_hold_previous_status: damageReport.previousStatus,
         auditLogs: [
@@ -1877,6 +1887,8 @@ async function syncOrderToPocketBase(orderId, order) {
             audit_logs: safeFields.audit_logs,
             photos: safeFields.photos,
             damage_report: safeFields.damage_report,
+            replacement_request: safeFields.damage_report,
+            part_hold_previous_status: order.partHoldPreviousStatus || order.part_hold_previous_status || '',
             assigned_carpenter_name: safeFields.assigned_carpenter_name,
             assigned_carpenter: safeFields.assigned_carpenter
           };
