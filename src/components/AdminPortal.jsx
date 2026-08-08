@@ -1142,9 +1142,16 @@ export default function AdminPortal() {
     const jobsById = new Map(pendingJobs.map(job => [job.orderId, job]));
     const timestamp = new Date().toISOString();
     const changedOrders = [];
-    const updatedOrders = orders.map(order => {
+    const localSourceOrders = stateManager.getOrders();
+    const sourceOrders = localSourceOrders.length > 0 ? localSourceOrders : orders;
+    const sourceOrderIds = new Set(sourceOrders.map(order => order.orderId || order.order_id || order.id));
+    const missingOrders = pendingJobs
+      .filter(job => !sourceOrderIds.has(job.orderId))
+      .map(job => normalizeOrder(job));
+    const updatedOrders = [...sourceOrders, ...missingOrders].map(sourceOrder => {
+      const order = normalizeOrder(sourceOrder);
       const targetJob = jobsById.get(order.orderId);
-      if (!targetJob) return order;
+      if (!targetJob) return sourceOrder;
 
       const updatedOrder = normalizeOrder({
         ...order,
@@ -1167,6 +1174,23 @@ export default function AdminPortal() {
 
     saveOrders(updatedOrders, changedOrders);
     setSelectedPayoutOrderIds(prev => prev.filter(orderId => !jobsById.has(orderId)));
+    queryClient.setQueryData(fsaQueries.orders.all(1, 500).queryKey, (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        items: old.items.map(order => {
+          const orderId = order.order_id || order.id;
+          if (!jobsById.has(orderId)) return order;
+          return {
+            ...order,
+            payment_status: 'Paid',
+            paymentStatus: 'Paid',
+            audit_logs: changedOrders.find(changed => changed.orderId === orderId)?.auditLogs || order.audit_logs
+          };
+        })
+      };
+    });
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
 
     const totalAmount = pendingJobs.reduce((sum, job) => sum + Number(job.payout || 0), 0);
     addNotification(`Payout: Cleared ₹${totalAmount} outstanding payout for ${notificationLabel} (${pendingJobs.length} order${pendingJobs.length === 1 ? '' : 's'}).`);

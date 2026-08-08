@@ -449,8 +449,9 @@ const mergeHydratedOrder = (localOrder, serverOrder) => {
   const serverRequestStatus = String(serverDamageReport?.status || '').toLowerCase();
   const serverDispatchedParts = hasAuditAction(serverOrder, 'Parts Dispatched')
     || ['approved', 'dispatched', 'resolved', 'closed'].includes(serverRequestStatus);
+  const serverClearedPayout = hasAuditAction(serverOrder, 'Payout Cleared') || serverOrder.paymentStatus === 'Paid';
 
-  if (isRecentlyUpdatedLocally && !serverDispatchedParts) {
+  if (isRecentlyUpdatedLocally && !serverDispatchedParts && !serverClearedPayout) {
     return normalizeOrder(localOrder);
   }
 
@@ -1661,9 +1662,13 @@ function preserveLocalPartsDispatch(existingOrder, incomingOrder) {
     ? { ...existingDamageReport, status: 'Dispatched', previousStatus }
     : (incomingDamageReport ? { ...incomingDamageReport, status: 'Dispatched', previousStatus } : incomingDamageReport);
   const auditLogs = Array.isArray(existingOrder.auditLogs) ? existingOrder.auditLogs : incomingOrder.auditLogs;
-  const preservedStatus = existingOrder.jobStatus === 'On Hold - Parts Requested'
+  const incomingStatus = incomingOrder.jobStatus || incomingOrder.status || incomingOrder.assembly_status || '';
+  const existingStatus = existingOrder.jobStatus || existingOrder.status || existingOrder.assembly_status || '';
+  const preservedStatus = incomingStatus === 'Completed' || existingStatus === 'Completed'
+    ? 'Completed'
+    : existingStatus === 'On Hold - Parts Requested'
     ? 'Assigned'
-    : (existingOrder.jobStatus || existingOrder.status || 'Assigned');
+    : (existingStatus || 'Assigned');
 
   return normalizeOrder({
     ...incomingOrder,
@@ -2077,7 +2082,8 @@ function setupPocketBaseRealtime() {
           // Merge & preserve local fields to prevent race conditions on recent local updates
           const lastLocalTime = lastLocalUpdate.get(record.order_id) || 0;
           const isRecentlyUpdatedLocally = (Date.now() - lastLocalTime) < 5000;
-          if (isRecentlyUpdatedLocally) {
+          const incomingCompleted = updatedOrder.jobStatus === 'Completed' || updatedOrder.status === 'Completed';
+          if (isRecentlyUpdatedLocally && !incomingCompleted) {
             updatedOrder.checklist = existingOrder.checklist;
             updatedOrder.status = existingOrder.status;
             updatedOrder.jobStatus = existingOrder.jobStatus;
