@@ -1283,8 +1283,11 @@ export default function AdminPortal() {
     let changedOrder = null;
     let targetClaim = null;
 
-    const updatedOrders = orders.map(order => {
-      if (order.orderId !== orderId) return order;
+    const localSourceOrders = stateManager.getOrders();
+    const sourceOrders = localSourceOrders.length > 0 ? localSourceOrders : orders;
+    const updatedOrders = sourceOrders.map(sourceOrder => {
+      const order = normalizeOrder(sourceOrder);
+      if (!order || (order.orderId !== orderId && order.id !== orderId && order.order_id !== orderId)) return sourceOrder;
 
       let updatedCharges = (order.extraCharges || []).map(claim => {
         if (claim.id !== chargeId) return claim;
@@ -1311,7 +1314,7 @@ export default function AdminPortal() {
         ];
       }
 
-      if (!targetClaim) return order;
+      if (!targetClaim) return sourceOrder;
 
       const amountVal = Number(targetClaim.amount || 0);
       const payoutDelta = resolution === 'Approved' ? amountVal : 0;
@@ -1346,12 +1349,16 @@ export default function AdminPortal() {
       return changedOrder;
     });
 
-    if (!changedOrder || !targetClaim) return;
+    if (!changedOrder || !targetClaim) {
+      alert('Could not resolve this claim. Refresh the orders and try again.');
+      return;
+    }
 
     saveOrders(updatedOrders, changedOrder);
     addNotification(`Expense Claim: ${resolution} ₹${targetClaim.amount} for order ${orderId}.`);
     queryClient.invalidateQueries({ queryKey: ['orders'] });
     triggerRefresh();
+    alert(`Expense claim ${resolution.toLowerCase()} successfully.`);
   };
 
   const payoutLedgerData = getPayoutData();
