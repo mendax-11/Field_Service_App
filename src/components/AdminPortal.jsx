@@ -4,7 +4,7 @@ import {
   ClipboardList, Package, HelpCircle, Bell, 
   Coins, UserCheck, ShieldAlert, Upload, Cpu, X,
   LayoutDashboard, Activity, AlertCircle, ShieldCheck,
-  Settings, Download
+  Settings, Download, IndianRupee
 } from 'lucide-react';
 import { 
   getUserRole, setUserRole, hasRole, hasPermission,
@@ -223,7 +223,7 @@ export default function AdminPortal() {
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined' && window.location.hash) {
       const hash = window.location.hash.replace('#/', '');
-      const validTabs = ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'payouts', 'settings'];
+      const validTabs = ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'expenses', 'payouts', 'settings'];
       if (validTabs.includes(hash)) return hash;
     }
     return 'dashboard';
@@ -433,9 +433,9 @@ export default function AdminPortal() {
     setRole(currentRole);
 
     const allowedTabsMapping = {
-      'Super Admin': ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'payouts', 'settings'],
+      'Super Admin': ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'expenses', 'payouts', 'settings'],
       'Dispatcher': ['dashboard', 'orders', 'technicians'],
-      'Inventory Manager': ['inventory', 'orders'],
+      'Inventory Manager': ['inventory', 'orders', 'expenses'],
       'Customer Support': ['support', 'orders']
     };
 
@@ -467,13 +467,13 @@ export default function AdminPortal() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#/', '');
-      const validTabs = ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'payouts', 'settings'];
+      const validTabs = ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'expenses', 'payouts', 'settings'];
       
       const currentRole = getUserRole();
       const allowedTabsMapping = {
-        'Super Admin': ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'payouts', 'settings'],
+        'Super Admin': ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'expenses', 'payouts', 'settings'],
         'Dispatcher': ['dashboard', 'orders', 'technicians'],
-        'Inventory Manager': ['inventory', 'orders'],
+        'Inventory Manager': ['inventory', 'orders', 'expenses'],
         'Customer Support': ['support', 'orders']
       };
 
@@ -1197,9 +1197,74 @@ export default function AdminPortal() {
     });
   };
 
+  const getClaimKey = (claim) => `${claim.type || ''}|${Number(claim.amount || 0)}|${claim.notes || ''}`;
+
+  const parseExpenseClaimText = (text = '') => {
+    const match = text.match(/(?:requested extra charge of|field tech requested extra charge of)\s*₹?\s*(\d+(?:\.\d+)?)\s*for\s*(.+?)\.\s*Notes:\s*(.+)$/i);
+    if (!match) return null;
+    return {
+      amount: Number(match[1]),
+      type: match[2].trim(),
+      notes: match[3].trim()
+    };
+  };
+
+  const getOrderExpenseClaims = (order) => {
+    const structuredClaims = (order.extraCharges || []).map(claim => ({
+      ...claim,
+      source: 'structured'
+    }));
+    const seenClaims = new Set(structuredClaims.map(getClaimKey));
+
+    const auditClaims = (order.auditLogs || [])
+      .filter(log => log.action === 'Extra Charge Requested')
+      .map(log => {
+        const parsed = parseExpenseClaimText(log.comments || '');
+        if (!parsed) return null;
+        return {
+          id: `audit_${order.orderId}_${log.timestamp}`,
+          ...parsed,
+          status: 'Pending Approval',
+          requestedBy: log.user,
+          timestamp: log.timestamp,
+          source: 'audit'
+        };
+      })
+      .filter(Boolean)
+      .filter(claim => {
+        const key = getClaimKey(claim);
+        if (seenClaims.has(key)) return false;
+        seenClaims.add(key);
+        return true;
+      });
+
+    const commentClaims = (order.comments || [])
+      .map(comment => {
+        const parsed = parseExpenseClaimText(comment.text || '');
+        if (!parsed) return null;
+        return {
+          id: `comment_${order.orderId}_${comment.timestamp}`,
+          ...parsed,
+          status: 'Pending Approval',
+          requestedBy: comment.author,
+          timestamp: comment.timestamp,
+          source: 'comment'
+        };
+      })
+      .filter(Boolean)
+      .filter(claim => {
+        const key = getClaimKey(claim);
+        if (seenClaims.has(key)) return false;
+        seenClaims.add(key);
+        return true;
+      });
+
+    return [...structuredClaims, ...auditClaims, ...commentClaims];
+  };
+
   const getExpenseClaimsData = () => {
     return getFilteredOrdersList()
-      .flatMap(order => (order.extraCharges || []).map(claim => ({
+      .flatMap(order => getOrderExpenseClaims(order).map(claim => ({
         ...claim,
         orderId: order.orderId,
         customerName: order.customerName,
@@ -1213,7 +1278,7 @@ export default function AdminPortal() {
       });
   };
 
-  const handleResolveExpenseClaim = (orderId, chargeId, resolution) => {
+  const handleResolveExpenseClaim = (orderId, chargeId, resolution, fallbackClaim = null) => {
     const timestamp = new Date().toISOString();
     let changedOrder = null;
     let targetClaim = null;
@@ -1221,7 +1286,7 @@ export default function AdminPortal() {
     const updatedOrders = orders.map(order => {
       if (order.orderId !== orderId) return order;
 
-      const updatedCharges = (order.extraCharges || []).map(claim => {
+      let updatedCharges = (order.extraCharges || []).map(claim => {
         if (claim.id !== chargeId) return claim;
         targetClaim = claim;
         return {
@@ -1231,6 +1296,20 @@ export default function AdminPortal() {
           resolvedBy: role
         };
       });
+
+      if (!targetClaim && fallbackClaim) {
+        targetClaim = fallbackClaim;
+        updatedCharges = [
+          ...updatedCharges,
+          {
+            ...fallbackClaim,
+            id: chargeId,
+            status: resolution,
+            resolvedAt: timestamp,
+            resolvedBy: role
+          }
+        ];
+      }
 
       if (!targetClaim) return order;
 
@@ -1389,6 +1468,15 @@ export default function AdminPortal() {
             onClick={() => { window.location.hash = '#/inventory'; setShowNotifDropdown(false); }}
           >
             <ClipboardList size={18} /> Logistics & Parts
+          </button>
+        )}
+
+        {hasPermission(role, ['Super Admin', 'Inventory Manager']) && (
+          <button 
+            className={`tab-btn ${activeTab === 'expenses' ? 'active' : ''}`}
+            onClick={() => { window.location.hash = '#/expenses'; setShowNotifDropdown(false); }}
+          >
+            <IndianRupee size={18} /> Expense Claims
           </button>
         )}
 
@@ -1980,6 +2068,89 @@ export default function AdminPortal() {
           </div>
         )}
 
+        {hasPermission(role, ['Super Admin', 'Inventory Manager']) && (
+          <div 
+            className="tab-panel expenses-panel animate-fade-in"
+            style={{ display: activeTab === 'expenses' ? 'block' : 'none' }}
+          >
+            <div className="ledger-workspace">
+              <div className="ledger-summary-header">
+                <div>
+                  <h3><IndianRupee size={22} /> Expense Claims</h3>
+                  <p className="subtitle">Approve technician reimbursement requests before they are added to payout liability.</p>
+                </div>
+                <div className="ledger-total-box">
+                  <span className="label">Pending Claims:</span>
+                  <span className="value font-mono">{pendingExpenseClaims.length}</span>
+                </div>
+              </div>
+
+              <div className="expense-claims-panel">
+                <div className="expense-claims-header">
+                  <div>
+                    <h4>Reimbursement Approval Queue</h4>
+                    <p>Claims submitted by technicians for travel, hardware, and other field expenses.</p>
+                  </div>
+                  <div className="expense-claims-count">
+                    <strong>{pendingExpenseClaims.length}</strong>
+                    <span>Pending</span>
+                  </div>
+                </div>
+
+                {expenseClaimsData.length === 0 ? (
+                  <div className="expense-claims-empty">No reimbursement claims submitted yet.</div>
+                ) : (
+                  <div className="expense-claims-list">
+                    {expenseClaimsData.map(claim => {
+                      const isPending = claim.status === 'Pending Approval';
+                      const statusClass = (claim.status || 'pending').toLowerCase().replace(/\s+/g, '-');
+
+                      return (
+                        <div key={`expenses-${claim.orderId}-${claim.id}`} className={`expense-claim-row ${statusClass}`}>
+                          <div className="expense-claim-main">
+                            <div className="expense-claim-title">
+                              <strong>{claim.type}</strong>
+                              <span className={`expense-claim-status ${statusClass}`}>{claim.status}</span>
+                            </div>
+                            <div className="expense-claim-meta">
+                              <span>Order {claim.orderId}</span>
+                              <span>{claim.assignedCarpenter || claim.requestedBy || 'Technician'}</span>
+                              <span>{claim.timestamp ? new Date(claim.timestamp).toLocaleString('en-IN') : 'No date'}</span>
+                            </div>
+                            <p>{claim.notes || 'No notes provided.'}</p>
+                            {claim.receipt && (
+                              <a href={claim.receipt} target="_blank" rel="noopener noreferrer" className="expense-receipt-link">
+                                View Receipt
+                              </a>
+                            )}
+                          </div>
+                          <div className="expense-claim-side">
+                            <strong>₹{claim.amount}</strong>
+                            {isPending ? (
+                              <div className="expense-claim-actions">
+                                <button type="button" className="expense-approve-btn" onClick={() => handleResolveExpenseClaim(claim.orderId, claim.id, 'Approved', claim)}>
+                                  Approve
+                                </button>
+                                <button type="button" className="expense-reject-btn" onClick={() => handleResolveExpenseClaim(claim.orderId, claim.id, 'Rejected', claim)}>
+                                  Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="expense-resolved-note">
+                                {claim.resolvedAt ? `Resolved ${new Date(claim.resolvedAt).toLocaleDateString('en-IN')}` : 'Resolved'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {hasRole(role, 'Super Admin') && (
           <div 
             className="tab-panel payouts-panel animate-fade-in"
@@ -2084,10 +2255,10 @@ export default function AdminPortal() {
                               <strong>₹{claim.amount}</strong>
                               {isPending ? (
                                 <div className="expense-claim-actions">
-                                  <button type="button" className="expense-approve-btn" onClick={() => handleResolveExpenseClaim(claim.orderId, claim.id, 'Approved')}>
+                                  <button type="button" className="expense-approve-btn" onClick={() => handleResolveExpenseClaim(claim.orderId, claim.id, 'Approved', claim)}>
                                     Approve
                                   </button>
-                                  <button type="button" className="expense-reject-btn" onClick={() => handleResolveExpenseClaim(claim.orderId, claim.id, 'Rejected')}>
+                                  <button type="button" className="expense-reject-btn" onClick={() => handleResolveExpenseClaim(claim.orderId, claim.id, 'Rejected', claim)}>
                                     Reject
                                   </button>
                                 </div>

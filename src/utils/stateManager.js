@@ -773,7 +773,8 @@ function saveOrdersLocalOnly(orders) {
  * pruneLocalStorage — keeps localStorage lean by:
  * 1. Stripping base64 photo/signature blobs from any order that already has a real
  *    PocketBase record ID (meaning the data is confirmed on the server).
- * 2. Evicting Completed or Archived orders whose last audit-log is older than 7 days.
+ * 2. Stripping resolved reimbursement receipt blobs after 7 days while keeping claim records.
+ * 3. Evicting Completed or Archived orders whose last audit-log is older than 7 days.
  * Called automatically after every saveOrders() write.
  */
 function pruneLocalStorage() {
@@ -821,6 +822,28 @@ function pruneLocalStorage() {
         // Clear base64 signature blob
         if (typeof stripped.signature === 'string' && stripped.signature.startsWith('data:')) {
           stripped.signature = null;
+        }
+
+        if (Array.isArray(stripped.extraCharges)) {
+          let changedReceipts = false;
+          stripped.extraCharges = stripped.extraCharges.map(claim => {
+            const resolvedAt = claim.resolvedAt || claim.timestamp || '';
+            const resolvedTs = new Date(resolvedAt || 0).getTime();
+            const isResolved = claim.status === 'Approved' || claim.status === 'Rejected';
+            const hasInlineReceipt = typeof claim.receipt === 'string' && claim.receipt.startsWith('data:');
+            if (!isResolved || !hasInlineReceipt || !resolvedTs || (now - resolvedTs) < SEVEN_DAYS_MS) {
+              return claim;
+            }
+            changedReceipts = true;
+            return {
+              ...claim,
+              receipt: null,
+              receiptPrunedAt: new Date(now).toISOString()
+            };
+          });
+          if (changedReceipts) {
+            stripped.extra_charges = stripped.extraCharges;
+          }
         }
 
         return stripped;
@@ -1594,6 +1617,27 @@ export function dataURLtoBlob(dataurl) {
   }
 }
 
+function getRetainedExtraCharges(extraCharges = []) {
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  if (!Array.isArray(extraCharges)) return [];
+
+  return extraCharges.map(claim => {
+    const resolvedAt = claim.resolvedAt || claim.timestamp || '';
+    const resolvedTs = new Date(resolvedAt || 0).getTime();
+    const isResolved = claim.status === 'Approved' || claim.status === 'Rejected';
+    const hasInlineReceipt = typeof claim.receipt === 'string' && claim.receipt.startsWith('data:');
+    if (!isResolved || !hasInlineReceipt || !resolvedTs || (now - resolvedTs) < SEVEN_DAYS_MS) {
+      return claim;
+    }
+    return {
+      ...claim,
+      receipt: null,
+      receiptPrunedAt: new Date(now).toISOString()
+    };
+  });
+}
+
 async function syncOrderToPocketBase(orderId, order) {
   try {
     let record = null;
@@ -1663,7 +1707,7 @@ async function syncOrderToPocketBase(orderId, order) {
       checklist: order.checklist || [],
       comments: mergedComments,
       audit_logs: mergedAuditLogs,
-      extra_charges: order.extraCharges || order.extra_charges || [],
+      extra_charges: getRetainedExtraCharges(order.extraCharges || order.extra_charges || []),
       damage_report: order.damageReport ? { ...order.damageReport, damagePhotos: order.damagePhotos || [] } : (order.damage_report || null),
       photos: order.photos || { before: null, after: null },
       signature: order.signature || null,
@@ -1738,6 +1782,8 @@ async function syncOrderToPocketBase(orderId, order) {
             assembly_status: safeFields.assembly_status,
             payment_status: safeFields.payment_status,
             delivery_status: safeFields.delivery_status,
+            comments: safeFields.comments,
+            audit_logs: safeFields.audit_logs,
             photos: safeFields.photos,
             damage_report: safeFields.damage_report,
             assigned_carpenter_name: safeFields.assigned_carpenter_name,
