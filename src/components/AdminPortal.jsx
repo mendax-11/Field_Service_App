@@ -1390,6 +1390,7 @@ export default function AdminPortal() {
         return {
           ...claim,
           status: resolution,
+          payoutApplied: resolution === 'Approved',
           resolvedAt: timestamp,
           resolvedBy: role
         };
@@ -1403,6 +1404,7 @@ export default function AdminPortal() {
             ...fallbackClaim,
             id: chargeId,
             status: resolution,
+            payoutApplied: resolution === 'Approved',
             resolvedAt: timestamp,
             resolvedBy: role
           }

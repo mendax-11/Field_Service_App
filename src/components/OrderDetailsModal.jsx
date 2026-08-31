@@ -516,6 +516,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
         return {
           ...ec,
           status: resolution,
+          payoutApplied: resolution === 'Approved',
           resolvedAt: timestamp,
           resolvedBy: userRole
         };
@@ -542,7 +543,9 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
     if (resolution === 'Approved' && amountVal > 0) {
       const currentPayout = Number(order.payout || order.assembly_payout || 0);
       updatedFields.payout = currentPayout + amountVal;
+      updatedFields.payoutAmount = currentPayout + amountVal;
       updatedFields.assembly_payout = currentPayout + amountVal;
+      updatedFields.assembly_amount = currentPayout + amountVal;
     }
 
     updateOrder(order.orderId, updatedFields);
