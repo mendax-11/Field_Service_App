@@ -50,10 +50,14 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     return () => window.removeEventListener('fsa_storage_update', triggerRender);
   }, []);
 
-  const allJobs = (jobsData.items || []).map(normalizeOrder).filter(Boolean).map(job => {
-    const localMemory = stateManager.getOrders().find(o => o?.id === job?.id || o?.orderId === job?.id || o?.order_id === job?.id);
-    return normalizeOrder(localMemory ? { ...job, ...localMemory } : job);
+  const serverJobs = (jobsData.items || []).map(normalizeOrder).filter(Boolean);
+  const localJobs = stateManager.getOrders().map(normalizeOrder).filter(Boolean);
+  const jobsById = new Map();
+  serverJobs.forEach(job => jobsById.set(job.orderId, job));
+  localJobs.forEach(job => {
+    jobsById.set(job.orderId, { ...(jobsById.get(job.orderId) || {}), ...job });
   });
+  const allJobs = Array.from(jobsById.values()).map(normalizeOrder).filter(Boolean);
   
   // Pass all jobs through — carpenterJobs filter below does the robust multi-field matching
   const jobs = allJobs;

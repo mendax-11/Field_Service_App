@@ -13,21 +13,34 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
   const carpenters = carpentersData.items || [];
   
   // Fetch full details of the order to get the heavy fields (photos/signature) that were excluded in the grid payload
+  const detailLookupId = order?.pbRecordId || order?.recordId || order?.id || '';
   const { data: fullOrderRaw } = useQuery({
-    ...fsaQueries.orders.detail(order?.id || ''),
-    enabled: !!order?.id
+    ...fsaQueries.orders.detail(detailLookupId),
+    enabled: !!detailLookupId
   });
+  const fullOrder = fullOrderRaw ? normalizeOrder(fullOrderRaw) : null;
+  const hasPhotoEvidence = (slot) => {
+    if (!slot) return false;
+    if (Array.isArray(slot)) return slot.filter(Boolean).length > 0;
+    return Boolean(slot);
+  };
+  const mergePhotoEvidence = (fullSlot, fallbackSlot) => (
+    hasPhotoEvidence(fullSlot) ? fullSlot : (hasPhotoEvidence(fallbackSlot) ? fallbackSlot : null)
+  );
   
   // Merge the base order with the fetched heavy fields
-  const displayOrder = fullOrderRaw
+  const displayOrder = fullOrder
     ? {
         ...order,
-        photos: fullOrderRaw.photos || order.photos,
-        signature: fullOrderRaw.signature || order.signature,
-        damagePhotos: fullOrderRaw.damagePhotos || fullOrderRaw.damage_photos || order.damagePhotos,
-        damage_photos: fullOrderRaw.damage_photos || fullOrderRaw.damagePhotos || order.damage_photos,
-        damageReport: fullOrderRaw.damageReport || fullOrderRaw.damage_report || order.damageReport,
-        damage_report: fullOrderRaw.damage_report || fullOrderRaw.damageReport || order.damage_report
+        photos: {
+          before: mergePhotoEvidence(fullOrder.photos?.before, order.photos?.before),
+          after: mergePhotoEvidence(fullOrder.photos?.after, order.photos?.after)
+        },
+        signature: fullOrder.signature || order.signature,
+        damagePhotos: fullOrder.damagePhotos || fullOrder.damage_photos || order.damagePhotos,
+        damage_photos: fullOrder.damage_photos || fullOrder.damagePhotos || order.damage_photos,
+        damageReport: fullOrder.damageReport || fullOrder.damage_report || order.damageReport,
+        damage_report: fullOrder.damage_report || fullOrder.damageReport || order.damage_report
       }
     : order;
   const getPhotoList = (slot) => {

@@ -70,6 +70,9 @@ export function normalizeOrder(o) {
   if (!o) return null;
 
   const orderId = String(o.orderId || o.order_id || o.id || '');
+  const sourceRecordId = String(o.pbRecordId || o.recordId || o._recordId || '');
+  const rawId = String(o.id || '');
+  const recordId = sourceRecordId || ((o.orderId || o.order_id) && rawId && rawId !== orderId ? rawId : '');
   const sku = String(o.sku || o.product_sku || '');
   const productName = String(o.productName || o.product_name || o.product_sku || '');
   const payout = Number(o.payout || o.assembly_payout || o.payoutAmount || o.assembly_amount || 0);
@@ -212,6 +215,8 @@ export function normalizeOrder(o) {
   return {
     // Database schema snake_case fields
     order_id: orderId,
+    recordId,
+    pbRecordId: recordId,
     platform,
     customer_name: customerName,
     product_sku: sku,
@@ -464,8 +469,8 @@ const mergeHydratedOrder = (localOrder, serverOrder) => {
   const localPhotos = localOrder.photos || {};
   const serverPhotos = serverOrder.photos || {};
   const mergedPhotos = {
-    before: serverPhotos.before || localPhotos.before || null,
-    after: serverPhotos.after || localPhotos.after || null
+    before: mergePhotoEvidence(serverPhotos.before, localPhotos.before),
+    after: mergePhotoEvidence(serverPhotos.after, localPhotos.after)
   };
 
   return normalizeOrder({
@@ -1604,6 +1609,8 @@ export function mapRecordToOrder(r) {
     || '';
 
   return normalizeOrder({
+    pbRecordId: r.id,
+    recordId: r.id,
     orderId: r.order_id,
     sku: r.product_sku || '',
     platform: r.platform || 'Amazon',
@@ -1649,11 +1656,23 @@ export function mapRecordToOrder(r) {
   });
 }
 
+const escapePocketBaseFilterString = (value) => String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
 function hasAuditAction(order, action) {
   const auditLogs = Array.isArray(order?.auditLogs)
     ? order.auditLogs
     : (Array.isArray(order?.audit_logs) ? order.audit_logs : []);
   return auditLogs.some(log => log.action === action);
+}
+
+function hasPhotoEvidence(slot) {
+  if (!slot) return false;
+  if (Array.isArray(slot)) return slot.filter(Boolean).length > 0;
+  return Boolean(slot);
+}
+
+function mergePhotoEvidence(serverSlot, localSlot) {
+  return hasPhotoEvidence(serverSlot) ? serverSlot : (hasPhotoEvidence(localSlot) ? localSlot : null);
 }
 
 function preserveLocalPartsDispatch(existingOrder, incomingOrder) {
@@ -2688,6 +2707,14 @@ setTimeout(() => {
             order.assignmentHold = existingLocal.assignmentHold;
             order.assignment_hold = existingLocal.assignmentHold;
 
+            const incomingPhotos = order.photos || {};
+            const existingPhotos = existingLocal.photos || {};
+            order.photos = {
+              before: mergePhotoEvidence(incomingPhotos.before, existingPhotos.before),
+              after: mergePhotoEvidence(incomingPhotos.after, existingPhotos.after)
+            };
+            order.signature = order.signature || existingLocal.signature || null;
+
             if (existingLocal.assignmentHold && !existingLocal.assignedCarpenter) {
               order.jobStatus = 'Unassigned';
               order.status = 'Unassigned';
@@ -2746,7 +2773,18 @@ export const fsaQueries = {
     detail: (id) => ({
       queryKey: ['orders', id],
       queryFn: async () => {
-        return await pb.collection('orders').getOne(id, { expand: 'assigned_carpenter' });
+        const lookupId = String(id || '');
+        if (!lookupId) return null;
+
+        try {
+          return await pb.collection('orders').getOne(lookupId, { expand: 'assigned_carpenter', $autoCancel: false });
+        } catch (err) {
+          const safeId = escapePocketBaseFilterString(lookupId);
+          return await pb.collection('orders').getFirstListItem(`order_id="${safeId}" || id="${safeId}"`, {
+            expand: 'assigned_carpenter',
+            $autoCancel: false
+          });
+        }
       }
     })
   },
