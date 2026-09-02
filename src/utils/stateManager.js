@@ -1429,7 +1429,7 @@ export const stateManager = {
 
   getJobById(id) {
     const orders = getOrders();
-    return orders.find(o => o.id === id || o.orderId === id || o.order_id === id) || null;
+    return orders.find(o => orderMatchesId(o, id)) || null;
   },
 
   updateJob(jobId, updatedFields) {
@@ -1570,13 +1570,13 @@ export const stateManager = {
   async fetchJobFromServer(jobId) {
     try {
       if (!pb) return null;
-      // Fetch by semantic orderId instead of PocketBase row ID, since the link uses orderId
-      const record = await pb.collection('orders').getFirstListItem(`order_id="${jobId}" || id="${jobId}"`, { expand: 'assigned_carpenter' });
+      const safeJobId = escapePocketBaseFilterString(jobId);
+      const record = await pb.collection('orders').getFirstListItem(`order_id="${safeJobId}" || id="${safeJobId}"`, { expand: 'assigned_carpenter' });
       if (!record) return null;
       
       const order = mapRecordToOrder(record);
       const orders = getOrders();
-      const existingIndex = orders.findIndex(o => o.orderId === order.orderId);
+      const existingIndex = orders.findIndex(o => orderMatchesId(o, jobId) || orderMatchesId(o, order.orderId));
       
       if (existingIndex !== -1) {
         orders[existingIndex] = { ...orders[existingIndex], ...order };
@@ -1657,6 +1657,18 @@ export function mapRecordToOrder(r) {
 }
 
 const escapePocketBaseFilterString = (value) => String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+function orderMatchesId(order, lookupId) {
+  if (!order || !lookupId) return false;
+  const id = String(lookupId);
+  return [
+    order.id,
+    order.orderId,
+    order.order_id,
+    order.recordId,
+    order.pbRecordId
+  ].filter(Boolean).some(value => String(value) === id);
+}
 
 function hasAuditAction(order, action) {
   const auditLogs = Array.isArray(order?.auditLogs)

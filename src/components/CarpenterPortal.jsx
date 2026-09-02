@@ -61,6 +61,17 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   
   // Pass all jobs through — carpenterJobs filter below does the robust multi-field matching
   const jobs = allJobs;
+  const matchesJobId = (candidate, lookupId) => {
+    if (!candidate || !lookupId) return false;
+    const normalizedLookup = String(lookupId);
+    return [
+      candidate.id,
+      candidate.orderId,
+      candidate.order_id,
+      candidate.recordId,
+      candidate.pbRecordId
+    ].filter(Boolean).some(value => String(value) === normalizedLookup);
+  };
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'jobs' | 'wallet'
   const [theme, setTheme] = useState(() => {
@@ -296,7 +307,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   }, [directJobId]);
 
   // Find currently selected job and ensure it has an explicit id property
-  let job = jobs.find(j => (j.id || j.orderId) === selectedJobId) || null;
+  let job = jobs.find(j => matchesJobId(j, selectedJobId)) || null;
   if (job) {
     job = { ...job, id: job.id || job.orderId };
   }
@@ -619,9 +630,15 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   };
 
   // Verify direct link PIN
-  const handleVerifyDirectPin = (e) => {
+  const handleVerifyDirectPin = async (e) => {
     e.preventDefault();
-    const currentJob = stateManager.getJobById(directJobId);
+    let currentJob = stateManager.getJobById(directJobId);
+    if (!currentJob && stateManager.fetchJobFromServer) {
+      currentJob = await stateManager.fetchJobFromServer(directJobId);
+      if (currentJob) {
+        refetchJobs();
+      }
+    }
     if (currentJob && String(enteredPin).trim() === String(currentJob.techAccessPin || currentJob.tech_access_pin).trim()) {
       setPinVerified(true);
       setPinError('');
@@ -783,7 +800,7 @@ Your review helps us serve you better. Thank you!`;
   const cleanCarpenterName = (carpenterName || '').trim().toLowerCase();
   
   let carpenterJobs = directJobId 
-    ? jobs.filter(j => (j.id || j.orderId) === directJobId)
+    ? jobs.filter(j => matchesJobId(j, directJobId))
     : jobs.filter(j => {
         // Unassigned or rejected jobs are not assigned to any technician
         if (j.jobStatus === 'Unassigned' || j.status === 'Unassigned') {
@@ -1155,6 +1172,29 @@ Your review helps us serve you better. Thank you!`;
               commentsEndRef={commentsEndRef}
             />
           )}
+
+          {selectedJobId && !job && (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <AlertTriangle size={28} style={{ color: 'var(--color-warning)', marginBottom: '12px' }} />
+              <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)', fontSize: '1rem' }}>Job not loaded</h3>
+              <p style={{ margin: '0 0 16px 0', fontSize: '0.78rem', lineHeight: 1.5 }}>
+                We could not load this forwarded job yet. Check the link and try again.
+              </p>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  stateManager.fetchJobFromServer?.(selectedJobId).then(fetchedJob => {
+                    if (fetchedJob) refetchJobs();
+                  });
+                }}
+                style={{ padding: '10px 14px', borderRadius: '10px', fontWeight: 700 }}
+              >
+                Retry Loading Job
+              </button>
+            </div>
+          )}
+
           {/* Reject / Skip Order Modal */}
           {showRejectForm && (
             <div className="modal-overlay" onClick={() => setShowRejectForm(false)}>
