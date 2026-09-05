@@ -72,6 +72,12 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       candidate.pbRecordId
     ].filter(Boolean).some(value => String(value) === normalizedLookup);
   };
+  const findJobById = (lookupId) => {
+    if (!lookupId) return null;
+    return jobs.find(j => matchesJobId(j, lookupId))
+      || normalizeOrder(stateManager.getJobById?.(lookupId))
+      || null;
+  };
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'jobs' | 'wallet'
   const [theme, setTheme] = useState(() => {
@@ -307,7 +313,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   }, [directJobId]);
 
   // Find currently selected job and ensure it has an explicit id property
-  let job = jobs.find(j => matchesJobId(j, selectedJobId)) || null;
+  let job = findJobById(selectedJobId);
   if (job) {
     job = { ...job, id: job.id || job.orderId };
   }
@@ -639,7 +645,9 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
         refetchJobs();
       }
     }
+    currentJob = normalizeOrder(currentJob);
     if (currentJob && String(enteredPin).trim() === String(currentJob.techAccessPin || currentJob.tech_access_pin).trim()) {
+      setSelectedJobId(currentJob.orderId || currentJob.id || directJobId);
       setPinVerified(true);
       setPinError('');
     } else {
@@ -800,7 +808,7 @@ Your review helps us serve you better. Thank you!`;
   const cleanCarpenterName = (carpenterName || '').trim().toLowerCase();
   
   let carpenterJobs = directJobId 
-    ? jobs.filter(j => matchesJobId(j, directJobId))
+    ? [findJobById(directJobId)].filter(Boolean)
     : jobs.filter(j => {
         // Unassigned or rejected jobs are not assigned to any technician
         if (j.jobStatus === 'Unassigned' || j.status === 'Unassigned') {
@@ -1253,7 +1261,7 @@ Your review helps us serve you better. Thank you!`;
                           alert('Please select a reason for rejecting the order.');
                           return;
                         }
-                        const targetJob = job || allJobs.find(j => j.id === selectedJobId || j.orderId === selectedJobId);
+                        const targetJob = job || findJobById(selectedJobId);
                         const targetId = targetJob?.id || targetJob?.orderId || selectedJobId;
                         stateManager.rejectJob(targetId, carpenterName, finalReason, targetJob);
                         setShowRejectForm(false);
