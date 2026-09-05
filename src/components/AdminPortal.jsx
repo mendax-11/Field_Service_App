@@ -1336,9 +1336,8 @@ export default function AdminPortal() {
         isClosedOrder: !isActiveOrder(order),
         currentPayout: Number(order.payout || 0)
       })))
+      .filter(claim => claim.status === 'Pending Approval')
       .sort((a, b) => {
-        if (a.status === 'Pending Approval' && b.status !== 'Pending Approval') return -1;
-        if (a.status !== 'Pending Approval' && b.status === 'Pending Approval') return 1;
         return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
       });
   };
@@ -1414,7 +1413,8 @@ export default function AdminPortal() {
       if (!targetClaim) return sourceOrder;
 
       const amountVal = Number(targetClaim.amount || 0);
-      const payoutDelta = resolution === 'Approved' ? amountVal : 0;
+      const alreadyResolvedForOrder = hasResolvedExpenseClaim(order, targetClaim);
+      const payoutDelta = resolution === 'Approved' && !targetClaim.payoutApplied && !alreadyResolvedForOrder ? amountVal : 0;
       const currentPayout = Number(order.payout || order.assembly_payout || 0);
 
       changedOrder = normalizeOrder({

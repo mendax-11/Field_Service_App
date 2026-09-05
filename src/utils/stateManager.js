@@ -1918,6 +1918,7 @@ async function syncOrderToPocketBase(orderId, order) {
             assembly_amount: safeFields.assembly_amount,
             comments: safeFields.comments,
             audit_logs: safeFields.audit_logs,
+            extra_charges: safeFields.extra_charges,
             photos: safeFields.photos,
             damage_report: safeFields.damage_report,
             replacement_request: safeFields.damage_report,

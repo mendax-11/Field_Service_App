@@ -500,7 +500,8 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
 
   // Resolve Extra Charge claim (Approve or Reject)
   const handleResolveExtraCharge = (chargeId, resolution) => {
-    const targetCharge = (order.extraCharges || []).find(ec => ec.id === chargeId);
+    const sourceOrder = normalizeOrder(displayOrder || order);
+    const targetCharge = (sourceOrder.extraCharges || []).find(ec => ec.id === chargeId);
     if (!targetCharge) {
       alert('Could not find this claim. Refresh the order and try again.');
       return;
@@ -511,7 +512,15 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
     }
 
     const timestamp = new Date().toISOString();
-    const updatedCharges = (order.extraCharges || []).map(ec => {
+    const amountVal = Number(targetCharge.amount || 0);
+    const targetType = targetCharge.type || 'Expense';
+    const hasPriorApprovalLog = (sourceOrder.auditLogs || []).some(log => (
+      log.action === 'Extra Charge Approved'
+      && String(log.comments || '').toLowerCase().includes(`extra charge of ₹${amountVal}`.toLowerCase())
+      && String(log.comments || '').toLowerCase().includes(`for ${targetType}`.toLowerCase())
+    ));
+
+    const updatedCharges = (sourceOrder.extraCharges || []).map(ec => {
       if (ec.id === chargeId) {
         return {
           ...ec,
@@ -524,38 +533,47 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
       return ec;
     });
 
-    const amountVal = Number(targetCharge.amount || 0);
-
     const updatedFields = {
       extraCharges: updatedCharges,
+      extra_charges: updatedCharges,
       auditLogs: [
-        ...(order.auditLogs || []),
+        ...(sourceOrder.auditLogs || []),
         {
           timestamp,
           action: resolution === 'Approved' ? 'Extra Charge Approved' : 'Extra Charge Rejected',
           user: userRole,
-          comments: `${resolution === 'Approved' ? 'Approved' : 'Rejected'} extra charge of ₹${amountVal} for ${targetCharge ? targetCharge.type : 'Expense'}.`
+          comments: `${resolution === 'Approved' ? 'Approved' : 'Rejected'} extra charge of ₹${amountVal} for ${targetType}.`
+        }
+      ],
+      audit_logs: [
+        ...(sourceOrder.auditLogs || []),
+        {
+          timestamp,
+          action: resolution === 'Approved' ? 'Extra Charge Approved' : 'Extra Charge Rejected',
+          user: userRole,
+          comments: `${resolution === 'Approved' ? 'Approved' : 'Rejected'} extra charge of ₹${amountVal} for ${targetType}.`
+        }
+      ],
+      comments: [
+        ...(sourceOrder.comments || []),
+        {
+          timestamp,
+          author: 'System',
+          text: `System: Extra charge request of ₹${amountVal} has been ${resolution.toLowerCase()} by ${userRole}.`
         }
       ]
     };
 
     // If approved, add it to the payout total
-    if (resolution === 'Approved' && amountVal > 0) {
-      const currentPayout = Number(order.payout || order.assembly_payout || 0);
+    if (resolution === 'Approved' && amountVal > 0 && !targetCharge.payoutApplied && !hasPriorApprovalLog) {
+      const currentPayout = Number(sourceOrder.payout || sourceOrder.assembly_payout || 0);
       updatedFields.payout = currentPayout + amountVal;
       updatedFields.payoutAmount = currentPayout + amountVal;
       updatedFields.assembly_payout = currentPayout + amountVal;
       updatedFields.assembly_amount = currentPayout + amountVal;
     }
 
-    updateOrder(order.orderId, updatedFields);
-    
-    // Add comment
-    addComment(
-      order.orderId,
-      `System: Extra charge request of ₹${amountVal} has been ${resolution.toLowerCase()} by ${userRole}.`,
-      'System'
-    );
+    updateOrder(sourceOrder.orderId, updatedFields);
 
     alert(`Claim ${resolution.toLowerCase()} successfully!`);
     onUpdate();
