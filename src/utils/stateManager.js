@@ -1,4 +1,6 @@
 import PocketBase from 'pocketbase';
+import { mergeExpenseClaims } from './expenseClaims.js';
+import { ensureOtp } from './otp.js';
 
 // Connect to local or remote PocketBase instance.
 let POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'https://assembly.vikifurniture.com:8090';
@@ -196,10 +198,7 @@ export function normalizeOrder(o) {
   }
 
   const photos = o.photos || { before: null, after: null };
-  let otp = o.otp || o.otp_code;
-  if (!otp || otp === '1234') {
-    otp = String(Math.floor(1000 + Math.random() * 9000));
-  }
+  const otp = ensureOtp(o.otp || o.otp_code);
   const otpSent = o.otpSent !== undefined ? o.otpSent : (o.otp_sent !== undefined ? o.otp_sent : false);
   const otpVerified = o.otpVerified !== undefined ? o.otpVerified : (o.otp_verified !== undefined ? o.otp_verified : false);
   const techAccessPin = String(o.techAccessPin || o.tech_access_pin || o.jobAccessPin || o.job_access_pin || getDefaultTechAccessPin(orderId));
@@ -472,10 +471,16 @@ const mergeHydratedOrder = (localOrder, serverOrder) => {
     before: mergePhotoEvidence(serverPhotos.before, localPhotos.before),
     after: mergePhotoEvidence(serverPhotos.after, localPhotos.after)
   };
+  const mergedExtraCharges = mergeExpenseClaims(
+    localOrder.extraCharges || localOrder.extra_charges || [],
+    serverOrder.extraCharges || serverOrder.extra_charges || []
+  );
 
   return normalizeOrder({
     ...localOrder,
     ...serverOrder,
+    extraCharges: mergedExtraCharges,
+    extra_charges: mergedExtraCharges,
     photos: mergedPhotos,
     signature: serverOrder.signature || localOrder.signature || null,
     secureSignatureUrl: serverOrder.secureSignatureUrl || localOrder.secureSignatureUrl || '',
@@ -1845,7 +1850,7 @@ async function syncOrderToPocketBase(orderId, order) {
       signature: order.signature || null,
       archived: order.archived || false,
       is_archived: order.archived || false,
-      otp: order.otp || '1234',
+      otp: order.otp || order.otp_code || '',
       otp_sent: order.otpSent || order.otp_sent || false,
       otp_verified: order.otpVerified || order.otp_verified || false,
       sub_carpenter_name: order.subCarpenterName || '',
@@ -2148,6 +2153,11 @@ function setupPocketBaseRealtime() {
             updatedOrder.gpsCoords = existingOrder.gpsCoords;
             updatedOrder.auditLogs = existingOrder.auditLogs;
             updatedOrder.audit_logs = existingOrder.audit_logs;
+            updatedOrder.extraCharges = mergeExpenseClaims(
+              existingOrder.extraCharges || existingOrder.extra_charges || [],
+              updatedOrder.extraCharges || updatedOrder.extra_charges || []
+            );
+            updatedOrder.extra_charges = updatedOrder.extraCharges;
             updatedOrder.assignmentHold = existingOrder.assignmentHold;
             updatedOrder.assignment_hold = existingOrder.assignmentHold;
           }
@@ -2753,6 +2763,12 @@ setTimeout(() => {
                 order.damageReport.damagePhotos = existingLocal.damagePhotos;
               }
             }
+
+            order.extraCharges = mergeExpenseClaims(
+              existingLocal.extraCharges || existingLocal.extra_charges || [],
+              order.extraCharges || order.extra_charges || []
+            );
+            order.extra_charges = order.extraCharges;
 
             order = preserveLocalPartsDispatch(existingLocal, order);
           }

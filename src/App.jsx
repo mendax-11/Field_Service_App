@@ -16,7 +16,7 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [backendAvailable, setBackendAvailable] = useState(null);
   
   const { data: carpentersData = { items: [] } } = useQuery(fsaQueries.carpenters.all());
   const carpenters = carpentersData.items || [];
@@ -32,6 +32,19 @@ export default function App() {
 
   // Load session from pb on mount
   useEffect(() => {
+
+    const checkBackend = async () => {
+      if (!navigator.onLine) {
+        setBackendAvailable(false);
+        return;
+      }
+      try {
+        await pb.health.check({ timeout: 3000 });
+        setBackendAvailable(true);
+      } catch {
+        setBackendAvailable(false);
+      }
+    };
 
     const checkAuth = () => {
       if (pb.authStore.isValid && pb.authStore.model) {
@@ -57,10 +70,11 @@ export default function App() {
       }
     };
     checkAuth();
+    checkBackend();
 
     // Monitor online status
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    const handleOnline = () => { checkBackend(); };
+    const handleOffline = () => { setBackendAvailable(false); };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
@@ -131,8 +145,8 @@ export default function App() {
             </div>
             <h2>TimberFlow Link</h2>
             <p>Field Assembly &amp; Payout System</p>
-            <div className={`login-online-badge ${isOnline ? 'online' : 'offline'}`}>
-              {isOnline ? <><Wifi size={11} /> Server Mode</> : <><WifiOff size={11} /> Demo Mode</>}
+            <div className={`login-online-badge ${backendAvailable ? 'online' : 'offline'}`}>
+              {backendAvailable === null ? <><Wifi size={11} /> Connecting...</> : backendAvailable ? <><Wifi size={11} /> Server Mode</> : <><WifiOff size={11} /> Demo Mode</>}
             </div>
           </div>
 

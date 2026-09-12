@@ -461,7 +461,7 @@ export default function AdminPortal() {
         window.location.hash = '#/' + userAllowed[0];
       }
     }
-  }, [role, activeTab]);
+  }, [activeTab]);
 
   // Handle hash change for back/forward browser navigation
   useEffect(() => {
