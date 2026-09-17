@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { mergeExpenseClaims } from '../src/utils/expenseClaims.js';
 import { ensureOtp } from '../src/utils/otp.js';
+import { ensureAccessPin } from '../src/utils/otp.js';
 
 test('keeps locally submitted pending reimbursement claims when server claims are stale', () => {
   const localClaim = {
@@ -50,4 +51,9 @@ test('preserves an existing OTP, including the legacy 1234 value', () => {
 
 test('generates an OTP only when the stored value is missing', () => {
   assert.equal(ensureOtp('', () => '9876'), '9876');
+});
+
+test('generates a four digit access PIN only when the stored PIN is missing', () => {
+  assert.equal(ensureAccessPin('', () => '4821'), '4821');
+  assert.equal(ensureAccessPin('1234', () => '4821'), '1234');
 });
