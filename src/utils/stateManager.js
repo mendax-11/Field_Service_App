@@ -1,6 +1,6 @@
 import PocketBase from 'pocketbase';
 import { mergeExpenseClaims } from './expenseClaims.js';
-import { ensureAccessPin, ensureOtp } from './otp.js';
+import { ensureOtp } from './otp.js';
 
 // Connect to local or remote PocketBase instance.
 let POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'https://assembly.vikifurniture.com:8090';
@@ -43,16 +43,13 @@ const OLD_UNUSED_ORDERS = [];
 const DEFAULT_NOTIFICATIONS = [];
 
 const getDefaultTechAccessPin = (orderId) => {
-  const storageKey = `fsa_tech_access_pin_${String(orderId || 'unknown')}`;
-  try {
-    const stored = localStorage.getItem(storageKey);
-    if (stored) return stored;
-    const generated = ensureAccessPin('');
-    localStorage.setItem(storageKey, generated);
-    return generated;
-  } catch {
-    return ensureAccessPin('');
+  // Keep legacy records usable across browsers until the PocketBase field is migrated.
+  const source = String(orderId || '0000');
+  let hash = 0;
+  for (let i = 0; i < source.length; i += 1) {
+    hash = (hash * 31 + source.charCodeAt(i)) % 9000;
   }
+  return String(1000 + hash).slice(-4);
 };
 
 const getDefaultAssemblyChecklist = () => [
