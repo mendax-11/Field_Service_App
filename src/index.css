@@ -395,6 +395,7 @@ html {
 .mobile-phone-frame {
   width: 375px;
   height: 780px;
+  min-height: 0;
   background-color: #000000;
   border-radius: 40px;
   padding: 12px;
@@ -425,6 +426,8 @@ html {
 /* Screen area */
 .mobile-screen-content {
   flex: 1;
+  min-height: 0;
+  min-width: 0;
   background-color: #0f172a;
   border-radius: 32px;
   overflow: hidden;
