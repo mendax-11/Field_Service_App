@@ -625,7 +625,6 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       addNotification(`OTP customer message for ${updatedJob.orderId || updatedJob.id}: ${deliveryStatus}`, '', 'System');
       setSmsNotification(prev => prev ? { ...prev, deliveryStatus } : prev);
     });
-    refetchJobs();
   };
 
   // Verify OTP
@@ -645,7 +644,6 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     } else {
       setOtpError("Incorrect verification code. Please check details.");
     }
-    refetchJobs();
   };
 
   // Verify direct link PIN
