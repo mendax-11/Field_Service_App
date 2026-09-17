@@ -132,7 +132,11 @@ export default function App() {
   }
 
   if (directJobId) {
-    return <CarpenterPortal directJobId={directJobId} carpenterName="Field Technician" isSimulator={false} />;
+    return (
+      <div className="forwarded-job-shell">
+        <CarpenterPortal directJobId={directJobId} carpenterName="Field Technician" isSimulator={false} />
+      </div>
+    );
   }
 
   if (!user) {

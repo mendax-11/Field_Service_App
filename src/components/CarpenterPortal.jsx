@@ -315,8 +315,16 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [directJobId]);
 
-  // Find currently selected job and ensure it has an explicit id property
-  let job = directJobId && directJob ? directJob : findJobById(selectedJobId);
+  // Find currently selected job and keep forwarded links live after PIN unlock.
+  // `directJob` is only the server-fetched fallback; local job state must win
+  // after checklist/photo/comment updates so the detail screen stays interactive.
+  const selectedJob = findJobById(selectedJobId);
+  const directLinkJob = directJobId
+    ? (selectedJob || findJobById(directJobId))
+    : null;
+  let job = directJobId
+    ? (directJob && directLinkJob ? { ...directJob, ...directLinkJob } : (directLinkJob || directJob))
+    : selectedJob;
   if (job) {
     // The OTP update can briefly combine local and server records; normalize the
     // final render value so the detail screen never receives a partial order.
@@ -823,7 +831,7 @@ Your review helps us serve you better. Thank you!`;
   const cleanCarpenterName = (carpenterName || '').trim().toLowerCase();
   
   let carpenterJobs = directJobId 
-    ? [findJobById(directJobId)].filter(Boolean)
+    ? [job || findJobById(directJobId)].filter(Boolean)
     : jobs.filter(j => {
         // Unassigned or rejected jobs are not assigned to any technician
         if (j.jobStatus === 'Unassigned' || j.status === 'Unassigned') {

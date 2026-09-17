@@ -1449,7 +1449,7 @@ export const stateManager = {
   toggleChecklistItem(jobId, itemId) {
     lastLocalUpdate.set(jobId, Date.now());
     const orders = getOrders();
-    const orderIndex = orders.findIndex(o => o.id === jobId || o.orderId === jobId);
+    const orderIndex = orders.findIndex(o => orderMatchesId(o, jobId));
     if (orderIndex !== -1) {
       const order = normalizeOrder(orders[orderIndex]);
       const updatedChecklist = order.checklist.map(item => {
@@ -1472,7 +1472,7 @@ export const stateManager = {
   submitDamageReport(jobId, partName, notes, damagePhotosPayload) {
     lastLocalUpdate.set(jobId, Date.now());
     const orders = getOrders();
-    const orderIndex = orders.findIndex(o => o.id === jobId || o.orderId === jobId || o.order_id === jobId);
+    const orderIndex = orders.findIndex(o => orderMatchesId(o, jobId));
     if (orderIndex !== -1) {
       const order = orders[orderIndex];
       let damagePhotos = [];

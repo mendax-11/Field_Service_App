@@ -43,6 +43,17 @@ html {
   flex-direction: column;
 }
 
+.forwarded-job-shell {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--slate-950, #020617);
+  overflow: hidden;
+}
+
 /* Auth / Login Page styling */
 .login-screen-wrapper {
   display: flex;
