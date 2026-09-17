@@ -79,6 +79,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
       || null;
   };
   const [selectedJobId, setSelectedJobId] = useState(null);
+  const [directJob, setDirectJob] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'jobs' | 'wallet'
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('carpenter_app_theme');
@@ -293,12 +294,14 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     
     if (directJobId) {
       setSelectedJobId(directJobId);
+      setDirectJob(null);
       setActiveTab('jobs');
       
       // If we are on a direct link, ensure we fetch the job in case it's not in localStorage
       if (stateManager.fetchJobFromServer) {
         stateManager.fetchJobFromServer(directJobId).then(fetchedJob => {
           if (fetchedJob) {
+            setDirectJob(normalizeOrder(fetchedJob));
             refetchJobs();
           }
         });
@@ -313,7 +316,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   }, [directJobId]);
 
   // Find currently selected job and ensure it has an explicit id property
-  let job = findJobById(selectedJobId);
+  let job = directJobId && directJob ? directJob : findJobById(selectedJobId);
   if (job) {
     job = { ...job, id: job.id || job.orderId };
   }
@@ -592,9 +595,12 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
 
   // Trigger Send OTP
   const handleSendOtp = (jobId) => {
-    const currentJob = stateManager.getJobById(jobId);
+    const currentJob = stateManager.getJobById(jobId) || (directJob && matchesJobId(directJob, jobId) ? directJob : null);
     if (!currentJob) return;
     const updatedJob = stateManager.updateJob(jobId, { otpSent: true }) || currentJob;
+    if (directJobId && matchesJobId(updatedJob, directJobId)) {
+      setDirectJob(normalizeOrder(updatedJob));
+    }
     setResendCooldown(60);
     const rawPhone = updatedJob.customerPhone || updatedJob.customer_phone || updatedJob.customer_number || '';
 
@@ -624,9 +630,16 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
 
   // Verify OTP
   const handleVerifyOtp = (jobId) => {
-    const currentJob = stateManager.getJobById(jobId);
+    const currentJob = stateManager.getJobById(jobId) || (directJob && matchesJobId(directJob, jobId) ? directJob : null);
+    if (!currentJob) {
+      setOtpError('This job could not be loaded. Please reload the job and try again.');
+      return;
+    }
     if (String(enteredOtp).trim() === String(currentJob.otp).trim()) {
-      stateManager.updateJob(jobId, { otpVerified: true });
+      const updatedJob = stateManager.updateJob(jobId, { otpVerified: true }) || { ...currentJob, otpVerified: true };
+      if (directJobId && matchesJobId(updatedJob, directJobId)) {
+        setDirectJob(normalizeOrder(updatedJob));
+      }
       setOtpError('');
       setSmsNotification(null); // Clear notification once verified
     } else {
@@ -642,11 +655,13 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     if (!currentJob && stateManager.fetchJobFromServer) {
       currentJob = await stateManager.fetchJobFromServer(directJobId);
       if (currentJob) {
+        setDirectJob(normalizeOrder(currentJob));
         refetchJobs();
       }
     }
     currentJob = normalizeOrder(currentJob);
     if (currentJob && String(enteredPin).trim() === String(currentJob.techAccessPin || currentJob.tech_access_pin).trim()) {
+      setDirectJob(currentJob);
       setSelectedJobId(currentJob.orderId || currentJob.id || directJobId);
       setPinVerified(true);
       setPinError('');
