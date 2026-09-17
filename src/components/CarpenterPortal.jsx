@@ -318,7 +318,9 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   // Find currently selected job and ensure it has an explicit id property
   let job = directJobId && directJob ? directJob : findJobById(selectedJobId);
   if (job) {
-    job = { ...job, id: job.id || job.orderId };
+    // The OTP update can briefly combine local and server records; normalize the
+    // final render value so the detail screen never receives a partial order.
+    job = normalizeOrder({ ...job, id: job.id || job.orderId });
   }
   const commentsLength = job?.comments?.length || 0;
 
@@ -1337,7 +1339,7 @@ Your review helps us serve you better. Thank you!`;
         )}
 
         <TutorialOverlay 
-          showTutorial={showTutorial}
+          showTutorial={showTutorial && !selectedJobId && !directJobId}
           setShowTutorial={setShowTutorial}
           tutorialStep={tutorialStep}
           setTutorialStep={setTutorialStep}
