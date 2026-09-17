@@ -1659,6 +1659,7 @@ export function mapRecordToOrder(r) {
     otp: r.otp || '',
     otpSent: r.otp_sent || r.otpSent || false,
     otpVerified: r.otp_verified || r.otpVerified || false,
+    techAccessPin: r.tech_access_pin || r.techAccessPin || '',
     subCarpenterName: r.sub_carpenter_name || '',
     subCarpenterPhone: r.sub_carpenter_phone || '',
     extraCharges: r.extra_charges || []
@@ -1857,6 +1858,7 @@ async function syncOrderToPocketBase(orderId, order) {
       otp: order.otp || order.otp_code || '',
       otp_sent: order.otpSent || order.otp_sent || false,
       otp_verified: order.otpVerified || order.otp_verified || false,
+      tech_access_pin: order.techAccessPin || order.tech_access_pin || '',
       sub_carpenter_name: order.subCarpenterName || '',
       sub_carpenter_phone: order.subCarpenterPhone || '',
       product_sku: order.sku || order.product_sku || '',
@@ -2801,7 +2803,7 @@ export const fsaQueries = {
       queryKey: ['orders', page, perPage, filter],
       queryFn: async () => {
         // Request only lightweight fields to avoid downloading massive base64 strings in older records
-        const fields = 'id,created,updated,order_id,platform,customer_name,customer_phone,customer_address,city,state,pincode,status,payment_status,payment_type,assembly_payout,delivery_status,delivery_date,promise_date,checklist,comments,audit_logs,extra_charges,damage_report,assigned_carpenter,assigned_carpenter_name,archived,is_archived,otp,otp_sent,otp_verified,sub_carpenter_name,sub_carpenter_phone,product_sku,assigned_date,assembly_amount,customer_number,payment_source,product_image_url,product_review_link,seller_review_link,assembly_status,expand.assigned_carpenter.name,expand.assigned_carpenter.username';
+        const fields = 'id,created,updated,order_id,platform,customer_name,customer_phone,customer_address,city,state,pincode,status,payment_status,payment_type,assembly_payout,delivery_status,delivery_date,promise_date,checklist,comments,audit_logs,extra_charges,damage_report,assigned_carpenter,assigned_carpenter_name,archived,is_archived,otp,otp_sent,otp_verified,tech_access_pin,sub_carpenter_name,sub_carpenter_phone,product_sku,assigned_date,assembly_amount,customer_number,payment_source,product_image_url,product_review_link,seller_review_link,assembly_status,expand.assigned_carpenter.name,expand.assigned_carpenter.username';
         return await pb.collection('orders').getList(page, perPage, { filter, sort: '-created', expand: 'assigned_carpenter', fields });
       }
     }),
