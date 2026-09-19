@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Search, ArrowUpDown, ChevronLeft, ChevronRight, 
-  Trash2, Eye, SlidersHorizontal, RefreshCw
+  Trash2, Eye, SlidersHorizontal, RefreshCw, Download
 } from 'lucide-react';
 import { deleteOrder, updateOrder, saveOrders, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb, getCarpenters, stateManager, isActiveOrder } from '../utils/stateManager';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -421,6 +421,34 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
     return matchesSearch && matchesPlatform && matchesJobStatus && matchesCarpenter && matchesPaymentType;
   });
 
+  const handleFilteredExport = () => {
+    const headers = ['Order ID', 'Platform', 'Customer Name', 'Phone', 'Address', 'Pincode', 'SKU', 'Payout', 'Delivery Status', 'Job Status', 'Payment Status'];
+    const rows = filteredOrders.map(order => [
+      order.orderId,
+      order.platform,
+      order.customerName,
+      order.customerPhone || '',
+      order.customerAddress || '',
+      order.pincode,
+      order.sku,
+      order.payout,
+      order.deliveryStatus,
+      order.jobStatus,
+      order.paymentStatus
+    ]);
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const url = URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `timberflow_filtered_orders_${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Sorting Logic
   const sortedOrders = [...filteredOrders].sort((a, b) => {
     if (sortBy === 'date_desc') {
@@ -460,7 +488,17 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
       <div className="filters-card">
         <div className="filters-header">
           <h4><SlidersHorizontal size={18} /> Advanced Order Filters</h4>
-          <span className="results-count">Showing {filteredOrders.length} of {orders.length} orders</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className="results-count">Showing {filteredOrders.length} of {orders.length} orders</span>
+            <button
+              type="button"
+              onClick={handleFilteredExport}
+              className="bulk-action-btn secondary"
+              title="Export all orders matching the active filters"
+            >
+              <Download size={14} /> Export Filtered
+            </button>
+          </div>
         </div>
         
         <div className="filters-grid">
