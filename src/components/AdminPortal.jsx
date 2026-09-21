@@ -803,6 +803,9 @@ export default function AdminPortal() {
       const idxSku = getHeaderIdx(['sku', 'product']);
       const idxPayout = getHeaderIdx(['payout', 'price', 'amount', 'fee']);
       const idxPaymentType = getHeaderIdx(['payment type', 'payment']);
+      const idxJobStatus = getHeaderIdx(['job status', 'jobstatus']);
+      const idxPaymentStatus = getHeaderIdx(['payment status', 'paymentstatus']);
+      const idxDeliveryStatus = getHeaderIdx(['delivery status', 'deliverystatus']);
       const idxDeliveryDate = getHeaderIdx(['delivery date', 'date']);
       const idxPromiseDate = getHeaderIdx(['promise date', 'sla target', 'sla']);
       const idxProductImageUrl = getHeaderIdx(['product image url', 'product image', 'image url', 'image']);
@@ -859,6 +862,9 @@ export default function AdminPortal() {
         const sku = columns[idxSku];
         const payoutStr = columns[idxPayout];
         const paymentType = columns[idxPaymentType];
+        const jobStatus = idxJobStatus !== -1 ? columns[idxJobStatus] : '';
+        const paymentStatus = idxPaymentStatus !== -1 ? columns[idxPaymentStatus] : '';
+        const deliveryStatus = idxDeliveryStatus !== -1 ? columns[idxDeliveryStatus] : '';
         const deliveryDateStr = columns[idxDeliveryDate];
         const promiseDateStr = idxPromiseDate !== -1 ? columns[idxPromiseDate] : '';
         const productImageUrl = idxProductImageUrl !== -1 ? columns[idxProductImageUrl] : '';
@@ -935,9 +941,9 @@ export default function AdminPortal() {
           pincode,
           sku,
           payout: payoutVal,
-          deliveryStatus: existingOrder?.deliveryStatus || 'Pending',
-          jobStatus: 'Unassigned',
-          paymentStatus: existingOrder?.paymentStatus || 'Unpaid',
+          deliveryStatus: deliveryStatus || existingOrder?.deliveryStatus || 'Pending',
+          jobStatus: jobStatus || existingOrder?.jobStatus || existingOrder?.status || 'Unassigned',
+          paymentStatus: paymentStatus || existingOrder?.paymentStatus || 'Unpaid',
           paymentType: paymentType || 'Prepaid',
           deliveryDate: parsedDeliveryDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
           promiseDate: parsedPromiseDate || existingOrder?.promiseDate || existingOrder?.promise_date || '',
@@ -967,9 +973,13 @@ export default function AdminPortal() {
           ordersToUpdate.push({
             ...existingOrder,
             ...importedOrderFields,
-            jobStatus: existingOrder.jobStatus || existingOrder.status || 'Unassigned',
-            status: existingOrder.status || existingOrder.jobStatus || 'Unassigned',
-            assembly_status: existingOrder.assembly_status || existingOrder.status || existingOrder.jobStatus || 'Unassigned',
+            jobStatus: importedOrderFields.jobStatus,
+            status: importedOrderFields.jobStatus,
+            assembly_status: importedOrderFields.jobStatus,
+            deliveryStatus: importedOrderFields.deliveryStatus,
+            delivery_status: importedOrderFields.deliveryStatus,
+            paymentStatus: importedOrderFields.paymentStatus,
+            payment_status: importedOrderFields.paymentStatus,
             assignedCarpenter: existingOrder.assignedCarpenter,
             assignedCarpenterId: existingOrder.assignedCarpenterId,
             assigned_carpenter: existingOrder.assigned_carpenter,
@@ -978,9 +988,11 @@ export default function AdminPortal() {
         } else {
           ordersToImport.push({
             ...importedOrderFields,
-            jobStatus: 'Unassigned',
-            status: 'Unassigned',
-            assembly_status: 'Unassigned',
+            jobStatus: importedOrderFields.jobStatus,
+            status: importedOrderFields.jobStatus,
+            assembly_status: importedOrderFields.jobStatus,
+            delivery_status: importedOrderFields.deliveryStatus,
+            payment_status: importedOrderFields.paymentStatus,
             assignedCarpenter: null
           });
         }
