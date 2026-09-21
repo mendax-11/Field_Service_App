@@ -8,6 +8,8 @@ PocketBase remains the source of truth. The new integration layer owns the exter
 
 ## Scope
 
+The implementation is intentionally phased. Phase 1 is the lean integration release; the remaining items are production hardening to add after an external client is connected.
+
 ### Included
 
 - Versioned order API under `/api/v1`.
@@ -27,6 +29,10 @@ PocketBase remains the source of truth. The new integration layer owns the exter
 - Public unauthenticated order creation.
 - Binary photo upload through the integration API.
 - Full bidirectional synchronization of every internal audit field.
+
+### Phase 1 implementation boundary
+
+Phase 1 includes the versioned read/create/update endpoints, dedicated bearer-token authentication, order ID idempotency, basic validation, canonical field mapping, consistent errors, and PocketBase Realtime or a simple event notification path. Signed webhook retries, event persistence, replay, reconciliation endpoints, fine-grained scopes, and optimistic concurrency are deferred until the first external integration is operating.
 
 ## Proposed Architecture
 
@@ -152,7 +158,7 @@ Checklist, comments, audit logs, photos, damage reports, OTP, and access PINs sh
 
 ## Events and Synchronization
 
-The first release should use signed webhooks for external application notifications. PocketBase Realtime may remain available for internal clients, but webhooks provide a stable integration boundary.
+Phase 1 may use PocketBase Realtime for the first trusted integration. Signed webhooks are the preferred production boundary for Phase 2 because they provide a stable integration contract independent of the database.
 
 Event names:
 
@@ -178,7 +184,7 @@ Event envelope:
 }
 ```
 
-Delivery behavior:
+Phase 2 delivery behavior:
 
 - Sign each webhook using an integration-specific secret.
 - Retry failed deliveries with exponential backoff.
