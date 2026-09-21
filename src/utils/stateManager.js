@@ -1,6 +1,7 @@
 import PocketBase from 'pocketbase';
 import { mergeExpenseClaims } from './expenseClaims.js';
 import { ensureOtp } from './otp.js';
+import { stripConfirmedEvidence } from './imageStorage.js';
 
 // Connect to local or remote PocketBase instance.
 let POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'https://assembly.vikifurniture.com:8090';
@@ -895,24 +896,7 @@ function pruneLocalStorage() {
         const hasPbId = order.id && order.id.length === 15;
         if (!hasPbId) return order; // local-only record — keep everything
 
-        const stripped = { ...order };
-
-        // Clear heavy before/after photos from completed orders (server has these in photos JSON field)
-        if (stripped.photos) {
-          const hasBase64Before = typeof stripped.photos.before === 'string' && stripped.photos.before.startsWith('data:');
-          const hasBase64After  = typeof stripped.photos.after  === 'string' && stripped.photos.after.startsWith('data:');
-          if (hasBase64Before || hasBase64After) {
-            stripped.photos = {
-              before: hasBase64Before ? null : stripped.photos.before,
-              after:  hasBase64After  ? null : stripped.photos.after
-            };
-          }
-        }
-
-        // Clear base64 signature blob
-        if (typeof stripped.signature === 'string' && stripped.signature.startsWith('data:')) {
-          stripped.signature = null;
-        }
+        const stripped = stripConfirmedEvidence(order);
 
         if (Array.isArray(stripped.extraCharges)) {
           let changedReceipts = false;
@@ -1950,31 +1934,14 @@ async function syncOrderToPocketBase(orderId, order) {
       if (idx !== -1) {
         const local = localOrders[idx];
 
-        // Preserve damagePhotos and damageReport intact for Logistics dashboard
-        const updatedDamagePhotos = local.damagePhotos || [];
-        const updatedDamageReport = local.damageReport;
-
-        // Replace base64 before/after photos with null (server holds them in photos JSON)
-        const strippedPhotos = local.photos ? {
-          before: typeof local.photos.before === 'string' && local.photos.before.startsWith('data:') ? null : local.photos.before,
-          after:  typeof local.photos.after  === 'string' && local.photos.after.startsWith('data:')  ? null : local.photos.after
-        } : local.photos;
-
-        // Clear base64 signature blob
-        const strippedSignature = typeof local.signature === 'string' && local.signature.startsWith('data:')
-          ? null
-          : local.signature;
+        // PocketBase has confirmed the payload, so remove duplicate inline evidence locally.
+        const compactLocal = stripConfirmedEvidence(local);
 
         localOrders[idx] = {
-          ...local,
+          ...compactLocal,
           comments: mergedComments,
           auditLogs: mergedAuditLogs,
           audit_logs: mergedAuditLogs,
-          damagePhotos: updatedDamagePhotos,
-          damage_photos: updatedDamagePhotos,
-          damageReport: updatedDamageReport,
-          photos: strippedPhotos,
-          signature: strippedSignature
         };
         saveOrdersLocalOnly(localOrders);
         console.log('[FSA] Base64 blobs cleared from localStorage for order', orderId, '— data confirmed on PocketBase.');
