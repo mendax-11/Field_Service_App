@@ -780,6 +780,46 @@ export const updateCarpenter = (carpId, updatedFields) => {
   if (index !== -1) {
     carpenters[index] = { ...carpenters[index], ...updatedFields };
     saveCarpenters(carpenters);
+
+    // Keep editable technician settings in PocketBase so a server refresh does not overwrite them.
+    (async () => {
+      try {
+        const carpenter = carpenters[index];
+        let record = null;
+        if (carpenter.id && carpenter.id.length === 15) {
+          try {
+            record = await pb.collection('users').getOne(carpenter.id, { $autoCancel: false });
+          } catch (e) {}
+        }
+        if (!record && carpenter.email) {
+          try {
+            record = await pb.collection('users').getFirstListItem(`email="${carpenter.email}"`, { $autoCancel: false });
+          } catch (e) {}
+        }
+        if (!record && carpenter.phone) {
+          const cleanPhone = carpenter.phone.replace(/[^0-9]/g, '');
+          if (cleanPhone) {
+            try {
+              record = await pb.collection('users').getFirstListItem(`username="${cleanPhone}"`, { $autoCancel: false });
+            } catch (e) {}
+          }
+        }
+        if (record) {
+          await pb.collection('users').update(record.id, {
+            name: carpenter.name,
+            phone: carpenter.phone || '',
+            email: carpenter.email || '',
+            rank: carpenter.rank || 'Expert',
+            max_active_jobs: Number(carpenter.maxActiveJobs || carpenter.max_active_jobs || 3),
+            quality_score: Number(carpenter.qualityScore || carpenter.quality_score || 100),
+            pincodes: carpenter.pincodes || []
+          }, { $autoCancel: false });
+        }
+      } catch (e) {
+        console.error('[PocketBase] Failed to sync technician settings:', e);
+      }
+    })();
+
     return carpenters[index];
   }
   return null;
