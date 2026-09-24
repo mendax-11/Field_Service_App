@@ -135,10 +135,16 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
 
   const getCustomerMessagePhones = (rawPhone) => {
     const smsPhone = rawPhone || '';
-    let waPhone = smsPhone.replace(/[^0-9]/g, '');
-    if (waPhone.length === 10) {
-      waPhone = `91${waPhone}`;
-    }
+    // Strip everything except digits
+    let digits = smsPhone.replace(/[^0-9]/g, '');
+    // Remove IDD prefix (00 → nothing)
+    if (digits.startsWith('00')) digits = digits.slice(2);
+    // Remove country code if already present (91XXXXXXXXXX = 12 digits starting with 91)
+    if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+    // Remove STD trunk 0 (0XXXXXXXXXX = 11 digits)
+    if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+    // Now digits should be 10 bare digits — add Indian country code
+    const waPhone = digits.length === 10 ? `91${digits}` : digits;
     return { smsPhone, waPhone };
   };
 
@@ -427,7 +433,17 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Theme toggle helper
+  // Cleanup GPS watch on component unmount to prevent battery drain
+  useEffect(() => {
+    return () => {
+      if (gpsWatchRef.current && navigator.geolocation) {
+        navigator.geolocation.clearWatch(gpsWatchRef.current.watchId);
+        gpsWatchRef.current = null;
+      }
+    };
+  }, []);
+
+  // Theme toggle helper
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
@@ -694,11 +710,8 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     const currentJob = stateManager.getJobById(jobId);
     if (!currentJob) return;
     
-    let phone = currentJob.customerPhone || currentJob.customer_phone || currentJob.customer_number || '';
-    phone = phone.replace(/[^\d]/g, '');
-    if (phone.length === 10) {
-      phone = '91' + phone;
-    }
+    const rawPhone = currentJob.customerPhone || currentJob.customer_phone || currentJob.customer_number || '';
+    const { waPhone } = getCustomerMessagePhones(rawPhone);
     
     const prodLink = currentJob.productReviewLink || currentJob.product_review_link || '';
     const sellLink = currentJob.sellerReviewLink || currentJob.seller_review_link || '';
@@ -713,7 +726,7 @@ Review Link: ${link || 'N/A'}
 
 Your review helps us serve you better. Thank you!`;
 
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    const url = `https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
     
     // Update state to allow signature
@@ -723,11 +736,8 @@ Your review helps us serve you better. Thank you!`;
 
   const handleSendFeedbackWhatsApp = () => {
     if (!job) return;
-    let phone = job.customerPhone || job.customer_phone || job.customer_number || '';
-    phone = phone.replace(/[^\d]/g, '');
-    if (phone.length === 10) {
-      phone = '91' + phone;
-    }
+    const rawFeedbackPhone = job.customerPhone || job.customer_phone || job.customer_number || '';
+    const { waPhone: feedbackWaPhone } = getCustomerMessagePhones(rawFeedbackPhone);
     
     const prodLink = job.productReviewLink || job.product_review_link || '';
     const sellLink = job.sellerReviewLink || job.seller_review_link || '';
@@ -741,13 +751,13 @@ Could you please take a moment to share your feedback?
 
 Your review helps us serve you better. Thank you!`;
 
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    const url = `https://wa.me/${feedbackWaPhone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
 
   // Sign off and complete job
   const handleSignatureSave = (signatureBase64) => {
-    const paymentStatusUpdate = job.paymentType === 'Customer' ? 'Collected on-site' : 'Pending Payout';
+    const paymentStatusUpdate = (job.paymentType === 'Customer Pay' || job.paymentType === 'Customer') ? 'Collected on-site' : 'Pending Payout';
     
     // Stop GPS tracking when job completes
     if (gpsWatchRef.current) {
@@ -804,15 +814,18 @@ Your review helps us serve you better. Thank you!`;
     e.preventDefault();
     if (!newCommentText.trim()) return;
 
-    stateManager.addComment(job.id, newCommentText, 'Carpenter');
+    // Capture job ID at send time — the user may navigate to a different job
+    // within the 1.5s mock-reply window, so we must not rely on the outer closure.
+    const capturedJobId = job.id;
+    stateManager.addComment(capturedJobId, newCommentText, 'Carpenter');
     const typedText = newCommentText;
     setNewCommentText('');
     refetchJobs();
 
     // Trigger standard Dispatcher reply mock in 1.5 seconds
     setTimeout(() => {
-      const liveJob = stateManager.getJobById(job.id);
-      // Double check the carpenter is still on this job before sending reply
+      const liveJob = stateManager.getJobById(capturedJobId);
+      // Only add reply if the job still exists in state
       if (liveJob) {
         let reply = "Copy that. We've logged this update. Let us know if you need customer support assistance.";
         if (typedText.toLowerCase().includes('help') || typedText.toLowerCase().includes('missing')) {
@@ -820,7 +833,7 @@ Your review helps us serve you better. Thank you!`;
         } else if (typedText.toLowerCase().includes('arrive') || typedText.toLowerCase().includes('route')) {
           reply = "Perfect, thank you for checking in. We've notified the customer that you are on the way.";
         }
-        stateManager.addComment(job.id, reply, 'Dispatcher');
+        stateManager.addComment(capturedJobId, reply, 'Dispatcher');
         refetchJobs();
       }
     }, 1500);
@@ -910,8 +923,8 @@ Your review helps us serve you better. Thank you!`;
   // Detail validation check for unlocking OTP send
   const jobChecklist = job && Array.isArray(job.checklist) ? job.checklist : [];
   const isChecklistFinished = jobChecklist.length > 0 && jobChecklist.every(item => item.checked);
-  const isBeforeUploaded = job ? !!job.photos.before : false;
-  const isAfterUploaded = job ? !!job.photos.after : false;
+  const isBeforeUploaded = job ? !!(job.photos?.before) : false;
+  const isAfterUploaded = job ? !!(job.photos?.after) : false;
   const isReadyToComplete = isChecklistFinished && isBeforeUploaded && isAfterUploaded;
 
   return (
@@ -1279,9 +1292,11 @@ Your review helps us serve you better. Thank you!`;
                       className="btn btn-primary"
                       style={{ backgroundColor: 'var(--danger-color)', borderColor: 'var(--danger-color)' }}
                       onClick={() => {
-                        const finalReason = rejectReason === 'Other' ? customRejectReason : rejectReason;
+                        const finalReason = rejectReason === 'Other'
+                          ? customRejectReason.trim()
+                          : rejectReason;
                         if (!finalReason) {
-                          alert('Please select a reason for rejecting the order.');
+                          alert('Please select a reason, or type one in the "Other" field.');
                           return;
                         }
                         const targetJob = job || findJobById(selectedJobId);

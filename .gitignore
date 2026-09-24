@@ -5,3 +5,11 @@ pocketbase.exe
 .env
 .DS_Store
 *.log
+
+# Dev scratch & refactor scripts
+scratch.cjs
+temp.css
+old_state.txt
+refactor_*.py
+lint_output.txt
+vite-dev.*.log

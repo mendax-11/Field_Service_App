@@ -1,9 +1,15 @@
-import { Briefcase, CheckCircle, IndianRupee, Calendar, MapPin, ChevronRight, TrendingUp } from 'lucide-react';
+﻿import { Briefcase, CheckCircle, IndianRupee, Calendar, MapPin, ChevronRight, TrendingUp } from 'lucide-react';
 import { isActiveOrder } from '../../utils/stateManager';
 
 export default function CarpenterDashboard({ availability, setAvailability, jobs, carpenterName, setActiveTab, setSelectedJobId }) {
   const activeJobs = jobs.filter(j => j.assignedCarpenter === carpenterName && isActiveOrder(j));
   const completedJobs = jobs.filter(j => j.assignedCarpenter === carpenterName && j.jobStatus === 'Completed');
+
+  // Compute real completion rate from all jobs ever assigned to this carpenter
+  const allAssigned = jobs.filter(j => j.assignedCarpenter === carpenterName);
+  const totalJobs = allAssigned.length;
+  const completionRate = totalJobs > 0 ? Math.round((completedJobs.length / totalJobs) * 100) : 0;
+  const rateColor = completionRate >= 90 ? 'var(--success)' : completionRate >= 70 ? 'var(--warning, #f59e0b)' : 'var(--danger, #ef4444)';
 
   return (
     <div className="carpenter-dashboard-tab animate-fade-in">
@@ -19,7 +25,7 @@ export default function CarpenterDashboard({ availability, setAvailability, jobs
             className={`status-btn online ${availability === 'Online' ? 'active' : ''}`}
             onClick={() => setAvailability('Online')}
           >
-            Active & Online
+            Active &amp; Online
           </button>
           <button 
             type="button" 
@@ -58,17 +64,17 @@ export default function CarpenterDashboard({ availability, setAvailability, jobs
           <div className="stat-icon-wrap warning">
             <IndianRupee size={16} />
           </div>
-          <span className="stat-val">₹{
-            completedJobs.reduce((sum, j) => sum + j.payout, 0)
-          }</span>
+          <span className="stat-val">
+            &#8377;{completedJobs.reduce((sum, j) => sum + j.payout, 0)}
+          </span>
           <span className="stat-lbl">Earnings</span>
         </div>
       </div>
 
-      {/* Today's Schedule Agenda */}
+      {/* Today''s Schedule Agenda */}
       <div className="agenda-section">
         <div className="section-title-bar">
-          <h3><Calendar size={15} /> Today's Agenda</h3>
+          <h3><Calendar size={15} /> Today''s Agenda</h3>
           <span>{activeJobs.length} Pending</span>
         </div>
 
@@ -79,7 +85,20 @@ export default function CarpenterDashboard({ availability, setAvailability, jobs
               <p>All caught up! No pending jobs assigned to you today.</p>
             </div>
           ) : (
-            activeJobs.map((j, index) => (
+            activeJobs.map((j, index) => {
+              const rawDate = j.deliveryDate || j.promiseDate || j.assignedDate || '';
+              let slotLabel = `Slot ${index + 1}`;
+              if (rawDate) {
+                try {
+                  const d = new Date(rawDate);
+                  if (!isNaN(d.getTime())) {
+                    slotLabel = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                  }
+                } catch {
+                  /* fallback to Slot N already set */
+                }
+              }
+              return (
                 <div key={j.id} className="timeline-item">
                   <div className="timeline-marker">
                     <span className="marker-number">{index + 1}</span>
@@ -87,7 +106,7 @@ export default function CarpenterDashboard({ availability, setAvailability, jobs
                   </div>
                   <div className="timeline-content card-style" onClick={() => { setActiveTab('jobs'); setSelectedJobId(j.id); }}>
                     <div className="timeline-content-header">
-                      <span className="time-tag">Slot {index === 0 ? '9:00 AM' : index === 1 ? '1:00 PM' : '4:30 PM'}</span>
+                      <span className="time-tag">{slotLabel}</span>
                       <span className={`status-pill ${j.jobStatus.toLowerCase().replace(/ /g, '-')}`}>{j.jobStatus}</span>
                     </div>
                     <h4>{j.customerName}</h4>
@@ -97,32 +116,42 @@ export default function CarpenterDashboard({ availability, setAvailability, jobs
                       <span>{j.customerAddress}, {j.city}</span>
                     </div>
                     <div className="timeline-footer">
-                      <span className="payout-indicator">Payout: ₹{j.payout}</span>
+                      <span className="payout-indicator">Payout: &#8377;{j.payout}</span>
                       <span className="action-link">View Order <ChevronRight size={14} /></span>
                     </div>
                   </div>
                 </div>
-              ))
+              );
+            })
           )}
         </div>
       </div>
 
-      {/* Quick Actions Shortcuts */}
+      {/* Performance Card */}
       <div className="quick-actions-section" style={{ marginTop: '20px' }}>
         <h4 className="detail-card-title" style={{ paddingLeft: 0, marginBottom: '10px' }}>
           <TrendingUp size={15} />
-          <span>Performance & Status</span>
+          <span>Performance &amp; Status</span>
         </h4>
         <div className="performance-card card-style">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h5 style={{ margin: '0 0 4px 0', fontSize: '0.85rem' }}>Job Completion Rating</h5>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Target: 95% minimum SLA</span>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                {totalJobs > 0
+                  ? `${completedJobs.length} of ${totalJobs} jobs completed`
+                  : 'No jobs assigned yet'}
+              </span>
             </div>
-            <span style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--success)' }}>98.2%</span>
+            <span style={{ fontSize: '1.2rem', fontWeight: '800', color: rateColor }}>
+              {totalJobs > 0 ? `${completionRate}%` : '\u2014'}
+            </span>
           </div>
           <div className="progress-bar-bg" style={{ height: '6px', backgroundColor: 'var(--bg-input)', borderRadius: '3px', marginTop: '10px', overflow: 'hidden' }}>
-            <div className="progress-bar-fill" style={{ width: '98%', height: '100%', background: 'linear-gradient(90deg, var(--color-primary), var(--color-success))' }}></div>
+            <div
+              className="progress-bar-fill"
+              style={{ width: `${completionRate}%`, height: '100%', background: `linear-gradient(90deg, var(--color-primary), ${rateColor})` }}
+            ></div>
           </div>
         </div>
       </div>

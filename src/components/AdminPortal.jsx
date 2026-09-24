@@ -23,16 +23,16 @@ import TechniciansDashboard from './TechniciansDashboard';
 // Templates for CSV Import
 const CSV_TEMPLATES = {
   Amazon: `Order ID,Customer Name,Phone,Customer Address,City,State,Pincode,SKU,Payout,Payment Type,Delivery Date,Promise Date,Product Image URL,Product Review Link,Seller Review Link
-AMZ-4001,John Smith,+1-555-0111,"221B MG Road",Mumbai,MH,400001,SKU-OAK-DESK-01,150,Prepaid,2026-06-28T10:00:00Z,2026-06-29T18:00:00Z,https://example.com/oak-desk.jpg,https://example.com/product-review,https://example.com/seller-review
-AMZ-4002,Bruce Wayne,+1-555-0122,"42 Park Street",Delhi,DL,110001,SKU-MAHOGANY-TABLE-02,280,Prepaid,2026-06-27T14:00:00Z,2026-06-28T18:00:00Z,https://example.com/table.jpg,https://example.com/product-review,https://example.com/seller-review`,
+AMZ-4001,Rajesh Sharma,+91-98765-43210,"221B MG Road",Mumbai,MH,400001,SKU-OAK-DESK-01,1500,Prepaid,2026-06-28T10:00:00Z,2026-06-29T18:00:00Z,https://example.com/oak-desk.jpg,https://example.com/product-review,https://example.com/seller-review
+AMZ-4002,Priya Mehta,+91-98765-43211,"42 Park Street",Delhi,DL,110001,SKU-MAHOGANY-TABLE-02,2800,Prepaid,2026-06-27T14:00:00Z,2026-06-28T18:00:00Z,https://example.com/table.jpg,https://example.com/product-review,https://example.com/seller-review`,
   
   Flipkart: `Order ID,Customer Name,Phone,Customer Address,City,State,Pincode,SKU,Payout,Payment Type,Delivery Date,Promise Date,Product Image URL,Product Review Link,Seller Review Link
-FLIP-5001,Clark Kent,+1-555-0133,"88 Brigade Road",Bengaluru,KA,560001,SKU-PINE-BED-04,320,COD,2026-06-26T16:00:00Z,2026-06-27T18:00:00Z,https://example.com/pine-bed.jpg,https://example.com/product-review,https://example.com/seller-review
-FLIP-5002,Diana Prince,+1-555-0144,"17 Anna Salai",Chennai,TN,600002,SKU-WALNUT-CHAIR-03,85,COD,2026-06-29T11:00:00Z,2026-06-30T18:00:00Z,https://example.com/chair.jpg,https://example.com/product-review,https://example.com/seller-review`,
+FLP-5001,Anita Rao,+91-90123-45678,"88 Brigade Road",Bengaluru,KA,560001,SKU-PINE-BED-04,3200,COD,2026-06-26T16:00:00Z,2026-06-27T18:00:00Z,https://example.com/pine-bed.jpg,https://example.com/product-review,https://example.com/seller-review
+FLP-5002,Vikram Nair,+91-90123-45679,"17 Anna Salai",Chennai,TN,600002,SKU-WALNUT-CHAIR-03,850,COD,2026-06-29T11:00:00Z,2026-06-30T18:00:00Z,https://example.com/chair.jpg,https://example.com/product-review,https://example.com/seller-review`,
   
   WooCommerce: `Order ID,Customer Name,Phone,Customer Address,City,State,Pincode,SKU,Payout,Payment Type,Delivery Date,Promise Date,Product Image URL,Product Review Link,Seller Review Link
-WOO-6001,Tony Stark,+1-555-0155,"9 BKC Avenue",Mumbai,MH,400051,SKU-BIRCH-CABINET-02,120,Prepaid,2026-06-25T18:00:00Z,2026-06-26T18:00:00Z,https://example.com/cabinet.jpg,https://example.com/product-review,https://example.com/seller-review
-WOO-6002,Barry Allen,+1-555-0166,"5 Salt Lake Sector V",Kolkata,WB,700091,SKU-OAK-TABLE-02,190,Prepaid,2026-06-30T09:00:00Z,2026-07-01T18:00:00Z,https://example.com/oak-table.jpg,https://example.com/product-review,https://example.com/seller-review`
+WOO-6001,Suresh Patel,+91-80012-34567,"9 BKC Avenue",Mumbai,MH,400051,SKU-BIRCH-CABINET-02,1200,Prepaid,2026-06-25T18:00:00Z,2026-06-26T18:00:00Z,https://example.com/cabinet.jpg,https://example.com/product-review,https://example.com/seller-review
+WOO-6002,Meena Joshi,+91-80012-34568,"5 Salt Lake Sector V",Kolkata,WB,700091,SKU-OAK-TABLE-02,1900,Prepaid,2026-06-30T09:00:00Z,2026-07-01T18:00:00Z,https://example.com/oak-table.jpg,https://example.com/product-review,https://example.com/seller-review`
 };
 
 // Dormant settings-panel asset retained for the integrations tab.
@@ -1122,28 +1122,6 @@ export default function AdminPortal() {
     }).filter(carp => carp.completedJobs.length > 0);
   };
 
-  const handleClearPayoutLegacy = (orderId, carpenterName, amount) => {
-    const order = orders.find(o => o.orderId === orderId);
-    if (order) {
-      const timestamp = new Date().toISOString();
-      updateOrder(orderId, { 
-        paymentStatus: 'Paid',
-        auditLogs: [
-          ...(order.auditLogs || []),
-          {
-            timestamp,
-            action: 'Payout Cleared',
-            user: role,
-            comments: `Outstanding payout of ₹${amount} cleared by Super Admin.`
-          }
-        ]
-      });
-
-      addNotification(`Payout: Cleared ₹${amount} outstanding payout for ${carpenterName} (Order ${orderId}).`);
-      triggerRefresh();
-    }
-  };
-  void handleClearPayoutLegacy;
 
   const isPendingPayout = (order) => order.paymentStatus === 'Unpaid' || order.paymentStatus === 'Pending Payout';
 

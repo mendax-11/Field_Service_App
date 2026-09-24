@@ -224,9 +224,9 @@ export function normalizeOrder(o) {
     assembly_payout: payout,
     customer_phone: customerPhone,
     customer_address: customerAddress,
-    city: o.city || 'Springfield',
-    state: o.state || 'IL',
-    pincode: o.pincode || '62704',
+    city: o.city || '',
+    state: o.state || '',
+    pincode: o.pincode || '',
     status: jobStatus,
     payment_status: paymentStatus,
     payment_type: paymentType,
@@ -667,12 +667,12 @@ export const updateOrder = (orderId, updatedFields) => {
 
 export const deleteOrder = (orderId) => {
   const orders = getOrders();
-  const target = orders.find(o => o.orderId === orderId);
+  const target = orders.find(o => orderMatchesId(o, orderId));
   if (target && (target.paymentStatus === 'Paid' || target.jobStatus === 'Completed' || target.status === 'Completed')) {
     addNotification(`Deletion blocked: Order ${orderId} is paid or completed.`, '', 'Admin');
     return;
   }
-  const filtered = orders.filter(o => o.orderId !== orderId);
+  const filtered = orders.filter(o => !orderMatchesId(o, orderId));
   saveOrders(filtered);
   
   // Sync delete to PocketBase in the background
@@ -1272,7 +1272,10 @@ export const addComment = (orderId, commentText, author) => {
     });
 
     saveOrders(orders, order);
-    addNotification(`New comment added to order ${orderId} by ${author}.`, 'admin@service.com', 'Admin');
+    // Only notify for real human-authored messages — skip System logs and mock Dispatcher auto-replies
+    if (author !== 'System' && author !== 'Dispatcher') {
+      addNotification(`New comment on order ${orderId} by ${author}.`, 'admin@service.com', 'Admin');
+    }
     return order;
   }
   return null;
@@ -1318,6 +1321,7 @@ export const autoAllocateOrders = () => {
       && !order.assignmentHold
       && !order.assignment_hold
       && deliveryStatus !== 'Cancelled'
+      && deliveryStatus === 'Delivered'
       && jobStatus !== 'Completed';
 
     if (isAssignable && (jobStatus === 'Unassigned' || !order.assignedCarpenter)) {
