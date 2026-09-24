@@ -12,7 +12,7 @@ import {
   fsaQueries, normalizeOrder, getCarpenters, isActiveOrder,
   addCarpenter, updateCarpenter, deleteCarpenter, addNotification
 } from '../utils/stateManager';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const CARPENTER_CSV_TEMPLATE = `Name,Phone,Rank,Pincodes
 David Miller,+91-95555-01234,Expert,90265;62704;11375
@@ -250,6 +250,7 @@ function PincodeManager({ carp, onRefresh }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
+  const queryClient = useQueryClient();
   const { data: carpentersData = { items: [] }, refetch: refetchCarpenters } = useQuery(fsaQueries.carpenters.all(1, 500));
   const { data: ordersData = { items: [] }, refetch: refetchOrders } = useQuery(fsaQueries.orders.all(1, 500));
   
@@ -435,7 +436,12 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
   const handleOpenEditModal = (carp) => {
     setEditingCarpenter(carp);
     setCarpenterForm({
-      name: carp.name, phone: carp.phone || carp.id, rank: carp.rank, maxActiveJobs: carp.maxActiveJobs || 3, qualityScore: carp.qualityScore || 100, pincodes: ''
+      name: carp.name || '',
+      phone: carp.phone || carp.id || '',
+      rank: carp.rank || 'Expert',
+      maxActiveJobs: carp.maxActiveJobs ?? carp.max_active_jobs ?? 3,
+      qualityScore: carp.qualityScore ?? carp.quality_score ?? 100,
+      pincodes: ''
     });
     setShowAddEditModal(true);
   };
@@ -482,6 +488,7 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
     }
 
     setShowAddEditModal(false);
+    queryClient.invalidateQueries({ queryKey: ['carpenters'] });
     loadData();
     if (onRefresh) onRefresh();
   };

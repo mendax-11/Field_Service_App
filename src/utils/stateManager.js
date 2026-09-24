@@ -800,9 +800,14 @@ export const updateCarpenter = (carpId, updatedFields) => {
           const cleanPhone = carpenter.phone.replace(/[^0-9]/g, '');
           if (cleanPhone) {
             try {
-              record = await pb.collection('users').getFirstListItem(`username="${cleanPhone}"`, { $autoCancel: false });
+              record = await pb.collection('users').getFirstListItem(`username="${cleanPhone}" || phone="${carpenter.phone}"`, { $autoCancel: false });
             } catch (e) {}
           }
+        }
+        if (!record && carpenter.name) {
+          try {
+            record = await pb.collection('users').getFirstListItem(`name="${escapePocketBaseFilterString(carpenter.name)}"`, { $autoCancel: false });
+          } catch (e) {}
         }
         if (record) {
           await pb.collection('users').update(record.id, {
@@ -2848,9 +2853,25 @@ export const fsaQueries = {
             || (record.username && c.phone === record.username)
             || (record.name && c.name === record.name)
           );
+          const maxActiveJobs = Number(
+            record.max_active_jobs !== undefined && record.max_active_jobs !== null
+              ? record.max_active_jobs
+              : (local?.maxActiveJobs ?? local?.max_active_jobs ?? 3)
+          );
+          const qualityScore = Number(
+            record.quality_score !== undefined && record.quality_score !== null
+              ? record.quality_score
+              : (local?.qualityScore ?? local?.quality_score ?? 100)
+          );
 
           return {
             ...record,
+            name: record.name || local?.name || record.username || '',
+            phone: record.phone || local?.phone || record.username || '',
+            rank: record.rank || local?.rank || 'Expert',
+            qualityScore,
+            maxActiveJobs,
+            max_active_jobs: maxActiveJobs,
             pincodes: [...new Set([...(record.pincodes || []), ...(local?.pincodes || [])])]
           };
         });
