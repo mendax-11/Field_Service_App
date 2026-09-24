@@ -843,7 +843,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                             return a.workload - b.workload;
                           })
                           .map(c => {
-                            const limit = Number(c.maxActiveJobs || c.max_active_jobs || MAX_ACTIVE_JOBS);
+                            const limit = Number(c.maxActiveJobs ?? c.max_active_jobs ?? MAX_ACTIVE_JOBS);
                             const isAtCapacity = c.workload >= limit;
                             return (
                               <option key={c.id} value={c.name} style={{ color: isAtCapacity ? '#9ca3af' : 'inherit' }}>
@@ -859,7 +859,8 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                         const selectedCarp = carpenters.find(c => c.name === assignedCarpenter);
                         const servesPincode = selectedCarp && selectedCarp.pincodes && selectedCarp.pincodes.includes(pincode);
                         const workload = getActiveWorkload(assignedCarpenter);
-                        const isAtCapacity = workload >= MAX_ACTIVE_JOBS;
+                        const carpLimit = Number(selectedCarp?.maxActiveJobs ?? selectedCarp?.max_active_jobs ?? MAX_ACTIVE_JOBS);
+                        const isAtCapacity = workload >= carpLimit;
 
                         return (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -958,7 +959,7 @@ export default function OrderDetailsModal({ order, onClose, onUpdate, readOnly =
                                 marginBottom: '8px'
                               }}>
                                 <AlertTriangle size={16} />
-                                <span><strong>Warning:</strong> {assignedCarpenter} is at capacity ({workload}/{MAX_ACTIVE_JOBS} active jobs). Auto-allocation will skip them until completed.</span>
+                                <span><strong>Warning:</strong> {assignedCarpenter} is at capacity ({workload}/{carpLimit} active jobs). Auto-allocation will skip them until completed.</span>
                               </div>
                             )}
                           </div>

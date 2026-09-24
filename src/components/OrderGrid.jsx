@@ -880,7 +880,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
                               return a.workload - b.workload;
                             })
                             .map(c => {
-                              const limit = Number(c.maxActiveJobs || c.max_active_jobs || MAX_ACTIVE_JOBS);
+                              const limit = Number(c.maxActiveJobs ?? c.max_active_jobs ?? MAX_ACTIVE_JOBS);
                               const isAtCapacity = c.workload >= limit;
                               return (
                                 <option key={c.id} value={c.name} style={{ color: isAtCapacity ? '#9ca3af' : 'inherit' }}>
