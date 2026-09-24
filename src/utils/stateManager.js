@@ -1348,14 +1348,14 @@ export const autoAllocateOrders = () => {
 
       // Filter out carpenters who are at or above their capacity limit (custom maxActiveJobs or fallback to MAX_ACTIVE_JOBS)
       const underCapacityCarpenters = candidatePool.filter(c => {
-        const limit = Number(c.maxActiveJobs || c.max_active_jobs || MAX_ACTIVE_JOBS);
+        const limit = Number(c.maxActiveJobs ?? c.max_active_jobs ?? MAX_ACTIVE_JOBS);
         return (activeWorkloads.get(c.name) || 0) < limit;
       });
 
       // Map to weighted score
       const scoredCarpenters = underCapacityCarpenters.map(c => {
         const qs = Number(c.qualityScore || 100);
-        const limit = Number(c.maxActiveJobs || c.max_active_jobs || MAX_ACTIVE_JOBS);
+        const limit = Number(c.maxActiveJobs ?? c.max_active_jobs ?? MAX_ACTIVE_JOBS);
         const active = activeWorkloads.get(c.name) || 0;
         
         const qualityPoints = qs / 2; // e.g. 100 score = 50 pts

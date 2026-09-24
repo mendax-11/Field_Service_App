@@ -646,8 +646,8 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
                 <div className="info-item">
                   <Briefcase size={14} className="info-icon" />
                   <span className="info-text">
-                    Active Jobs: <strong style={{ color: workload >= (carp.maxActiveJobs || MAX_ACTIVE_JOBS) ? 'var(--color-danger, #ef4444)' : 'inherit' }}>{workload} / {carp.maxActiveJobs || MAX_ACTIVE_JOBS}</strong>
-                    {workload >= (carp.maxActiveJobs || MAX_ACTIVE_JOBS) && (
+                    Active Jobs: <strong style={{ color: workload >= (carp.maxActiveJobs ?? MAX_ACTIVE_JOBS) ? 'var(--color-danger, #ef4444)' : 'inherit' }}>{workload} / {carp.maxActiveJobs ?? MAX_ACTIVE_JOBS}</strong>
+                    {workload >= (carp.maxActiveJobs ?? MAX_ACTIVE_JOBS) && (
                       <span className="capacity-badge-inline" style={{
                         marginLeft: '8px', fontSize: '9px', padding: '2px 6px',
                         background: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-danger, #ef4444)',
@@ -765,11 +765,12 @@ export default function TechniciansDashboard({ refreshTrigger, onRefresh }) {
                   type="number"
                   value={carpenterForm.maxActiveJobs}
                   min="1"
-                  max="20"
+                  max="100"
                   required
                   onChange={e => setCarpenterForm({ ...carpenterForm, maxActiveJobs: e.target.value })}
                   style={{ width: '100%', background: 'var(--admin-bg-input)', border: '1px solid var(--admin-border-color)', color: 'var(--admin-text-primary)', borderRadius: '6px', padding: '10px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
                 />
+                <span style={{ fontSize: '10px', color: 'var(--admin-text-secondary)', marginTop: '4px', display: 'block' }}>1 – 100 concurrent jobs allowed</span>
               </div>
 
               {!editingCarpenter && (
