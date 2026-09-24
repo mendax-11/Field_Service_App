@@ -2084,7 +2084,7 @@ async function syncCarpentersFromPocketBase() {
         rank: r.rank || 'Expert',
         qualityScore: Number(r.quality_score !== undefined ? r.quality_score : (match ? (match.qualityScore || 100) : 100)),
         activeJobs: match ? (match.activeJobs || 0) : 0,
-        maxActiveJobs: Number(r.max_active_jobs || 3),
+        maxActiveJobs: Number(r.max_active_jobs !== undefined && r.max_active_jobs !== null ? r.max_active_jobs : (match ? (match.maxActiveJobs || 3) : 3)),
         pincodes: (match && match.pincodes !== undefined) ? match.pincodes : (r.pincodes || [])
       };
     });
