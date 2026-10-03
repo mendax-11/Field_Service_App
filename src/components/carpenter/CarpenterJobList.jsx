@@ -136,7 +136,7 @@ export default function CarpenterJobList({ carpenterName, activeJobs, walletSumm
                     </span>
                   </p>
                   <p className="job-delivery-summary">
-                    <span>{deliveryStatus}</span>
+                    <span className={`delivery-status-badge delivery-${deliveryStatus.toLowerCase().replace(/\s+/g, '-')}`}>{deliveryStatus}</span>
                     <span className={`delivery-timing ${deliveryTiming.className}`}>{deliveryTiming.label}</span>
                   </p>
                   <p className="job-contact-summary">

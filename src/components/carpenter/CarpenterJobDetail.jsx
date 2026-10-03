@@ -39,6 +39,17 @@ export default function CarpenterJobDetail({
   const deliveryStatus = job.deliveryStatus || job.delivery_status || 'Pending';
   const deliveryDate = job.deliveryDate || job.delivery_date || '';
   const deliveryTiming = getDeliveryTiming(deliveryStatus, deliveryDate);
+  const customerDetailsText = [
+    `Customer: ${customerName || 'Not available'}`,
+    `Phone: ${customerPhone || 'Not available'}`,
+    `Address: ${customerAddress || 'Not available'}`,
+    `City: ${job.city || 'Not available'}`,
+    `Pincode: ${job.pincode || 'Not available'}`,
+    `Product: ${job.productName || job.productSku || job.product_sku || 'Not available'}`,
+    `Delivery: ${deliveryStatus}`,
+    `Delivery date: ${deliveryDate || 'Not set'}`,
+    `Product image: ${productImageUrl || 'Not available'}`
+  ].join('\n');
 
   return (
     <>
@@ -166,7 +177,7 @@ export default function CarpenterJobDetail({
         </h4>
         <div className="delivery-summary-row">
           <span>Status</span>
-          <strong>{deliveryStatus}</strong>
+          <strong className={`delivery-status-badge delivery-${deliveryStatus.toLowerCase().replace(/\s+/g, '-')}`}>{deliveryStatus}</strong>
         </div>
         <div className="delivery-summary-row">
           <span>Delivery date</span>
@@ -267,6 +278,22 @@ export default function CarpenterJobDetail({
               </svg>
               Forward Job via WhatsApp
             </a>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '10px', borderRadius: '8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(customerDetailsText);
+                  alert('Customer details and product image link copied to clipboard.');
+                } catch {
+                  alert('Unable to copy details. Please select and copy them manually.');
+                }
+              }}
+            >
+              <FileText size={14} />
+              Copy Customer Details + Image Link
+            </button>
           </div>
         </div>
       )}

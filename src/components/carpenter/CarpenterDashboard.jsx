@@ -120,7 +120,7 @@ export default function CarpenterDashboard({ availability, setAvailability, jobs
                       <span>{j.customerAddress}, {j.city}</span>
                     </div>
                     <div className="delivery-dashboard-row">
-                      <span className="delivery-dashboard-status">Delivery: {deliveryStatus}</span>
+                      <span className={`delivery-status-badge delivery-${deliveryStatus.toLowerCase().replace(/\s+/g, '-')}`}>Delivery: {deliveryStatus}</span>
                       <span className={`delivery-timing ${deliveryTiming.className}`}>{deliveryTiming.label}</span>
                     </div>
                     <div className="timeline-footer">

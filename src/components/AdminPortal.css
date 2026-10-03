@@ -680,6 +680,18 @@
   color: var(--color-danger);
 }
 
+.status-badge.delivery-intransit,
+.status-badge.delivery-in-transit {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: var(--color-warning);
+}
+
+.status-badge.delivery-issue-rto,
+.status-badge.delivery-rto {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: var(--color-danger);
+}
+
 /* Job Status color coding */
 .status-badge.job-unassigned {
   background-color: rgba(107, 114, 128, 0.15);
