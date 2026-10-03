@@ -33,7 +33,12 @@ export default function CarpenterJobDetail({
   const isBeforeUploaded = beforePhotos.length > 0;
   const isAfterUploaded = afterPhotos.length > 0;
   const productImageUrl = job.productImage || job.product_image_url || job.product_image;
-  const deliveryTiming = getDeliveryTiming(job.deliveryStatus || job.delivery_status, job.deliveryDate || job.delivery_date);
+  const customerName = job.customerName || job.customer_name || '';
+  const customerPhone = job.customerPhone || job.customer_phone || job.customer_number || job.customer_phone_number || '';
+  const customerAddress = job.customerAddress || job.customer_address || job.address || '';
+  const deliveryStatus = job.deliveryStatus || job.delivery_status || 'Pending';
+  const deliveryDate = job.deliveryDate || job.delivery_date || '';
+  const deliveryTiming = getDeliveryTiming(deliveryStatus, deliveryDate);
 
   return (
     <>
@@ -54,7 +59,7 @@ export default function CarpenterJobDetail({
         )}
         <div className="job-detail-title-block">
           <h2>{job.id} - Details</h2>
-          <p>{getMaskedValue(job.customerName, 'name', job)}</p>
+          <p>{getMaskedValue(customerName, 'name', job)}</p>
         </div>
         <span className={`status-badge ${job.status.toLowerCase().replace(/\s+/g, '-')}`}>
           {job.status}
@@ -114,8 +119,8 @@ export default function CarpenterJobDetail({
         
         <div className="info-item">
           <div className="info-item-content">
-            <h4>{getMaskedValue(job.customerName, 'name', job)}</h4>
-            <p>{getMaskedValue(job.address, 'address', job)}</p>
+            <h4>{getMaskedValue(customerName, 'name', job) || 'Customer details unavailable'}</h4>
+            <p>{getMaskedValue(customerAddress, 'address', job) || 'Address unavailable'}</p>
           </div>
         </div>
 
@@ -124,12 +129,12 @@ export default function CarpenterJobDetail({
             <div>
               <h4 style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', margin: '0 0 2px 0' }}>Customer Phone</h4>
               <p style={{ margin: 0, fontWeight: '600', fontSize: '0.85rem' }}>
-                {getMaskedValue(job.customerPhone || '+1-555-0199', 'phone', job)}
+                {getMaskedValue(customerPhone, 'phone', job) || 'Contact number unavailable'}
               </p>
             </div>
             {(!isCompletedMoreThan24Hours(job) && job.status !== 'Completed') && (
               <a 
-                href={`tel:${(job.customerPhone || '+1-555-0199').replace(/[^0-9+]/g, '')}`}
+                href={`tel:${customerPhone.replace(/[^0-9+]/g, '')}`}
                 className="btn btn-secondary"
                 style={{ padding: '6px 12px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid var(--color-primary)', borderRadius: '6px', color: 'var(--text-light)', textDecoration: 'none' }}
               >
@@ -142,7 +147,7 @@ export default function CarpenterJobDetail({
 
         {!isCompletedMoreThan24Hours(job) && (
           <a 
-            href={job.googleMapsLink || `https://maps.google.com/?q=${encodeURIComponent(job.address)}`} 
+            href={job.googleMapsLink || `https://maps.google.com/?q=${encodeURIComponent(customerAddress)}`}
             target="_blank" 
             rel="noopener noreferrer" 
             className="btn-navigation-link"
@@ -161,11 +166,11 @@ export default function CarpenterJobDetail({
         </h4>
         <div className="delivery-summary-row">
           <span>Status</span>
-          <strong>{job.deliveryStatus || job.delivery_status || 'Pending'}</strong>
+          <strong>{deliveryStatus}</strong>
         </div>
         <div className="delivery-summary-row">
           <span>Delivery date</span>
-          <strong>{job.deliveryDate || job.delivery_date || 'Not set'}</strong>
+          <strong>{deliveryDate || 'Not set'}</strong>
         </div>
         <div className={`delivery-timing ${deliveryTiming.className}`}>
           {deliveryTiming.label}
