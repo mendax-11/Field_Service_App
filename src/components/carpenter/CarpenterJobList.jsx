@@ -1,5 +1,6 @@
 import { Clock, CheckCircle, IndianRupee, CheckSquare, User, MapPin, ChevronRight, RefreshCw, Image } from 'lucide-react';
 import { useState } from 'react';
+import { getDeliveryTiming } from '../../utils/deliveryTiming';
 
 export default function CarpenterJobList({ carpenterName, activeJobs, walletSummary, setSelectedJobId, refetchJobs }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -94,6 +95,13 @@ export default function CarpenterJobList({ carpenterName, activeJobs, walletSumm
               </div>
               
               <div className="job-card-body">
+                {(() => {
+                  const address = j.customerAddress || j.customer_address || j.address || '';
+                  const deliveryStatus = j.deliveryStatus || j.delivery_status || 'Pending';
+                  const deliveryDate = j.deliveryDate || j.delivery_date || '';
+                  const deliveryTiming = getDeliveryTiming(deliveryStatus, deliveryDate);
+                  return (
+                    <>
                 <button
                   type="button"
                   className="job-thumb-button"
@@ -124,11 +132,21 @@ export default function CarpenterJobList({ carpenterName, activeJobs, walletSumm
                       textOverflow: 'ellipsis', 
                       maxWidth: '220px' 
                     }}>
-                      {j.address}
+                      {address || 'Address unavailable'}
                     </span>
+                  </p>
+                  <p className="job-delivery-summary">
+                    <span>{deliveryStatus}</span>
+                    <span className={`delivery-timing ${deliveryTiming.className}`}>{deliveryTiming.label}</span>
+                  </p>
+                  <p className="job-contact-summary">
+                    <span>{j.customerPhone || j.customer_phone || j.customer_number || 'Contact number unavailable'}</span>
                   </p>
                 </div>
                 <ChevronRight size={18} className="text-muted" />
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="job-card-footer">

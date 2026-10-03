@@ -1,5 +1,6 @@
 ﻿import { Briefcase, CheckCircle, IndianRupee, Calendar, MapPin, ChevronRight, TrendingUp } from 'lucide-react';
 import { isActiveOrder } from '../../utils/stateManager';
+import { getDeliveryTiming } from '../../utils/deliveryTiming';
 
 export default function CarpenterDashboard({ availability, setAvailability, jobs, carpenterName, setActiveTab, setSelectedJobId }) {
   const activeJobs = jobs.filter(j => j.assignedCarpenter === carpenterName && isActiveOrder(j));
@@ -87,6 +88,9 @@ export default function CarpenterDashboard({ availability, setAvailability, jobs
           ) : (
             activeJobs.map((j, index) => {
               const rawDate = j.deliveryDate || j.promiseDate || j.assignedDate || '';
+              const deliveryStatus = j.deliveryStatus || j.delivery_status || 'Pending';
+              const deliveryDate = j.deliveryDate || j.delivery_date || '';
+              const deliveryTiming = getDeliveryTiming(deliveryStatus, deliveryDate);
               let slotLabel = `Slot ${index + 1}`;
               if (rawDate) {
                 try {
@@ -114,6 +118,10 @@ export default function CarpenterDashboard({ availability, setAvailability, jobs
                     <div className="address-row">
                       <MapPin size={12} />
                       <span>{j.customerAddress}, {j.city}</span>
+                    </div>
+                    <div className="delivery-dashboard-row">
+                      <span className="delivery-dashboard-status">Delivery: {deliveryStatus}</span>
+                      <span className={`delivery-timing ${deliveryTiming.className}`}>{deliveryTiming.label}</span>
                     </div>
                     <div className="timeline-footer">
                       <span className="payout-indicator">Payout: &#8377;{j.payout}</span>
