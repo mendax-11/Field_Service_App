@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import SignatureCanvas from '../SignatureCanvas';
 import { captureAndStampPhoto } from '../../utils/photoStamper';
+import { getDeliveryTiming } from '../../utils/deliveryTiming';
 
 export default function CarpenterJobDetail({ 
   job, directJobId, setEnteredOtp, setOtpError, getMaskedValue, t, 
@@ -32,6 +33,7 @@ export default function CarpenterJobDetail({
   const isBeforeUploaded = beforePhotos.length > 0;
   const isAfterUploaded = afterPhotos.length > 0;
   const productImageUrl = job.productImage || job.product_image_url || job.product_image;
+  const deliveryTiming = getDeliveryTiming(job.deliveryStatus || job.delivery_status, job.deliveryDate || job.delivery_date);
 
   return (
     <>
@@ -150,6 +152,24 @@ export default function CarpenterJobDetail({
             <span>Open in Google Maps Navigation</span>
           </a>
         )}
+      </div>
+
+      <div className="detail-card delivery-summary-card">
+        <h4 className="detail-card-title">
+          <Navigation size={15} />
+          <span>Delivery Information</span>
+        </h4>
+        <div className="delivery-summary-row">
+          <span>Status</span>
+          <strong>{job.deliveryStatus || job.delivery_status || 'Pending'}</strong>
+        </div>
+        <div className="delivery-summary-row">
+          <span>Delivery date</span>
+          <strong>{job.deliveryDate || job.delivery_date || 'Not set'}</strong>
+        </div>
+        <div className={`delivery-timing ${deliveryTiming.className}`}>
+          {deliveryTiming.label}
+        </div>
       </div>
 
       {/* Status Action Button (e.g. Start Transit) */}

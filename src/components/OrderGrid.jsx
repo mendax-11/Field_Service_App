@@ -7,6 +7,7 @@ import {
 import { deleteOrder, updateOrder, saveOrders, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb, getCarpenters, stateManager, isActiveOrder } from '../utils/stateManager';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import OrderDetailsModal from './OrderDetailsModal';
+import { getDeliveryTiming } from '../utils/deliveryTiming';
 
 export default function OrderGrid({ refreshTrigger, onRefresh }) {
   const queryClient = useQueryClient();
@@ -829,11 +830,19 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
                   {visibleColumns.sku && <td className="font-mono text-small" title={order.sku}>{order.sku}</td>}
                   {visibleColumns.payout && <td className="text-bold price">₹{order.payout}</td>}
                   {visibleColumns.delivery && (
-                    <td>
-                      <span className={`status-badge delivery-${order.deliveryStatus.toLowerCase().replace(/\s+/g, '-')}`}>
-                        {order.deliveryStatus}
-                      </span>
-                    </td>
+                    (() => {
+                      const deliveryTiming = getDeliveryTiming(order.deliveryStatus, order.deliveryDate);
+                      return (
+                        <td>
+                          <span className={`status-badge delivery-${order.deliveryStatus.toLowerCase().replace(/\s+/g, '-')}`}>
+                            {order.deliveryStatus}
+                          </span>
+                          <div className={`delivery-timing ${deliveryTiming.className}`}>
+                            {deliveryTiming.label}
+                          </div>
+                        </td>
+                      );
+                    })()
                   )}
                   {visibleColumns.jobStatus && (
                     <td>
