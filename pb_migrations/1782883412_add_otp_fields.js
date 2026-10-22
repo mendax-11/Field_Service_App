@@ -2,26 +2,26 @@
 migrate((app) => {
   const collection = app.findCollectionByNameOrId("orders");
 
-  collection.fields.add({
+  collection.fields.add(new TextField({
     id: "fldotp123456",
     name: "otp",
     type: "text",
     required: false
-  });
+  }));
 
-  collection.fields.add({
+  collection.fields.add(new BoolField({
     id: "fldotpsent123",
     name: "otp_sent",
     type: "bool",
     required: false
-  });
+  }));
 
-  collection.fields.add({
+  collection.fields.add(new BoolField({
     id: "fldotpverified1",
     name: "otp_verified",
     type: "bool",
     required: false
-  });
+  }));
 
   return app.save(collection);
 }, (app) => {

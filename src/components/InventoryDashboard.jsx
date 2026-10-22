@@ -4,6 +4,8 @@ import { Package, Check, ClipboardList, AlertOctagon, User, FileText, Image as I
 import { updateOrder, saveOrders, addNotification, getUserRole, fsaQueries, normalizeOrder, stateManager } from '../utils/stateManager';
 import { useQuery } from '@tanstack/react-query';
 import './InventoryDashboard.css';
+import { canTransitionReplacement } from '../domain/replacementWorkflow';
+import { buildReplacementCommand } from '../utils/stateManager';
 
 function getDamagePhotos(order) {
   if (Array.isArray(order.damagePhotos) && order.damagePhotos.length > 0) {
@@ -129,6 +131,12 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
         const damageReport = order.damageReport || order.damage_report || null;
         const previousStatus = getResumeStatus(order);
         const resumeStatus = 'Assigned';
+        const replacementStatus = damageReport?.status || 'Pending';
+        buildReplacementCommand({ ...order, replacementStatus }, { id: getUserRole(), role: getUserRole() });
+        if (!canTransitionReplacement(replacementStatus, 'Dispatched')) {
+          setProcessingId(null);
+          return;
+        }
         const dispatchedDamageReport = damageReport
           ? { ...damageReport, status: 'Dispatched', previousStatus }
           : damageReport;

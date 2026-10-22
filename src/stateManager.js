@@ -16,5 +16,7 @@ export {
   exportOrdersCSV, exportCarpentersCSV,
   normalizeOrder, initializeStorage, pb,
   fsaQueries, stateManager, lastLocalUpdate,
-  rejectJob, mapRecordToOrder, dataURLtoBlob
+  rejectJob, mapRecordToOrder, dataURLtoBlob,
+  INSTALLATION_STATES, canTransitionInstallation, validateInstallationTransition, can,
+  buildInstallationCommand, buildAssignmentCommand, buildReplacementCommand, buildPayoutCommand, getSyncStatus, summarizeSyncQueue
 } from './utils/stateManager';

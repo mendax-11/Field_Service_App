@@ -4,6 +4,7 @@ import AdminPortal from './components/AdminPortal';
 import CarpenterPortal from './components/CarpenterPortal';
 import CustomerPortal from './components/CustomerPortal';
 import { setActiveUser, setUserRole, authenticateUser, pb, fsaQueries } from './utils/stateManager';
+import { getSessionUser } from './auth/session';
 import { useQuery } from '@tanstack/react-query';
 
 import { LogOut, ClipboardList, Shield, Eye, EyeOff, Wifi, WifiOff, Lock, Smartphone, Monitor } from 'lucide-react';
@@ -47,26 +48,15 @@ export default function App() {
     };
 
     const checkAuth = () => {
-      if (pb.authStore.isValid && pb.authStore.model) {
+      const sessionUser = getSessionUser(pb.authStore);
+      if (sessionUser) {
         const u = {
-          ...pb.authStore.model,
-          role: pb.authStore.model.role || 'Super Admin',
-          name: pb.authStore.model.name || pb.authStore.model.username || 'Admin',
+          ...sessionUser,
+          role: sessionUser.role || 'Super Admin',
+          name: sessionUser.name || sessionUser.username || 'Admin',
         };
         setUser(u);
         setUserRole(u.role);
-      } else {
-        // Fallback to local storage for demo mode
-        const cachedUser = localStorage.getItem('fsa_logged_in_user');
-        if (cachedUser) {
-          try {
-            const u = JSON.parse(cachedUser);
-            setUser(u);
-            setUserRole(u.role);
-          } catch {
-            localStorage.removeItem('fsa_logged_in_user');
-          }
-        }
       }
     };
     checkAuth();
@@ -120,6 +110,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    pb.authStore.clear();
     localStorage.removeItem('fsa_logged_in_user');
     setUser(null);
     setLoginPhone('');

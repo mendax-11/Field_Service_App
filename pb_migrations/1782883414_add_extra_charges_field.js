@@ -2,12 +2,12 @@
 migrate((app) => {
   const collection = app.findCollectionByNameOrId("orders");
 
-  collection.fields.add({
+  collection.fields.add(new JSONField({
     id: "fldextracharges",
     name: "extra_charges",
     type: "json",
     required: false
-  });
+  }));
 
   return app.save(collection);
 }, (app) => {

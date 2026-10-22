@@ -4,7 +4,7 @@ import {
   Search, ArrowUpDown, ChevronLeft, ChevronRight, 
   Trash2, Eye, SlidersHorizontal, RefreshCw, Download
 } from 'lucide-react';
-import { deleteOrder, updateOrder, saveOrders, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb, getCarpenters, stateManager, isActiveOrder } from '../utils/stateManager';
+import { deleteOrder, updateOrder, saveOrders, getActiveWorkload, MAX_ACTIVE_JOBS, hasRole, hasPermission, fsaQueries, normalizeOrder, pb, getCarpenters, stateManager, isActiveOrder, buildAssignmentCommand } from '../utils/stateManager';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import OrderDetailsModal from './OrderDetailsModal';
 import { getDeliveryTiming } from '../utils/deliveryTiming';
@@ -227,6 +227,8 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
     }
     
     selectedOrderIds.forEach(id => {
+      const target = targetOrders.find(order => order.orderId === id);
+      buildAssignmentCommand(target, carpenterName, { id: pb.authStore.model?.id || role, role });
       updateOrder(id, { 
         assignedCarpenter: carpenterName,
         jobStatus: 'Assigned',

@@ -10,7 +10,7 @@ import {
   getUserRole, setUserRole, hasRole, hasPermission,
   saveOrders, addNotification, updateOrder, addOrder, checkSlaBreaches,
   getN8nConfig, saveN8nConfig, getNotifications, autoAllocateOrders, clearNotifications,
-  exportOrdersCSV, pb, resetState, fsaQueries, normalizeOrder, stateManager, isActiveOrder
+  exportOrdersCSV, pb, resetState, fsaQueries, normalizeOrder, stateManager, isActiveOrder, getSyncStatus, buildPayoutCommand
 } from '../utils/stateManager';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -18,6 +18,8 @@ import OrderGrid from './OrderGrid';
 import InventoryDashboard from './InventoryDashboard';
 import SupportPortal from './SupportPortal';
 import TechniciansDashboard from './TechniciansDashboard';
+import { getOperationalQueues } from '../domain/operationalQueues';
+import { createPayoutEntry } from '../domain/payoutLedger';
 
 
 // Templates for CSV Import
@@ -251,6 +253,8 @@ export default function AdminPortal() {
     }
   });
   const orders = Array.from(mergedOrders.values());
+  const operationalQueues = getOperationalQueues(orders);
+  const syncStatus = getSyncStatus();
   const carpenters = carpentersData.items || [];
   
   // Date-range filter states
@@ -1143,6 +1147,8 @@ export default function AdminPortal() {
       const targetJob = jobsById.get(order.orderId);
       if (!targetJob) return sourceOrder;
 
+      buildPayoutCommand(targetJob, { id: pb.authStore.model?.id || role, role });
+
       const updatedOrder = normalizeOrder({
         ...order,
         paymentStatus: 'Paid',
@@ -1163,6 +1169,12 @@ export default function AdminPortal() {
     });
 
     saveOrders(updatedOrders, changedOrders);
+    const ledger = JSON.parse(localStorage.getItem('fsa_payout_ledger') || '[]');
+    pendingJobs.forEach(job => {
+      const entry = createPayoutEntry({ ...job, status: 'Completed' }, role);
+      ledger.push({ ...entry, status: 'Paid', paidAt: timestamp });
+    });
+    localStorage.setItem('fsa_payout_ledger', JSON.stringify(ledger));
     setSelectedPayoutOrderIds(prev => prev.filter(orderId => !jobsById.has(orderId)));
     queryClient.setQueryData(fsaQueries.orders.all(1, 500).queryKey, (old) => {
       if (!old) return old;
@@ -1561,6 +1573,11 @@ export default function AdminPortal() {
 
         {/* Header Controls */}
         <div className="header-controls">
+          {(syncStatus.pending || syncStatus.failed || syncStatus.conflicts) > 0 && (
+            <span className="sync-status-pill" title="Offline changes waiting to sync">
+              Sync: {syncStatus.pending} pending{syncStatus.failed ? `, ${syncStatus.failed} failed` : ''}{syncStatus.conflicts ? `, ${syncStatus.conflicts} conflict` : ''}
+            </span>
+          )}
           {/* Notifications Bell Icon */}
           <div className="notification-bell-container">
             <button 
@@ -1890,6 +1907,28 @@ export default function AdminPortal() {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* SLA Alerts Panel */}
+              <div className="sla-alerts-card card-style" style={{ marginBottom: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                  <strong>Dispatcher exception queues</strong>
+                  <span className="card-desc">Actionable sample-data workload</span>
+                </div>
+                <div className="kpi-grid" style={{ marginTop: '12px' }}>
+                  {[
+                    ['Unassigned', operationalQueues.unassigned.length],
+                    ['SLA risk', operationalQueues.slaRisk.length],
+                    ['Rejected', operationalQueues.rejected.length],
+                    ['Replacement hold', operationalQueues.replacementHold.length],
+                    ['Payment pending', operationalQueues.paymentPending.length],
+                  ].map(([label, count]) => (
+                    <div className="kpi-card" key={label}>
+                      <span className="kpi-title">{label}</span>
+                      <strong className="kpi-value">{count}</strong>
+                    </div>
+                  ))}
                 </div>
               </div>
 

@@ -12,7 +12,8 @@ import {
   AlertTriangle,
   LogOut
 } from 'lucide-react';
-import { stateManager, triggerN8nWebhook, fsaQueries, normalizeOrder, addNotification, isActiveOrder } from '../utils/stateManager';
+import { stateManager, triggerN8nWebhook, fsaQueries, normalizeOrder, addNotification, isActiveOrder, buildInstallationCommand, getSyncStatus, pb, queueSyncOperation } from '../utils/stateManager';
+import { persistInstallationCommand } from '../services/operationalCommands';
 import { useQuery } from '@tanstack/react-query';
 import { getTranslation } from '../utils/translations';
 import { captureAndStampPhoto } from '../utils/photoStamper';
@@ -38,6 +39,7 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
   const { data: jobsData = { items: [] }, refetch: refetchJobs } = useQuery(fsaQueries.orders.all(1, 500));
   
   const [, setLocalUpdateCounter] = useState(0);
+  const syncStatus = getSyncStatus();
   useEffect(() => {
     if (jobsData && jobsData.items) {
       stateManager.hydrateOrders(jobsData.items);
@@ -206,9 +208,24 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
 
 
 
-  const handleStartTransit = (jobId) => {
+  const handleStartTransit = async (jobId) => {
     const currentJob = jobs.find(j => (j.id || j.orderId) === jobId);
     if (!currentJob) return;
+
+    const actorId = currentJob.assignedCarpenterId || currentJob.assigned_carpenter || carpenterName;
+    const commandJob = {
+      ...currentJob,
+      assignedCarpenterId: actorId,
+      assigned_carpenter: actorId,
+    };
+    if (currentJob.status === 'Assigned' || currentJob.jobStatus === 'Assigned') {
+      const acceptance = buildInstallationCommand(commandJob, 'Accepted', { id: actorId, role: 'Carpenter' });
+      await persistServerCommand({ ...acceptance, idempotencyKey: `accept_${jobId}` }, commandJob);
+      commandJob.status = 'Accepted';
+      commandJob.jobStatus = 'Accepted';
+    }
+    const transit = buildInstallationCommand(commandJob, 'In Progress', { id: actorId, role: 'Carpenter' });
+    await persistServerCommand({ ...transit, idempotencyKey: `transit_${jobId}` }, commandJob);
 
     stateManager.updateJob(jobId, {
       status: 'In Progress',
@@ -278,6 +295,15 @@ export default function CarpenterPortal({ carpenterName = 'John Carpenter', dire
     }
     
     refetchJobs();
+  };
+
+  const persistServerCommand = async (command, commandJob) => {
+    if (!pb.authStore.isValid) return;
+    try {
+      await persistInstallationCommand(pb, command);
+    } catch (error) {
+      queueSyncOperation('installation_command', { ...command, order: commandJob, error: error.message });
+    }
   };
 
 
@@ -757,6 +783,13 @@ Your review helps us serve you better. Thank you!`;
 
   // Sign off and complete job
   const handleSignatureSave = (signatureBase64) => {
+    const actorId = job.assignedCarpenterId || job.assigned_carpenter || carpenterName;
+    const completion = buildInstallationCommand(
+      { ...job, assignedCarpenterId: actorId, assigned_carpenter: actorId, otpVerified: job.otpVerified === true || job.otp_verified === true },
+      'Completed',
+      { id: actorId, role: 'Carpenter' },
+    );
+    persistServerCommand({ ...completion, idempotencyKey: `complete_${job.id || job.orderId}` }, job);
     const paymentStatusUpdate = (job.paymentType === 'Customer Pay' || job.paymentType === 'Customer') ? 'Collected on-site' : 'Pending Payout';
     
     // Stop GPS tracking when job completes
@@ -984,6 +1017,11 @@ Your review helps us serve you better. Thank you!`;
             </div>
           </div>
           <div className="header-actions">
+            {(syncStatus.pending || syncStatus.failed || syncStatus.conflicts) > 0 && (
+              <span className="sync-status-pill" title="Offline changes waiting to sync">
+                Sync: {syncStatus.pending} pending{syncStatus.failed ? `, ${syncStatus.failed} failed` : ''}{syncStatus.conflicts ? `, ${syncStatus.conflicts} conflict` : ''}
+              </span>
+            )}
             {/* GPS Live Indicator */}
             {gpsActive && (
               <div className="gps-active-badge" title="Live location sharing active">

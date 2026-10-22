@@ -2,6 +2,19 @@ import PocketBase from 'pocketbase';
 import { mergeExpenseClaims } from './expenseClaims.js';
 import { ensureOtp } from './otp.js';
 import { stripConfirmedEvidence } from './imageStorage.js';
+import { INSTALLATION_STATES, validateInstallationTransition } from '../domain/installationStatus.js';
+import { can } from '../domain/permissions.js';
+import { canUseDemoAuthentication } from '../auth/session.js';
+import { summarizeSyncQueue } from '../domain/syncStatus.js';
+import { enqueueCommand, markCommandFailed } from '../domain/offlineQueue.js';
+import { offlineQueueStorage } from './offlineQueueStorage.js';
+import { persistInstallationCommand } from '../services/operationalCommands.js';
+
+export { INSTALLATION_STATES, validateInstallationTransition, can };
+export { canTransitionInstallation } from '../domain/installationStatus.js';
+export { buildInstallationCommand, buildAssignmentCommand, buildReplacementCommand, buildPayoutCommand } from '../domain/commands.js';
+export { summarizeSyncQueue };
+export { enqueueCommand, markCommandFailed };
 
 // Connect to local or remote PocketBase instance.
 let POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'https://assembly.vikifurniture.com:8090';
@@ -611,6 +624,14 @@ export const updateOrder = (orderId, updatedFields) => {
     if (o.order_id) lastLocalUpdate.set(o.order_id, Date.now());
     const oldStatus = orders[index].jobStatus || orders[index].status || 'Unassigned';
     const newStatus = updatedFields.jobStatus || updatedFields.status;
+
+    if (newStatus && newStatus !== oldStatus
+      && INSTALLATION_STATES.includes(oldStatus)
+      && INSTALLATION_STATES.includes(newStatus)) {
+      validateInstallationTransition(oldStatus, newStatus, {
+        otpVerified: updatedFields.otpVerified ?? o.otpVerified,
+      });
+    }
     
     if (newStatus) {
       updatedFields.jobStatus = newStatus;
@@ -2327,8 +2348,10 @@ export async function triggerN8nWebhook(event, data) {
 export function queueSyncOperation(type, data) {
   try {
     const queue = JSON.parse(localStorage.getItem(STORAGE_KEYS.SYNC_QUEUE) || '[]');
-    queue.push({ type, data, timestamp: new Date().toISOString(), retries: 0 });
-    localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(queue));
+    const idempotencyKey = `${type}_${data?.orderId || data?.id || Date.now()}`;
+    const nextQueue = enqueueCommand(queue, { type, data, timestamp: new Date().toISOString() }, idempotencyKey);
+    localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(nextQueue));
+    offlineQueueStorage.replace(nextQueue).catch(() => {});
   } catch (e) {}
 }
 
@@ -2356,19 +2379,29 @@ async function processSyncQueue() {
               body: JSON.stringify({ event: op.data.event, timestamp: op.timestamp, data: op.data.data })
             });
           }
+        } else if (op.type === 'installation_command') {
+          await persistInstallationCommand(pb, op.data);
         }
         // success — don't re-queue
       } catch (e) {
-        if (op.retries < 5) {
-          remaining.push({ ...op, retries: op.retries + 1 });
-        }
+        const failedQueue = markCommandFailed([op], op.idempotencyKey, e.message || String(e));
+        if (failedQueue[0].status !== 'failed') remaining.push(failedQueue[0]);
       }
     }
     localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(remaining));
+    offlineQueueStorage.replace(remaining).catch(() => {});
     if (remaining.length < queue.length) {
       window.dispatchEvent(new Event('fsa_storage_update'));
     }
   } catch (e) {}
+}
+
+export function getSyncStatus() {
+  try {
+    return summarizeSyncQueue(JSON.parse(localStorage.getItem(STORAGE_KEYS.SYNC_QUEUE) || '[]'));
+  } catch (e) {
+    return { pending: 0, failed: 0, conflicts: 0, completed: 0 };
+  }
 }
 
 // Retry queue when coming back online
@@ -2524,7 +2557,7 @@ export async function authenticateUser(phone, password) {
     );
   });
 
-  if (demoUser) {
+  if (canUseDemoAuthentication(import.meta.env) && demoUser) {
     return {
       success: true,
       user: {
@@ -2548,7 +2581,7 @@ export async function authenticateUser(phone, password) {
     );
   });
 
-  if (demoCarpenter) {
+  if (canUseDemoAuthentication(import.meta.env) && demoCarpenter) {
     return {
       success: true,
       user: {

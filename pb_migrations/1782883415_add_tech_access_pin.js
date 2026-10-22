@@ -2,13 +2,13 @@
 migrate((app) => {
   const collection = app.findCollectionByNameOrId("orders");
 
-  collection.fields.add({
+  collection.fields.add(new TextField({
     id: "fldtechaccesspin",
     name: "tech_access_pin",
     type: "text",
     required: false,
     max: 4
-  });
+  }));
 
   return app.save(collection);
 }, (app) => {
