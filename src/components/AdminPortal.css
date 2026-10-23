@@ -3253,3 +3253,15 @@
 .roadmap-status-control select { padding: 4px 6px; font-size: 10px; }
 .roadmap-empty { padding: 24px 8px; color: var(--admin-text-secondary); font-size: 11px; text-align: center; }
 @media (max-width: 900px) { .roadmap-header { align-items: flex-start; flex-direction: column; } .roadmap-columns { grid-template-columns: repeat(4, 245px); } }
+.ops-queue-strip { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 10px; margin: 14px 0 18px; }
+.ops-queue-card { display: flex; min-height: 92px; flex-direction: column; align-items: flex-start; justify-content: space-between; padding: 12px; border: 1px solid var(--admin-border-color); border-left: 3px solid var(--admin-text-secondary); border-radius: 8px; background: var(--admin-bg-secondary, #111827); color: var(--admin-text-primary); text-align: left; cursor: pointer; transition: transform .15s ease, border-color .15s ease; }
+.ops-queue-card:hover { transform: translateY(-2px); border-color: var(--admin-accent, #38bdf8); }
+.ops-queue-card.warning { border-left-color: #f59e0b; }
+.ops-queue-card.danger { border-left-color: #ef4444; }
+.ops-queue-card.info { border-left-color: #38bdf8; }
+.ops-queue-card.success { border-left-color: #22c55e; }
+.ops-queue-label { color: var(--admin-text-secondary); font-size: 11px; font-weight: 700; }
+.ops-queue-card strong { font-size: 25px; line-height: 1; }
+.ops-queue-action { color: var(--admin-text-secondary); font-size: 10px; }
+@media (max-width: 1100px) { .ops-queue-strip { grid-template-columns: repeat(3, minmax(150px, 1fr)); } }
+@media (max-width: 640px) { .ops-queue-strip { grid-template-columns: repeat(2, minmax(140px, 1fr)); } }

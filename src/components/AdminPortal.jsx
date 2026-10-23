@@ -1781,6 +1781,23 @@ export default function AdminPortal() {
               )}
             </div>
 
+            {/* Action queues: prioritize work over passive reporting. */}
+            <div className="ops-queue-strip">
+              {[
+                { label: 'Needs assignment', count: operationalQueues.unassigned.length, tone: 'warning', tab: 'orders' },
+                { label: 'SLA risk', count: operationalQueues.slaRisk.length, tone: 'danger', tab: 'orders' },
+                { label: 'Parts blocked', count: operationalQueues.replacementHold.length, tone: 'info', tab: 'inventory' },
+                { label: 'Awaiting verification', count: dashboardFilteredOrders.filter(order => order.jobStatus === 'Awaiting Verification').length, tone: 'info', tab: 'orders' },
+                { label: 'Pending payout', count: operationalQueues.paymentPending.length, tone: 'success', tab: 'payouts' }
+              ].map(queue => (
+                <button key={queue.label} type="button" className={`ops-queue-card ${queue.tone}`} onClick={() => { window.location.hash = `#/${queue.tab}`; }}>
+                  <span className="ops-queue-label">{queue.label}</span>
+                  <strong>{queue.count}</strong>
+                  <span className="ops-queue-action">Open queue →</span>
+                </button>
+              ))}
+            </div>
+
             {/* KPI Cards Row */}
             <div className="kpi-cards-grid">
               <div className="kpi-card card-style border-left-info">
