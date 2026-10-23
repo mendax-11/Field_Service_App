@@ -1,3 +1,5 @@
+import { validateInstallationTransition } from '../domain/installationStatus.js';
+
 function escapeFilter(value) {
   return String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"');
 }
@@ -14,10 +16,27 @@ export async function persistInstallationCommand(pb, command) {
     if (error?.status !== 404) throw error;
   }
 
+  if (existing?.last_command_id === command.idempotencyKey) {
+    return { installation: existing, status: existing.status, idempotencyKey: command.idempotencyKey, duplicate: true };
+  }
+
+  const currentStatus = existing?.status || command.from || 'Unassigned';
+  if (existing && command.from && existing.status !== command.from) {
+    throw new Error(`Installation version conflict: expected ${command.from}, found ${existing.status}`);
+  }
+  validateInstallationTransition(currentStatus, command.to, {
+    otpVerified: command.otpVerified === true,
+  });
+
+  const currentVersion = Number(existing?.version || 0);
+  if (existing && command.version !== undefined && Number(command.version) !== currentVersion) {
+    throw new Error(`Installation version conflict: expected ${command.version}, found ${currentVersion}`);
+  }
+
   const payload = {
     order_id: command.orderId,
     status: command.to,
-    version: Number(command.version || 0) + 1,
+    version: currentVersion + 1,
     last_command_id: command.idempotencyKey,
   };
   const installation = existing

@@ -27,3 +27,16 @@ test('persists an installation transition and audit event', async () => {
   assert.equal(calls[0][0], 'installations');
   assert.equal(calls[1][0], 'audit_events');
 });
+
+test('rejects a stale installation transition', async () => {
+  const pb = {
+    collection() {
+      return { async getFirstListItem() { return { id: 'installation-1', status: 'Completed', version: 2, last_command_id: 'other' }; } };
+    },
+  };
+
+  await assert.rejects(
+    persistInstallationCommand(pb, { orderId: 'AMZ-1', from: 'Assigned', to: 'Accepted', actorId: 'tech-1', idempotencyKey: 'cmd-2', version: 2 }),
+    /version conflict/
+  );
+});
