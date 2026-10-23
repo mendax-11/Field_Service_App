@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import './InventoryDashboard.css';
 import { canTransitionReplacement } from '../domain/replacementWorkflow';
 import { buildReplacementCommand } from '../utils/stateManager';
+import { createInventoryMovement } from '../domain/inventoryLifecycle';
 
 function getDamagePhotos(order) {
   if (Array.isArray(order.damagePhotos) && order.damagePhotos.length > 0) {
@@ -137,6 +138,14 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
           setProcessingId(null);
           return;
         }
+        const movement = createInventoryMovement({
+          partId: requestedParts || `replacement-${orderId}`,
+          orderId,
+          from: 'Reserved',
+          to: 'Dispatched',
+          actorId: getUserRole(),
+          reason: 'Replacement dispatch'
+        });
         const dispatchedDamageReport = damageReport
           ? { ...damageReport, status: 'Dispatched', previousStatus }
           : damageReport;
@@ -157,6 +166,7 @@ export default function InventoryDashboard({ refreshTrigger, onRefresh }) {
               action: 'Parts Dispatched',
               user: getUserRole(),
               comments: `Parts approved & dispatched: ${requestedParts || 'Requested parts package'}. Job reopened for return visit.`
+              ,inventoryMovement: movement
             }
           ]
         };
