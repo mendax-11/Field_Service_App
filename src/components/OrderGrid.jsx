@@ -8,6 +8,7 @@ import { deleteOrder, updateOrder, saveOrders, getActiveWorkload, MAX_ACTIVE_JOB
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import OrderDetailsModal from './OrderDetailsModal';
 import { getDeliveryTiming } from '../utils/deliveryTiming';
+import { filterOrders, getActiveOrderFilters } from '../domain/orderFilters';
 
 export default function OrderGrid({ refreshTrigger, onRefresh }) {
   const queryClient = useQueryClient();
@@ -36,6 +37,11 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
   const [selectedJobStatus, setSelectedJobStatus] = useState('All');
   const [selectedCarpenter, setSelectedCarpenter] = useState('All');
   const [selectedPaymentType, setSelectedPaymentType] = useState('All');
+  const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState('All');
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState('All');
+  const [selectedSlaBucket, setSelectedSlaBucket] = useState('All');
+  const [selectedDateBucket, setSelectedDateBucket] = useState('All');
+  const [locationTerm, setLocationTerm] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   
   // Sorting & Pagination
@@ -404,25 +410,53 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
   };
 
   // Filtering Logic
-  const filteredOrders = orders.filter(order => {
-    const matchesArchived = showArchived ? true : !order.archived;
-    if (!matchesArchived) return false;
+  const activeFilterValues = {
+    search: searchTerm,
+    platform: selectedPlatform,
+    jobStatus: selectedJobStatus,
+    carpenter: selectedCarpenter,
+    paymentType: selectedPaymentType,
+    deliveryStatus: selectedDeliveryStatus,
+    paymentStatus: selectedPaymentStatus,
+    slaBucket: selectedSlaBucket,
+    dateBucket: selectedDateBucket,
+    location: locationTerm
+  };
+  const visibleOrders = showArchived ? orders : orders.filter(order => !order.archived);
+  const filteredOrders = filterOrders(visibleOrders, activeFilterValues);
+  const activeFilterChips = getActiveOrderFilters(activeFilterValues);
 
-    // Search Box matches Order ID, Customer Name, Phone, or SKU
-    const matchesSearch = 
-      order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customerPhone.includes(searchTerm) ||
-      order.sku.toLowerCase().includes(searchTerm.toLowerCase());
-      
-    const matchesPlatform = selectedPlatform === 'All' || order.platform === selectedPlatform;
-    const matchesJobStatus = selectedJobStatus === 'All' || order.jobStatus === selectedJobStatus;
-    const matchesCarpenter = selectedCarpenter === 'All'
-      || (selectedCarpenter === 'Unassigned' ? !order.assignedCarpenter : order.assignedCarpenter === selectedCarpenter);
-    const matchesPaymentType = selectedPaymentType === 'All' || order.paymentType === selectedPaymentType;
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setSelectedPlatform('All');
+    setSelectedJobStatus('All');
+    setSelectedCarpenter('All');
+    setSelectedPaymentType('All');
+    setSelectedDeliveryStatus('All');
+    setSelectedPaymentStatus('All');
+    setSelectedSlaBucket('All');
+    setSelectedDateBucket('All');
+    setLocationTerm('');
+    setShowArchived(false);
+    setCurrentPage(1);
+  };
 
-    return matchesSearch && matchesPlatform && matchesJobStatus && matchesCarpenter && matchesPaymentType;
-  });
+  const removeFilter = (key) => {
+    const resetters = {
+      search: () => setSearchTerm(''),
+      platform: () => setSelectedPlatform('All'),
+      jobStatus: () => setSelectedJobStatus('All'),
+      carpenter: () => setSelectedCarpenter('All'),
+      paymentType: () => setSelectedPaymentType('All'),
+      deliveryStatus: () => setSelectedDeliveryStatus('All'),
+      paymentStatus: () => setSelectedPaymentStatus('All'),
+      slaBucket: () => setSelectedSlaBucket('All'),
+      dateBucket: () => setSelectedDateBucket('All'),
+      location: () => setLocationTerm('')
+    };
+    resetters[key]?.();
+    setCurrentPage(1);
+  };
 
   const handleFilteredExport = () => {
     const headers = ['Order ID', 'Platform', 'Customer Name', 'Phone', 'Address', 'Pincode', 'SKU', 'Payout', 'Delivery Status', 'Job Status', 'Payment Status'];
@@ -588,7 +622,65 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
               <option value="EMI">EMI</option>
             </select>
           </div>
+
+          <div className="filter-item">
+            <label>Delivery Status</label>
+            <select value={selectedDeliveryStatus} onChange={(e) => { setSelectedDeliveryStatus(e.target.value); setCurrentPage(1); }}>
+              <option value="All">All Delivery Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Delivered">Delivered</option>
+              <option value="Failed">Failed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          <div className="filter-item">
+            <label>Payment Status</label>
+            <select value={selectedPaymentStatus} onChange={(e) => { setSelectedPaymentStatus(e.target.value); setCurrentPage(1); }}>
+              <option value="All">All Payment Statuses</option>
+              <option value="Unpaid">Unpaid</option>
+              <option value="Pending Payout">Pending Payout</option>
+              <option value="Paid">Paid</option>
+              <option value="Collected on-site">Collected on-site</option>
+            </select>
+          </div>
+
+          <div className="filter-item">
+            <label>SLA Risk</label>
+            <select value={selectedSlaBucket} onChange={(e) => { setSelectedSlaBucket(e.target.value); setCurrentPage(1); }}>
+              <option value="All">All SLA States</option>
+              <option value="overdue">Overdue</option>
+              <option value="due_today">Due Today</option>
+              <option value="due_this_week">Due This Week</option>
+            </select>
+          </div>
+
+          <div className="filter-item">
+            <label>Promise Date</label>
+            <select value={selectedDateBucket} onChange={(e) => { setSelectedDateBucket(e.target.value); setCurrentPage(1); }}>
+              <option value="All">All Dates</option>
+              <option value="today">Today</option>
+              <option value="next_7_days">Next 7 Days</option>
+              <option value="overdue">Overdue</option>
+            </select>
+          </div>
+
+          <div className="filter-item">
+            <label>City / Pincode</label>
+            <input type="text" placeholder="Filter location..." value={locationTerm} onChange={(e) => { setLocationTerm(e.target.value); setCurrentPage(1); }} />
+          </div>
         </div>
+
+        {activeFilterChips.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginTop: '12px' }}>
+            {activeFilterChips.map((chip) => (
+              <button key={chip.key} type="button" onClick={() => removeFilter(chip.key)} style={{ border: '1px solid var(--admin-border-color)', borderRadius: '999px', padding: '5px 10px', background: 'var(--admin-bg-secondary)', color: 'var(--admin-text-primary)', cursor: 'pointer', fontSize: '11px' }}>
+                {chip.label} ×
+              </button>
+            ))}
+            <button type="button" className="bulk-action-btn secondary" onClick={clearAllFilters}>Clear all</button>
+          </div>
+        )}
 
         {/* Sorting and Items Per Page Panel */}
         <div className="sorting-pagination-settings">
