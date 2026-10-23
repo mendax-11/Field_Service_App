@@ -9,6 +9,7 @@ import { summarizeSyncQueue } from '../domain/syncStatus.js';
 import { enqueueCommand, markCommandFailed, markCommandConflict, isSyncConflict } from '../domain/offlineQueue.js';
 import { offlineQueueStorage } from './offlineQueueStorage.js';
 import { persistInstallationCommand } from '../services/operationalCommands.js';
+import { createNotificationEvent } from '../domain/notificationEvents.js';
 import { getOrderQueryOptions } from '../domain/orderQuery.js';
 
 export { INSTALLATION_STATES, validateInstallationTransition, can };
@@ -17,6 +18,7 @@ export { buildInstallationCommand, buildAssignmentCommand, buildReplacementComma
 export { summarizeSyncQueue };
 export { enqueueCommand, markCommandFailed };
 export { markCommandConflict, isSyncConflict };
+export { createNotificationEvent };
 
 // Connect to local or remote PocketBase instance.
 let POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'https://assembly.vikifurniture.com:8090';
