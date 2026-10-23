@@ -12,22 +12,7 @@ import { filterOrders, getActiveOrderFilters } from '../domain/orderFilters';
 
 export default function OrderGrid({ refreshTrigger, onRefresh }) {
   const queryClient = useQueryClient();
-  const { data: ordersData = { items: [] }, refetch: refetchOrders, isLoading: isOrdersLoading } = useQuery(fsaQueries.orders.all(1, 500));
   const { data: carpentersData = { items: [] }, refetch: refetchCarpenters, isLoading: isCarpentersLoading } = useQuery(fsaQueries.carpenters.all(1, 500));
-  
-  const isLoading = isOrdersLoading || isCarpentersLoading;
-  const serverOrders = (ordersData.items || []).map(normalizeOrder).filter(Boolean);
-  const localOrders = stateManager.getOrders();
-  const mergedOrders = new Map();
-  serverOrders.forEach(order => mergedOrders.set(order.orderId, order));
-  localOrders.forEach(order => {
-    const normalized = normalizeOrder(order);
-    if (normalized) {
-      mergedOrders.set(normalized.orderId, { ...(mergedOrders.get(normalized.orderId) || {}), ...normalized });
-    }
-  });
-  const orders = Array.from(mergedOrders.values());
-  const carpenters = carpentersData.items?.length > 0 ? carpentersData.items : getCarpenters();
   
   const [role, setRole] = useState('Super Admin');
   
@@ -73,6 +58,35 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
       sla: true
     };
   });
+
+  const serverFilterValues = {
+    search: searchTerm,
+    platform: selectedPlatform,
+    jobStatus: selectedJobStatus,
+    carpenter: selectedCarpenter,
+    paymentType: selectedPaymentType,
+    deliveryStatus: selectedDeliveryStatus,
+    paymentStatus: selectedPaymentStatus,
+    location: locationTerm,
+    showArchived,
+    sort: sortBy === 'date_asc' ? '+created' : '-created'
+  };
+  const { data: ordersData = { items: [], totalItems: 0, totalPages: 1 }, refetch: refetchOrders, isLoading: isOrdersLoading } = useQuery(
+    fsaQueries.orders.search(currentPage, itemsPerPage, serverFilterValues)
+  );
+  const isLoading = isOrdersLoading || isCarpentersLoading;
+  const serverOrders = (ordersData.items || []).map(normalizeOrder).filter(Boolean);
+  const localOrders = stateManager.getOrders();
+  const mergedOrders = new Map();
+  serverOrders.forEach(order => mergedOrders.set(order.orderId, order));
+  localOrders.forEach(order => {
+    const normalized = normalizeOrder(order);
+    if (normalized && mergedOrders.has(normalized.orderId)) {
+      mergedOrders.set(normalized.orderId, { ...mergedOrders.get(normalized.orderId), ...normalized });
+    }
+  });
+  const orders = serverOrders.length > 0 ? Array.from(mergedOrders.values()) : localOrders.map(normalizeOrder).filter(Boolean);
+  const carpenters = carpentersData.items?.length > 0 ? carpentersData.items : getCarpenters();
 
   // Save visible columns preference
   useEffect(() => {
@@ -504,14 +518,15 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
   });
 
   // Pagination Logic
-  const totalItems = sortedOrders.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  const serverPaginationActive = serverOrders.length > 0;
+  const totalItems = serverPaginationActive ? ordersData.totalItems || sortedOrders.length : sortedOrders.length;
+  const totalPages = serverPaginationActive ? ordersData.totalPages || 1 : Math.ceil(totalItems / itemsPerPage) || 1;
   
   // Adjust current page if it exceeds total pages after filtering
   const activePage = currentPage > totalPages ? totalPages : currentPage;
   
   const startIndex = (activePage - 1) * itemsPerPage;
-  const paginatedOrders = sortedOrders.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedOrders = serverPaginationActive ? sortedOrders : sortedOrders.slice(startIndex, startIndex + itemsPerPage);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
