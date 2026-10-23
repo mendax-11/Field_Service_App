@@ -9,6 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import OrderDetailsModal from './OrderDetailsModal';
 import { getDeliveryTiming } from '../utils/deliveryTiming';
 import { filterOrders, getActiveOrderFilters } from '../domain/orderFilters';
+import { useOrders } from '../hooks/useOrders';
 
 export default function OrderGrid({ refreshTrigger, onRefresh }) {
   const queryClient = useQueryClient();
@@ -71,21 +72,9 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
     showArchived,
     sort: sortBy === 'date_asc' ? '+created' : '-created'
   };
-  const { data: ordersData = { items: [], totalItems: 0, totalPages: 1 }, refetch: refetchOrders, isLoading: isOrdersLoading } = useQuery(
-    fsaQueries.orders.search(currentPage, itemsPerPage, serverFilterValues)
-  );
+  const { data: ordersData = { items: [], totalItems: 0, totalPages: 1 }, orders: queriedOrders, refetch: refetchOrders, isLoading: isOrdersLoading } = useOrders({ page: currentPage, perPage: itemsPerPage, filters: serverFilterValues, paginated: true });
   const isLoading = isOrdersLoading || isCarpentersLoading;
-  const serverOrders = (ordersData.items || []).map(normalizeOrder).filter(Boolean);
-  const localOrders = stateManager.getOrders();
-  const mergedOrders = new Map();
-  serverOrders.forEach(order => mergedOrders.set(order.orderId, order));
-  localOrders.forEach(order => {
-    const normalized = normalizeOrder(order);
-    if (normalized && mergedOrders.has(normalized.orderId)) {
-      mergedOrders.set(normalized.orderId, { ...mergedOrders.get(normalized.orderId), ...normalized });
-    }
-  });
-  const orders = serverOrders.length > 0 ? Array.from(mergedOrders.values()) : localOrders.map(normalizeOrder).filter(Boolean);
+  const orders = queriedOrders;
   const carpenters = carpentersData.items?.length > 0 ? carpentersData.items : getCarpenters();
 
   // Save visible columns preference
@@ -518,7 +507,7 @@ export default function OrderGrid({ refreshTrigger, onRefresh }) {
   });
 
   // Pagination Logic
-  const serverPaginationActive = serverOrders.length > 0;
+  const serverPaginationActive = (ordersData.items || []).length > 0;
   const totalItems = serverPaginationActive ? ordersData.totalItems || sortedOrders.length : sortedOrders.length;
   const totalPages = serverPaginationActive ? ordersData.totalPages || 1 : Math.ceil(totalItems / itemsPerPage) || 1;
   
