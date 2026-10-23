@@ -1994,3 +1994,10 @@
 .tutorial-btn-next:hover {
   background: var(--primary-hover);
 }
+.technician-action-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 12px 0; padding: 12px 14px; border: 1px solid rgba(34,197,94,.35); border-radius: 12px; background: rgba(34,197,94,.1); color: var(--text-primary); }
+.technician-action-banner.offline { border-color: rgba(245,158,11,.45); background: rgba(245,158,11,.1); }
+.technician-action-banner div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.technician-action-banner strong { font-size: .8rem; }
+.technician-action-banner span { color: var(--text-muted); font-size: .7rem; }
+.technician-sync-dot { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,.15); }
+.technician-action-banner.offline .technician-sync-dot { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,.15); }

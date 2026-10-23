@@ -959,6 +959,16 @@ Your review helps us serve you better. Thank you!`;
   const isBeforeUploaded = job ? !!(job.photos?.before) : false;
   const isAfterUploaded = job ? !!(job.photos?.after) : false;
   const isReadyToComplete = isChecklistFinished && isBeforeUploaded && isAfterUploaded;
+  const currentJobStatus = job?.jobStatus || job?.status || 'Unknown';
+  const nextActionLabel = currentJobStatus === 'Assigned'
+    ? 'Accept and start transit'
+    : currentJobStatus === 'Accepted'
+      ? 'Start transit'
+      : currentJobStatus === 'In Progress'
+        ? (isReadyToComplete ? 'Review and complete job' : 'Continue job checklist')
+        : currentJobStatus === 'Awaiting Verification'
+          ? 'Verify customer and complete'
+          : `Job status: ${currentJobStatus}`;
 
   return (
     <div className="carpenter-app-simulator">
@@ -1159,6 +1169,15 @@ Your review helps us serve you better. Thank you!`;
 
         {/* MAIN SCROLL VIEW */}
         <main ref={mainContentRef} className="app-main-content">
+          {selectedJobId && job && (
+            <div className="technician-action-banner">
+              <div>
+                <strong>Ready for your next action</strong>
+                <span>{nextActionLabel}</span>
+              </div>
+              <span className="technician-sync-dot" aria-label="Offline sync enabled" />
+            </div>
+          )}
 
           {/* DASHBOARD TAB OVERVIEW */}
           {activeTab === 'dashboard' && (
