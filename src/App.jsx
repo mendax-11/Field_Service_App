@@ -1,8 +1,8 @@
 // src/App.jsx
-import { useState, useEffect } from 'react';
-import AdminPortal from './components/AdminPortal';
-import CarpenterPortal from './components/CarpenterPortal';
-import CustomerPortal from './components/CustomerPortal';
+import { lazy, Suspense, useState, useEffect } from 'react';
+const AdminPortal = lazy(() => import('./components/AdminPortal'));
+const CarpenterPortal = lazy(() => import('./components/CarpenterPortal'));
+const CustomerPortal = lazy(() => import('./components/CustomerPortal'));
 import { setActiveUser, setUserRole, authenticateUser, pb, fsaQueries } from './utils/stateManager';
 import { getSessionUser } from './auth/session';
 import { useQuery } from '@tanstack/react-query';
@@ -119,15 +119,11 @@ export default function App() {
   };
 
   if (trackOrderId) {
-    return <CustomerPortal orderId={trackOrderId} />;
+    return <Suspense fallback={<div className="app-loading-state">Loading tracking portal...</div>}><CustomerPortal orderId={trackOrderId} /></Suspense>;
   }
 
   if (directJobId) {
-    return (
-      <div className="forwarded-job-shell">
-        <CarpenterPortal directJobId={directJobId} carpenterName="Field Technician" isSimulator={false} />
-      </div>
-    );
+    return <Suspense fallback={<div className="app-loading-state">Loading job...</div>}><div className="forwarded-job-shell"><CarpenterPortal directJobId={directJobId} carpenterName="Field Technician" isSimulator={false} /></div></Suspense>;
   }
 
   if (!user) {
@@ -261,7 +257,8 @@ export default function App() {
   const isCarpenter = user.role === 'Carpenter';
 
   return (
-    <>
+    <Suspense fallback={<div className="app-loading-state">Loading workspace...</div>}>
+      <>
       {/* Universal Top Switcher bar */}
       <div className="app-top-switcher-bar">
         <div className="switcher-info">
@@ -318,6 +315,7 @@ export default function App() {
         /* Render Backend Desktop Dashboard */
         <AdminPortal />
       )}
-    </>
+      </>
+    </Suspense>
   );
 }
