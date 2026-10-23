@@ -9,6 +9,7 @@ import { summarizeSyncQueue } from '../domain/syncStatus.js';
 import { enqueueCommand, markCommandFailed } from '../domain/offlineQueue.js';
 import { offlineQueueStorage } from './offlineQueueStorage.js';
 import { persistInstallationCommand } from '../services/operationalCommands.js';
+import { getOrderQueryOptions } from '../domain/orderQuery.js';
 
 export { INSTALLATION_STATES, validateInstallationTransition, can };
 export { canTransitionInstallation } from '../domain/installationStatus.js';
@@ -2851,6 +2852,17 @@ export const fsaQueries = {
         // Request only lightweight fields to avoid downloading massive base64 strings in older records
         const fields = 'id,created,updated,order_id,platform,customer_name,customer_phone,customer_address,city,state,pincode,status,payment_status,payment_type,assembly_payout,delivery_status,delivery_date,promise_date,checklist,comments,audit_logs,extra_charges,damage_report,assigned_carpenter,assigned_carpenter_name,archived,is_archived,otp,otp_sent,otp_verified,tech_access_pin,sub_carpenter_name,sub_carpenter_phone,product_sku,assigned_date,assembly_amount,customer_number,payment_source,product_image_url,product_review_link,seller_review_link,assembly_status,expand.assigned_carpenter.name,expand.assigned_carpenter.username';
         return await pb.collection('orders').getList(page, perPage, { filter, sort: '-created', expand: 'assigned_carpenter', fields });
+      }
+    }),
+    search: (page = 1, perPage = 25, filters = {}) => ({
+      queryKey: ['orders', 'search', page, perPage, filters],
+      queryFn: async () => {
+        const fields = 'id,created,updated,order_id,platform,customer_name,customer_phone,customer_address,city,state,pincode,status,payment_status,payment_type,assembly_payout,delivery_status,delivery_date,promise_date,checklist,comments,audit_logs,extra_charges,damage_report,assigned_carpenter,assigned_carpenter_name,archived,is_archived,assembly_status,product_sku,assigned_date,assembly_amount,customer_number,payment_source';
+        return await pb.collection('orders').getList(page, perPage, {
+          ...getOrderQueryOptions(filters),
+          fields,
+          expand: 'assigned_carpenter'
+        });
       }
     }),
     detail: (id) => ({
