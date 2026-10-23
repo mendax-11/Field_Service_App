@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { enqueueCommand, markCommandFailed, markCommandConflict } from '../src/domain/offlineQueue.js';
+import { enqueueCommand, markCommandFailed, markCommandConflict, isSyncConflict } from '../src/domain/offlineQueue.js';
 
 test('enqueues a pending command with an idempotency key', () => {
   const command = enqueueCommand([], { type: 'installation.transition', orderId: 'o1' }, 'cmd-1');
@@ -23,4 +23,9 @@ test('records conflicts without deleting the command', () => {
   const command = markCommandConflict([{ idempotencyKey: 'cmd-1', status: 'pending' }], 'cmd-1', 'Version mismatch');
   assert.equal(command[0].status, 'conflict');
   assert.equal(command[0].lastError, 'Version mismatch');
+});
+
+test('classifies stale operational writes as conflicts instead of retries', () => {
+  assert.equal(isSyncConflict('Installation version conflict: expected Assigned, found Completed'), true);
+  assert.equal(isSyncConflict('Network unavailable'), false);
 });

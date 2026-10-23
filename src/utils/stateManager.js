@@ -6,7 +6,7 @@ import { INSTALLATION_STATES, validateInstallationTransition } from '../domain/i
 import { can } from '../domain/permissions.js';
 import { canUseDemoAuthentication } from '../auth/session.js';
 import { summarizeSyncQueue } from '../domain/syncStatus.js';
-import { enqueueCommand, markCommandFailed } from '../domain/offlineQueue.js';
+import { enqueueCommand, markCommandFailed, markCommandConflict, isSyncConflict } from '../domain/offlineQueue.js';
 import { offlineQueueStorage } from './offlineQueueStorage.js';
 import { persistInstallationCommand } from '../services/operationalCommands.js';
 import { getOrderQueryOptions } from '../domain/orderQuery.js';
@@ -16,6 +16,7 @@ export { canTransitionInstallation } from '../domain/installationStatus.js';
 export { buildInstallationCommand, buildAssignmentCommand, buildReplacementCommand, buildPayoutCommand } from '../domain/commands.js';
 export { summarizeSyncQueue };
 export { enqueueCommand, markCommandFailed };
+export { markCommandConflict, isSyncConflict };
 
 // Connect to local or remote PocketBase instance.
 let POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'https://assembly.vikifurniture.com:8090';
@@ -2385,8 +2386,11 @@ async function processSyncQueue() {
         }
         // success — don't re-queue
       } catch (e) {
-        const failedQueue = markCommandFailed([op], op.idempotencyKey, e.message || String(e));
-        if (failedQueue[0].status !== 'failed') remaining.push(failedQueue[0]);
+        const errorMessage = e.message || String(e);
+        const nextQueue = isSyncConflict(e)
+          ? markCommandConflict([op], op.idempotencyKey, errorMessage)
+          : markCommandFailed([op], op.idempotencyKey, errorMessage);
+        if (nextQueue[0].status !== 'failed') remaining.push(nextQueue[0]);
       }
     }
     localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(remaining));
