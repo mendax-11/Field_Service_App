@@ -4,7 +4,7 @@ import {
   ClipboardList, Package, HelpCircle, Bell, 
   Coins, UserCheck, ShieldAlert, Upload, Cpu, X,
   LayoutDashboard, Activity, AlertCircle, ShieldCheck,
-  Settings, Download, IndianRupee
+  Settings, Download, IndianRupee, KanbanSquare
 } from 'lucide-react';
 import { 
   getUserRole, setUserRole, hasRole, hasPermission,
@@ -18,6 +18,7 @@ import OrderGrid from './OrderGrid';
 import InventoryDashboard from './InventoryDashboard';
 import SupportPortal from './SupportPortal';
 import TechniciansDashboard from './TechniciansDashboard';
+import RoadmapBoard from './RoadmapBoard';
 import { getOperationalQueues } from '../domain/operationalQueues';
 import { createPayoutEntry } from '../domain/payoutLedger';
 
@@ -225,7 +226,7 @@ export default function AdminPortal() {
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined' && window.location.hash) {
       const hash = window.location.hash.replace('#/', '');
-      const validTabs = ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'expenses', 'payouts', 'settings'];
+      const validTabs = ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'expenses', 'payouts', 'settings', 'roadmap'];
       if (validTabs.includes(hash)) return hash;
     }
     return 'dashboard';
@@ -437,7 +438,7 @@ export default function AdminPortal() {
     setRole(currentRole);
 
     const allowedTabsMapping = {
-      'Super Admin': ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'expenses', 'payouts', 'settings'],
+      'Super Admin': ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'expenses', 'payouts', 'settings', 'roadmap'],
       'Dispatcher': ['dashboard', 'orders', 'technicians'],
       'Inventory Manager': ['inventory', 'orders', 'expenses'],
       'Customer Support': ['support', 'orders']
@@ -471,11 +472,11 @@ export default function AdminPortal() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#/', '');
-      const validTabs = ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'expenses', 'payouts', 'settings'];
+      const validTabs = ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'expenses', 'payouts', 'settings', 'roadmap'];
       
       const currentRole = getUserRole();
       const allowedTabsMapping = {
-        'Super Admin': ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'expenses', 'payouts', 'settings'],
+        'Super Admin': ['dashboard', 'orders', 'inventory', 'support', 'technicians', 'expenses', 'payouts', 'settings', 'roadmap'],
         'Dispatcher': ['dashboard', 'orders', 'technicians'],
         'Inventory Manager': ['inventory', 'orders', 'expenses'],
         'Customer Support': ['support', 'orders']
@@ -1713,10 +1714,28 @@ export default function AdminPortal() {
             <Settings size={18} /> Integrations & API
           </button>
         )}
+
+        {hasRole(role, 'Super Admin') && (
+          <button
+            className={`tab-btn ${activeTab === 'roadmap' ? 'active' : ''}`}
+            onClick={() => { window.location.hash = '#/roadmap'; setShowNotifDropdown(false); }}
+          >
+            <KanbanSquare size={18} /> Delivery Roadmap
+          </button>
+        )}
       </nav>
 
       {/* Main Workspace Body */}
       <main className="portal-body-content">
+        {hasRole(role, 'Super Admin') && (
+          <div
+            className="tab-panel animate-fade-in"
+            style={{ display: activeTab === 'roadmap' ? 'block' : 'none' }}
+          >
+            <RoadmapBoard />
+          </div>
+        )}
+
         {hasPermission(role, ['Super Admin', 'Dispatcher']) && (
           <div 
             className="tab-panel dashboard-panel animate-fade-in"
